@@ -40,21 +40,17 @@ class DeviceCrudController extends AbstractCrudController
                 ->hideOnForm(),
             
             TextField::new('serial_number', 'Serial Number')
-                ->setRequired(true)
-                ->setColumns('col-sm-6'),
+                ->setRequired(true),
             
             TextField::new('mac_address', 'MAC Address')
                 ->setRequired(true)
-                ->setColumns('col-sm-6')
                 ->setHelp('Format: AA:BB:CC:DD:EE:FF'),
             
             TextField::new('device_type', 'Device Type')
-                ->setRequired(true)
-                ->setColumns('col-sm-6'),
+                ->setRequired(true),
             
             TextField::new('firmware_version', 'Firmware Version')
-                ->setRequired(true)
-                ->setColumns('col-sm-6'),
+                ->setRequired(true),
             
             AssociationField::new('sold_to', 'Sold To')
                 ->setRequired(false)
@@ -63,29 +59,24 @@ class DeviceCrudController extends AbstractCrudController
                         return $value->getFirstName() . ' ' . $value->getLastName() . ' (' . $value->getEmail() . ')';
                     }
                     return 'Not Assigned';
-                })
-                ->setColumns('col-sm-12'),
+                }),
             
             DateTimeField::new('order_date', 'Order Date')
                 ->setRequired(false)
-                ->setColumns('col-sm-6')
                 ->hideOnIndex(),
             
             DateTimeField::new('ship_date', 'Ship Date')
                 ->setRequired(false)
-                ->setColumns('col-sm-6')
                 ->hideOnIndex(),
             
             TextField::new('tracking_id', 'Tracking ID')
                 ->setRequired(false)
-                ->setColumns('col-sm-6')
                 ->hideOnIndex(),
             
             TextareaField::new('notes', 'Notes')
                 ->setRequired(false)
                 ->setNumOfRows(4)
-                ->hideOnIndex()
-                ->setColumns('col-sm-12'),
+                ->hideOnIndex(),
             
             DateTimeField::new('createdAt', 'Created At')
                 ->hideOnForm()
