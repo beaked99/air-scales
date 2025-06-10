@@ -12,6 +12,7 @@ use EasyCorp\Bundle\EasyAdminBundle\Controller\AbstractDashboardController;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use App\Controller\Admin\UserCrudController;
+use EasyCorp\Bundle\EasyAdminBundle\Config\Crud;
 use EasyCorp\Bundle\EasyAdminBundle\Router\AdminUrlGenerator;
 
 
@@ -61,5 +62,12 @@ class DashboardController extends AbstractDashboardController
         yield MenuItem::linkToCrud('Devices','fas fa-computer', entityFqcn: Device::class);
     }
     
+    public function configureCrud(): Crud
+    {
+        return parent::configureCrud()
+            ->setDefaultSort([
+                'id'=> 'DESC'
+        ]);
+    }
 
 }
