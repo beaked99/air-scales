@@ -5,6 +5,7 @@ namespace App\Controller\Admin;
 
 use App\Entity\Device;
 use App\Entity\User;
+use App\Entity\Vehicle;
 use EasyCorp\Bundle\EasyAdminBundle\Attribute\AdminDashboard;
 use EasyCorp\Bundle\EasyAdminBundle\Config\Dashboard;
 use EasyCorp\Bundle\EasyAdminBundle\Config\MenuItem;
@@ -60,6 +61,7 @@ class DashboardController extends AbstractDashboardController
         yield MenuItem::linkToDashboard('Dashboard', 'fa fa-dashboard');
         yield MenuItem::linkToCrud('Users', 'fas fa-users', User::class);
         yield MenuItem::linkToCrud('Devices','fas fa-computer', entityFqcn: Device::class);
+        yield MenuItem::linkToCrud('Vehicle','fas fa-truck', Vehicle::class);
     }
 
 }

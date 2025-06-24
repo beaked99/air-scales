@@ -2,12 +2,17 @@
 
 namespace App\Entity;
 
+
 use App\Repository\VehicleRepository;
+use App\Entity\Traits\TimestampableTrait;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity(repositoryClass: VehicleRepository::class)]
+#[ORM\HasLifecycleCallbacks]
 class Vehicle
 {
+
+    use TimestampableTrait;
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column]
