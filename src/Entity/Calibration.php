@@ -4,27 +4,58 @@ namespace App\Entity;
 
 use App\Repository\CalibrationRepository;
 use Doctrine\ORM\Mapping as ORM;
+use App\Entity\Traits\TimestampableTrait;
 
 #[ORM\Entity(repositoryClass: CalibrationRepository::class)]
+#[ORM\HasLifecycleCallbacks]
 class Calibration
 {
+    use TimestampableTrait;
+
     #[ORM\Id]
     #[ORM\GeneratedValue]
-    #[ORM\Column]
+    #[ORM\Column(type: 'integer')]
     private ?int $id = null;
 
-    #[ORM\ManyToOne]
+    // === Relationships ===
+
+    #[ORM\ManyToOne(targetEntity: Device::class, inversedBy: 'calibrations')]
     #[ORM\JoinColumn(nullable: false)]
     private ?Device $device = null;
 
-    #[ORM\Column]
-    private ?float $air_pressure = null;
+    #[ORM\ManyToOne(targetEntity: User::class)]
+    #[ORM\JoinColumn(nullable: false)]
+    private ?User $createdBy = null;
 
-    #[ORM\Column]
-    private ?float $temperature = null;
+    // === Readings from device ===
 
-    #[ORM\Column]
-    private ?float $axle_weight = null;
+    #[ORM\Column(type: 'float')]
+    private float $airPressure;
+
+    #[ORM\Column(type: 'float')]
+    private float $ambientAirPressure;
+
+    #[ORM\Column(type: 'float')]
+    private float $airTemperature;
+
+    #[ORM\Column(type: 'float')]
+    private float $elevation;
+
+    // === User input ===
+
+    #[ORM\Column(type: 'float')]
+    private float $scaleWeight;
+
+    #[ORM\Column(type: 'text', nullable: true)]
+    private ?string $comment = null;
+
+    // === Optional: Updated by (if you want extra tracking) ===
+
+    #[ORM\ManyToOne(targetEntity: User::class)]
+    #[ORM\JoinColumn(nullable: true)]
+    private ?User $updatedBy = null;
+
+    // === Getters and Setters ===
 
     public function getId(): ?int
     {
@@ -36,46 +67,96 @@ class Calibration
         return $this->device;
     }
 
-    public function setDevice(?Device $device): static
+    public function setDevice(?Device $device): self
     {
         $this->device = $device;
-
         return $this;
     }
 
-    public function getAirPressure(): ?float
+    public function getCreatedBy(): ?User
     {
-        return $this->air_pressure;
+        return $this->createdBy;
     }
 
-    public function setAirPressure(float $air_pressure): static
+    public function setCreatedBy(?User $user): self
     {
-        $this->air_pressure = $air_pressure;
-
+        $this->createdBy = $user;
         return $this;
     }
 
-    public function getTemperature(): ?float
+    public function getUpdatedBy(): ?User
     {
-        return $this->temperature;
+        return $this->updatedBy;
     }
 
-    public function setTemperature(float $temperature): static
+    public function setUpdatedBy(?User $user): self
     {
-        $this->temperature = $temperature;
-
+        $this->updatedBy = $user;
         return $this;
     }
 
-    public function getAxleWeight(): ?float
+    public function getAirPressure(): float
     {
-        return $this->axle_weight;
+        return $this->airPressure;
     }
 
-    public function setAxleWeight(float $axle_weight): static
+    public function setAirPressure(float $airPressure): self
     {
-        $this->axle_weight = $axle_weight;
+        $this->airPressure = $airPressure;
+        return $this;
+    }
 
+    public function getAmbientAirPressure(): float
+    {
+        return $this->ambientAirPressure;
+    }
+
+    public function setAmbientAirPressure(float $ambientAirPressure): self
+    {
+        $this->ambientAirPressure = $ambientAirPressure;
+        return $this;
+    }
+
+    public function getAirTemperature(): float
+    {
+        return $this->airTemperature;
+    }
+
+    public function setAirTemperature(float $airTemperature): self
+    {
+        $this->airTemperature = $airTemperature;
+        return $this;
+    }
+
+    public function getElevation(): float
+    {
+        return $this->elevation;
+    }
+
+    public function setElevation(float $elevation): self
+    {
+        $this->elevation = $elevation;
+        return $this;
+    }
+
+    public function getScaleWeight(): float
+    {
+        return $this->scaleWeight;
+    }
+
+    public function setScaleWeight(float $scaleWeight): self
+    {
+        $this->scaleWeight = $scaleWeight;
+        return $this;
+    }
+    public function getComment(): ?string
+    {
+        return $this->comment;
+    }
+
+    public function setComment(?string $comment): self
+    {
+        $this->comment = $comment;
         return $this;
     }
 }

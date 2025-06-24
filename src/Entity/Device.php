@@ -3,11 +3,16 @@
 namespace App\Entity;
 
 use App\Repository\DeviceRepository;
+use App\Entity\Traits\TimestampableTrait;
 use Doctrine\ORM\Mapping as ORM;
+use Doctrine\Common\Collections\Collection;
 
+
+#[ORM\HasLifecycleCallbacks]
 #[ORM\Entity(repositoryClass: DeviceRepository::class)]
 class Device
 {
+    use TimestampableTrait;
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column]
@@ -39,6 +44,9 @@ class Device
 
     #[ORM\Column(length: 255, nullable: true)]
     private ?string $notes = null;
+
+    #[ORM\OneToMany(mappedBy: 'device', targetEntity: Calibration::class)]
+    private Collection $calibrations;
 
     public function getId(): ?int
     {
@@ -152,4 +160,9 @@ class Device
 
         return $this;
     }
+    public function __toString(): string
+    {
+        return $this->getSerialNumber() ?? 'Device #' . $this->getId(); // or however you identify it
+    }
+
 }

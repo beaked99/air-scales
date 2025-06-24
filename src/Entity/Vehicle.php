@@ -49,7 +49,7 @@ class Vehicle
     #[ORM\Column(nullable: true)]
     private ?\DateTimeImmutable $updated_at = null;
 
-    #[ORM\ManyToOne(inversedBy: 'vehicles')]
+    #[ORM\ManyToOne(inversedBy: 'vehiclesUpdated')]
     private ?User $updated_by = null;
 
     #[ORM\Column(nullable: true)]
