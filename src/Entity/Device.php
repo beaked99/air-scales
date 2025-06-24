@@ -1,22 +1,27 @@
 <?php
-
+// Device.php
 namespace App\Entity;
 
 use App\Repository\DeviceRepository;
 use App\Entity\Traits\TimestampableTrait;
 use Doctrine\ORM\Mapping as ORM;
+use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
-
 
 #[ORM\HasLifecycleCallbacks]
 #[ORM\Entity(repositoryClass: DeviceRepository::class)]
 class Device
 {
     use TimestampableTrait;
+
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column]
     private ?int $id = null;
+
+    #[ORM\ManyToOne(targetEntity: Vehicle::class, inversedBy: 'devices')]
+    #[ORM\JoinColumn(nullable: false)]
+    private ?Vehicle $vehicle = null;
 
     #[ORM\Column(length: 64, nullable: true)]
     private ?string $serial_number = null;
@@ -48,9 +53,26 @@ class Device
     #[ORM\OneToMany(mappedBy: 'device', targetEntity: Calibration::class)]
     private Collection $calibrations;
 
+    public function __construct()
+    {
+        $this->calibrations = new ArrayCollection();
+    }
+
     public function getId(): ?int
     {
         return $this->id;
+    }
+
+    public function getVehicle(): ?Vehicle
+    {
+        return $this->vehicle;
+    }
+
+    public function setVehicle(?Vehicle $vehicle): static
+    {
+        $this->vehicle = $vehicle;
+
+        return $this;
     }
 
     public function getSerialNumber(): ?string
@@ -160,9 +182,50 @@ class Device
 
         return $this;
     }
-    public function __toString(): string
+
+    /**
+     * @return Collection<int, Calibration>
+     */
+    public function getCalibrations(): Collection
     {
-        return $this->getSerialNumber() ?? 'Device #' . $this->getId(); // or however you identify it
+        return $this->calibrations;
     }
 
+    public function addCalibration(Calibration $calibration): static
+    {
+        if (!$this->calibrations->contains($calibration)) {
+            $this->calibrations->add($calibration);
+            $calibration->setDevice($this);
+        }
+
+        return $this;
+    }
+
+    public function removeCalibration(Calibration $calibration): static
+    {
+        if ($this->calibrations->removeElement($calibration)) {
+            // set the owning side to null (unless already changed)
+            if ($calibration->getDevice() === $this) {
+                $calibration->setDevice(null);
+            }
+        }
+
+        return $this;
+    }
+
+    public function __toString(): string
+    {
+        if ($this->vehicle) {
+            return $this->vehicle->__toString() . ' - ' . ($this->getSerialNumber() ?? 'Device #' . $this->getId());
+        }
+        return $this->getSerialNumber() ?? 'Device #' . $this->getId();
+    }
+
+    public function getVehicleDisplay(): string
+    {
+        if ($this->vehicle) {
+            return $this->vehicle->__toString();
+        }
+        return 'No Vehicle Assigned';
+    }
 }

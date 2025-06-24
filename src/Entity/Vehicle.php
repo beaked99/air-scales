@@ -1,26 +1,26 @@
 <?php
-
+// Vehicle.php
 namespace App\Entity;
-
 
 use App\Repository\VehicleRepository;
 use App\Entity\Traits\TimestampableTrait;
 use Doctrine\ORM\Mapping as ORM;
+use Doctrine\Common\Collections\ArrayCollection;
+use Doctrine\Common\Collections\Collection;
 
 #[ORM\Entity(repositoryClass: VehicleRepository::class)]
 #[ORM\HasLifecycleCallbacks]
 class Vehicle
 {
-
     use TimestampableTrait;
+
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column]
     private ?int $id = null;
 
-    #[ORM\OneToOne(cascade: ['persist', 'remove'])]
-    #[ORM\JoinColumn(nullable: false)]
-    private ?Device $device = null;
+    #[ORM\OneToMany(mappedBy: 'vehicle', targetEntity: Device::class)]
+    private Collection $devices;
 
     #[ORM\Column]
     private ?int $year = null;
@@ -40,14 +40,8 @@ class Vehicle
     #[ORM\Column(length: 20, nullable: true)]
     private ?string $license_plate = null;
 
-    #[ORM\Column]
-    private ?\DateTimeImmutable $created_at = null;
-
     #[ORM\ManyToOne(inversedBy: 'vehicles')]
     private ?User $created_by = null;
-
-    #[ORM\Column(nullable: true)]
-    private ?\DateTimeImmutable $updated_at = null;
 
     #[ORM\ManyToOne(inversedBy: 'vehiclesUpdated')]
     private ?User $updated_by = null;
@@ -55,19 +49,42 @@ class Vehicle
     #[ORM\Column(nullable: true)]
     private ?\DateTimeImmutable $last_seen = null;
 
+    public function __construct()
+    {
+        $this->devices = new ArrayCollection();
+    }
+
     public function getId(): ?int
     {
         return $this->id;
     }
 
-    public function getDevice(): ?Device
+    /**
+     * @return Collection<int, Device>
+     */
+    public function getDevices(): Collection
     {
-        return $this->device;
+        return $this->devices;
     }
 
-    public function setDevice(Device $device): static
+    public function addDevice(Device $device): static
     {
-        $this->device = $device;
+        if (!$this->devices->contains($device)) {
+            $this->devices->add($device);
+            $device->setVehicle($this);
+        }
+
+        return $this;
+    }
+
+    public function removeDevice(Device $device): static
+    {
+        if ($this->devices->removeElement($device)) {
+            // set the owning side to null (unless already changed)
+            if ($device->getVehicle() === $this) {
+                $device->setVehicle(null);
+            }
+        }
 
         return $this;
     }
@@ -144,18 +161,6 @@ class Vehicle
         return $this;
     }
 
-    public function getCreatedAt(): ?\DateTimeImmutable
-    {
-        return $this->created_at;
-    }
-
-    public function setCreatedAt(\DateTimeImmutable $created_at): static
-    {
-        $this->created_at = $created_at;
-
-        return $this;
-    }
-
     public function getCreatedBy(): ?User
     {
         return $this->created_by;
@@ -164,18 +169,6 @@ class Vehicle
     public function setCreatedBy(?User $created_by): static
     {
         $this->created_by = $created_by;
-
-        return $this;
-    }
-
-    public function getUpdatedAt(): ?\DateTimeImmutable
-    {
-        return $this->updated_at;
-    }
-
-    public function setUpdatedAt(?\DateTimeImmutable $updated_at): static
-    {
-        $this->updated_at = $updated_at;
 
         return $this;
     }
@@ -202,5 +195,21 @@ class Vehicle
         $this->last_seen = $last_seen;
 
         return $this;
+    }
+
+    public function __toString(): string
+    {
+        $display = '';
+        if ($this->year) {
+            $display .= $this->year . ' ';
+        }
+        if ($this->make) {
+            $display .= $this->make . ' ';
+        }
+        if ($this->model) {
+            $display .= $this->model;
+        }
+        
+        return trim($display) ?: 'Vehicle #' . $this->getId();
     }
 }

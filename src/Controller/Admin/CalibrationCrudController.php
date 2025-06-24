@@ -23,7 +23,15 @@ class CalibrationCrudController extends AbstractCrudController
         return [
             IdField::new('id')->onlyOnIndex(),
 
-            AssociationField::new('device'),
+            //AssociationField::new('device'),
+            AssociationField::new('device')
+                ->formatValue(function ($value, $entity) {
+                    if ($entity && $entity->getDevice() && $entity->getDevice()->getVehicle()) {
+                        return $entity->getDevice()->getVehicle()->__toString();
+                    }
+                    return 'No Vehicle Assigned';
+                })
+                ->setFormTypeOption('disabled', true),
             AssociationField::new('created_by')->onlyOnDetail(),
             AssociationField::new('updated_by')->onlyOnDetail(),
 

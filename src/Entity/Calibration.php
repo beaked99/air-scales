@@ -1,10 +1,10 @@
 <?php
-
+// Calibration.php
 namespace App\Entity;
 
 use App\Repository\CalibrationRepository;
-use Doctrine\ORM\Mapping as ORM;
 use App\Entity\Traits\TimestampableTrait;
+use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity(repositoryClass: CalibrationRepository::class)]
 #[ORM\HasLifecycleCallbacks]
@@ -25,7 +25,11 @@ class Calibration
 
     #[ORM\ManyToOne(targetEntity: User::class)]
     #[ORM\JoinColumn(nullable: false)]
-    private ?User $createdBy = null;
+    private ?User $created_by = null;
+
+    #[ORM\ManyToOne(targetEntity: User::class)]
+    #[ORM\JoinColumn(nullable: true)]
+    private ?User $updated_by = null;
 
     // === Readings from device ===
 
@@ -49,12 +53,6 @@ class Calibration
     #[ORM\Column(type: 'text', nullable: true)]
     private ?string $comment = null;
 
-    // === Optional: Updated by (if you want extra tracking) ===
-
-    #[ORM\ManyToOne(targetEntity: User::class)]
-    #[ORM\JoinColumn(nullable: true)]
-    private ?User $updatedBy = null;
-
     // === Getters and Setters ===
 
     public function getId(): ?int
@@ -75,23 +73,23 @@ class Calibration
 
     public function getCreatedBy(): ?User
     {
-        return $this->createdBy;
+        return $this->created_by;
     }
 
-    public function setCreatedBy(?User $user): self
+    public function setCreatedBy(?User $created_by): self
     {
-        $this->createdBy = $user;
+        $this->created_by = $created_by;
         return $this;
     }
 
     public function getUpdatedBy(): ?User
     {
-        return $this->updatedBy;
+        return $this->updated_by;
     }
 
-    public function setUpdatedBy(?User $user): self
+    public function setUpdatedBy(?User $updated_by): self
     {
-        $this->updatedBy = $user;
+        $this->updated_by = $updated_by;
         return $this;
     }
 
@@ -149,6 +147,7 @@ class Calibration
         $this->scaleWeight = $scaleWeight;
         return $this;
     }
+
     public function getComment(): ?string
     {
         return $this->comment;
@@ -158,5 +157,13 @@ class Calibration
     {
         $this->comment = $comment;
         return $this;
+    }
+
+    public function getVehicleDisplay(): string
+    {
+        if ($this->device && $this->device->getVehicle()) {
+            return $this->device->getVehicle()->__toString();
+        }
+        return 'No Vehicle Assigned';
     }
 }
