@@ -84,4 +84,9 @@ class UserCrudController extends AbstractCrudController
 
         parent::updateEntity($entityManager, $entityInstance);
     }
+    public function configureCrud(Crud $crud): Crud
+    {
+        return $crud
+        ->setDefaultSort(['id' => 'DESC']);
+    }
 }

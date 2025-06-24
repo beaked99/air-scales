@@ -61,13 +61,5 @@ class DashboardController extends AbstractDashboardController
         yield MenuItem::linkToCrud('Users', 'fas fa-users', User::class);
         yield MenuItem::linkToCrud('Devices','fas fa-computer', entityFqcn: Device::class);
     }
-    
-    public function configureCrud(): Crud
-    {
-        return parent::configureCrud()
-            ->setDefaultSort([
-                'id'=> 'DESC'
-        ]);
-    }
 
 }
