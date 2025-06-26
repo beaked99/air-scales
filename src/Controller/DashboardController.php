@@ -15,31 +15,35 @@ class DashboardController extends AbstractController
     {
         $user = $this->getUser();
 
-        // 1. Devices the user connected to (via access records)
+        // 1. Devices the user connected to
         $accessRecords = $em->getRepository(DeviceAccess::class)
             ->createQueryBuilder('a')
             ->leftJoin('a.device', 'd')
             ->addSelect('d')
             ->where('a.user = :user')
+            ->andWhere('a.isActive = true')
             ->setParameter('user', $user)
             ->getQuery()
             ->getResult();
 
-        $connectedDevices = [];
+        $userDevices = [];
+
         foreach ($accessRecords as $record) {
-            $connectedDevices[$record->getDevice()->getId()] = $record->getDevice();
+            $device = $record->getDevice();
+            $userDevices[$device->getId()] = $device;
         }
 
-        // 2. Devices the user purchased (via soldTo)
+        // 2. Devices the user purchased
         $purchasedDevices = $em->getRepository(Device::class)
             ->findBy(['soldTo' => $user]);
 
         foreach ($purchasedDevices as $device) {
-            $connectedDevices[$device->getId()] = $device; // merge w/o duplicates
+            $userDevices[$device->getId()] = $device; // ✅ merge properly here
         }
+        //dd($purchasedDevices);
 
         return $this->render('dashboard/index.html.twig', [
-            'devices' => $connectedDevices,
+            'devices' => $userDevices,
             'accessRecords' => $accessRecords,
         ]);
     }
@@ -50,8 +54,8 @@ class DashboardController extends AbstractController
         $access = $em->getRepository(DeviceAccess::class)
             ->findOneBy(['user' => $this->getUser(), 'device' => $device]);
 
-        if ($access) {
-            $em->remove($access);
+        if ($access && $access->isActive()) {
+            $access->setIsActive(false);
             $em->flush();
         }
 

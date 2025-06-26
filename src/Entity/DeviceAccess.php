@@ -26,6 +26,20 @@ class DeviceAccess
 
     #[ORM\Column]
     private \DateTime $lastConnectedAt;
+    
+    #[ORM\Column(type: 'boolean')]
+    private bool $isActive = true;
+
+    public function isActive(): bool
+    {
+        return $this->isActive;
+    }
+
+    public function setIsActive(bool $isActive): self
+    {
+        $this->isActive = $isActive;
+        return $this;
+    }
 
     public function getId(): ?int
     {
