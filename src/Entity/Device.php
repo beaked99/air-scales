@@ -1,12 +1,16 @@
 <?php
-// Device.php
+
 namespace App\Entity;
 
-use App\Repository\DeviceRepository;
 use App\Entity\Traits\TimestampableTrait;
-use Doctrine\ORM\Mapping as ORM;
+use App\Repository\DeviceRepository;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
+use Doctrine\ORM\Mapping as ORM;
+use App\Entity\Calibration;
+use App\Entity\MicroData;
+use App\Entity\User;
+use App\Entity\Vehicle;
 
 #[ORM\HasLifecycleCallbacks]
 #[ORM\Entity(repositoryClass: DeviceRepository::class)]
@@ -20,32 +24,33 @@ class Device
     private ?int $id = null;
 
     #[ORM\ManyToOne(targetEntity: Vehicle::class, inversedBy: 'devices')]
-    #[ORM\JoinColumn(nullable: false)]
+    #[ORM\JoinColumn(nullable: true)]
     private ?Vehicle $vehicle = null;
 
     #[ORM\Column(length: 64, nullable: true)]
-    private ?string $serial_number = null;
+    private ?string $serialNumber = null;
 
     #[ORM\Column(length: 17, nullable: true)]
-    private ?string $mac_address = null;
+    private ?string $macAddress = null;
 
     #[ORM\Column(length: 64, nullable: true)]
-    private ?string $device_type = null;
+    private ?string $deviceType = null;
 
     #[ORM\Column(length: 64, nullable: true)]
-    private ?string $firmware_version = null;
+    private ?string $firmwareVersion = null;
 
-    #[ORM\ManyToOne(inversedBy: 'devices')]
-    private ?User $sold_to = null;
+    #[ORM\ManyToOne(targetEntity: User::class)]
+    #[ORM\JoinColumn(name: "sold_to_id", referencedColumnName: "id", nullable: true)]
+    private ?User $soldTo = null;
 
     #[ORM\Column(nullable: true)]
-    private ?\DateTimeImmutable $order_date = null;
+    private ?\DateTimeImmutable $orderDate = null;
 
     #[ORM\Column(nullable: true)]
-    private ?\DateTimeImmutable $ship_date = null;
+    private ?\DateTimeImmutable $shipDate = null;
 
     #[ORM\Column(length: 64, nullable: true)]
-    private ?string $tracking_id = null;
+    private ?string $trackingId = null;
 
     #[ORM\Column(length: 255, nullable: true)]
     private ?string $notes = null;
@@ -53,9 +58,13 @@ class Device
     #[ORM\OneToMany(mappedBy: 'device', targetEntity: Calibration::class)]
     private Collection $calibrations;
 
+    #[ORM\OneToMany(mappedBy: 'device', targetEntity: MicroData::class, orphanRemoval: true)]
+    private Collection $microData;
+
     public function __construct()
     {
         $this->calibrations = new ArrayCollection();
+        $this->microData = new ArrayCollection();
     }
 
     public function getId(): ?int
@@ -71,103 +80,94 @@ class Device
     public function setVehicle(?Vehicle $vehicle): static
     {
         $this->vehicle = $vehicle;
-
         return $this;
     }
 
     public function getSerialNumber(): ?string
     {
-        return $this->serial_number;
+        return $this->serialNumber;
     }
 
-    public function setSerialNumber(?string $serial_number): static
+    public function setSerialNumber(?string $serialNumber): static
     {
-        $this->serial_number = $serial_number;
-
+        $this->serialNumber = $serialNumber;
         return $this;
     }
 
     public function getMacAddress(): ?string
     {
-        return $this->mac_address;
+        return $this->macAddress;
     }
 
-    public function setMacAddress(?string $mac_address): static
+    public function setMacAddress(?string $macAddress): static
     {
-        $this->mac_address = $mac_address;
-
+        $this->macAddress = $macAddress;
         return $this;
     }
 
     public function getDeviceType(): ?string
     {
-        return $this->device_type;
+        return $this->deviceType;
     }
 
-    public function setDeviceType(?string $device_type): static
+    public function setDeviceType(?string $deviceType): static
     {
-        $this->device_type = $device_type;
-
+        $this->deviceType = $deviceType;
         return $this;
     }
 
     public function getFirmwareVersion(): ?string
     {
-        return $this->firmware_version;
+        return $this->firmwareVersion;
     }
 
-    public function setFirmwareVersion(?string $firmware_version): static
+    public function setFirmwareVersion(?string $firmwareVersion): static
     {
-        $this->firmware_version = $firmware_version;
-
+        $this->firmwareVersion = $firmwareVersion;
         return $this;
     }
 
     public function getSoldTo(): ?User
     {
-        return $this->sold_to;
+        return $this->soldTo;
     }
 
-    public function setSoldTo(?User $sold_to): static
+    public function setSoldTo(?User $soldTo): static
     {
-        $this->sold_to = $sold_to;
-
+        $this->soldTo = $soldTo;
         return $this;
     }
 
     public function getOrderDate(): ?\DateTimeImmutable
     {
-        return $this->order_date;
+        return $this->orderDate;
     }
 
-    public function setOrderDate(?\DateTimeImmutable $order_date): static
+    public function setOrderDate(?\DateTimeImmutable $orderDate): static
     {
-        $this->order_date = $order_date;
-
+        $this->orderDate = $orderDate;
         return $this;
     }
 
     public function getShipDate(): ?\DateTimeImmutable
     {
-        return $this->ship_date;
+        return $this->shipDate;
     }
 
-    public function setShipDate(?\DateTimeImmutable $ship_date): static
+    public function setShipDate(?\DateTimeImmutable $shipDate): static
     {
-        $this->ship_date = $ship_date;
-
+        $this->shipDate = $shipDate;
         return $this;
     }
 
     public function getTrackingId(): ?string
     {
-        return $this->tracking_id;
+        return $this->trackingId;
     }
 
-    public function setTrackingId(?string $tracking_id): static
+    public function setTrackingId(?string $trackingId): static
     {
-        $this->tracking_id = $tracking_id;
-
+        $this->trackingId = $trackingId;
         return $this;
     }
 
@@ -179,13 +179,9 @@ class Device
     public function setNotes(?string $notes): static
     {
         $this->notes = $notes;
-
         return $this;
     }
 
-    /**
-     * @return Collection<int, Calibration>
-     */
     public function getCalibrations(): Collection
     {
         return $this->calibrations;
@@ -197,19 +193,40 @@ class Device
             $this->calibrations->add($calibration);
             $calibration->setDevice($this);
         }
-
         return $this;
     }
 
     public function removeCalibration(Calibration $calibration): static
     {
         if ($this->calibrations->removeElement($calibration)) {
-            // set the owning side to null (unless already changed)
             if ($calibration->getDevice() === $this) {
                 $calibration->setDevice(null);
             }
         }
+        return $this;
+    }
 
+    public function getMicroData(): Collection
+    {
+        return $this->microData;
+    }
+
+    public function addMicroDatum(MicroData $datum): self
+    {
+        if (!$this->microData->contains($datum)) {
+            $this->microData[] = $datum;
+            $datum->setDevice($this);
+        }
+        return $this;
+    }
+
+    public function removeMicroDatum(MicroData $datum): self
+    {
+        if ($this->microData->removeElement($datum)) {
+            if ($datum->getDevice() === $this) {
+                $datum->setDevice(null);
+            }
+        }
         return $this;
     }
 
@@ -223,9 +240,6 @@ class Device
 
     public function getVehicleDisplay(): string
     {
-        if ($this->vehicle) {
-            return $this->vehicle->__toString();
-        }
-        return 'No Vehicle Assigned';
+        return $this->vehicle ? $this->vehicle->__toString() : 'No Vehicle Assigned';
     }
 }

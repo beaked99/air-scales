@@ -13,6 +13,13 @@ use EasyCorp\Bundle\EasyAdminBundle\Field\IdField;
 use EasyCorp\Bundle\EasyAdminBundle\Field\TextField;
 use Symfony\Component\Form\Extension\Core\Type\PasswordType;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
+use EasyCorp\Bundle\EasyAdminBundle\Dto\SearchDto;
+use EasyCorp\Bundle\EasyAdminBundle\Dto\EntityDto;
+use EasyCorp\Bundle\EasyAdminBundle\Collection\FieldCollection;
+use EasyCorp\Bundle\EasyAdminBundle\Collection\FilterCollection;
+use Doctrine\ORM\QueryBuilder;
+use EasyCorp\Bundle\EasyAdminBundle\Config\Actions;
+use EasyCorp\Bundle\EasyAdminBundle\Config\Action;
 
 class UserCrudController extends AbstractCrudController
 {
@@ -33,6 +40,7 @@ class UserCrudController extends AbstractCrudController
         yield IdField::new("id")
             ->setLabel('ID')
             ->onlyOnIndex(); 
+
         yield EmailField::new('email', 'Email');
         yield TextField::new('first_name', 'First Name');
         yield TextField::new('last_name', 'Last Name');
@@ -41,17 +49,22 @@ class UserCrudController extends AbstractCrudController
             ->setFormType(PasswordType::class)
             ->setRequired($pageName === Crud::PAGE_NEW)
             ->onlyOnForms();
-        $roles = ['ROLE_ADMIN','ROLE_MODERATOR','ROLE_USER'];
-        yield ChoiceField::new(propertyName: 'roles')
-            ->setLabel('Roles')
-            ->setChoices(array_combine($roles, $roles))
-            ->allowMultipleChoices()
-            ->renderExpanded()
-            ->renderAsBadges();
+
+        if ($this->isGranted('ROLE_ADMIN')) {
+            $roles = ['ROLE_ADMIN','ROLE_MODERATOR','ROLE_USER'];
+            yield ChoiceField::new('roles')
+                ->setLabel('Roles')
+                ->setChoices(array_combine($roles, $roles))
+                ->allowMultipleChoices()
+                ->renderExpanded()
+                ->renderAsBadges();
+        }
+
         yield DateField::new('created_at')
             ->setLabel('Created On')
             ->hideOnForm();
     }
+
     
     public function persistEntity(EntityManagerInterface $entityManager, $entityInstance): void
     {
@@ -89,4 +102,27 @@ class UserCrudController extends AbstractCrudController
         return $crud
         ->setDefaultSort(['id' => 'DESC']);
     }
+
+
+    public function createIndexQueryBuilder(SearchDto $searchDto, EntityDto $entityDto, FieldCollection $fields, FilterCollection $filters): QueryBuilder
+    {
+        $qb = parent::createIndexQueryBuilder($searchDto, $entityDto, $fields, $filters);
+
+        if (!$this->isGranted('ROLE_ADMIN')) {
+            $qb->andWhere('entity.id = :id')
+            ->setParameter('id', $this->getUser()->getId());
+        }
+
+        return $qb;
+    }
+    public function configureActions(Actions $actions): Actions
+    {
+        if (!$this->isGranted('ROLE_ADMIN')) {
+            return $actions
+                ->disable(Action::NEW, Action::DELETE);
+        }
+
+        return $actions;
+    }
+
 }
