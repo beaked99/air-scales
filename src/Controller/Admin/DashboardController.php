@@ -13,6 +13,7 @@ use EasyCorp\Bundle\EasyAdminBundle\Controller\AbstractDashboardController;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use App\Controller\Admin\UserCrudController;
+use App\Entity\AxleGroup;
 use App\Entity\Calibration;
 use EasyCorp\Bundle\EasyAdminBundle\Config\Crud;
 use EasyCorp\Bundle\EasyAdminBundle\Router\AdminUrlGenerator;
@@ -61,9 +62,10 @@ class DashboardController extends AbstractDashboardController
         yield MenuItem::linkToUrl('Home', 'fa fa-home', $this->generateUrl('app_homepage'));
         yield MenuItem::linkToDashboard('Dashboard', 'fa fa-dashboard');
         yield MenuItem::linkToCrud('Users', 'fas fa-users', User::class);
-        yield MenuItem::linkToCrud('Devices','fas fa-computer', entityFqcn: Device::class);
+        yield MenuItem::linkToCrud('Devices','fa-solid fa-microchip', entityFqcn: Device::class);
         yield MenuItem::linkToCrud('Vehicle','fas fa-truck', Vehicle::class);
         yield MenuItem::linkToCrud('Calibration','fa-solid fa-scale-unbalanced-flip', Calibration::class);
+        yield MenuItem::linkToCrud('Axle Group','fa-solid fa-arrows-down-to-line', AxleGroup::class);
     }
 
 }

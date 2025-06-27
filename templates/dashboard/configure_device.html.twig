@@ -1,0 +1,29 @@
+{# templates/dashboard/configure_device.html.twig #}
+
+{% extends 'base.html.twig' %}
+
+{% block title %}Configure Device{% endblock %}
+
+{% block body %}
+<h1>Configure Device: {{ device.serialNumber }} ({{ device.macAddress }})</h1>
+
+{% for message in app.flashes('error') %}
+  <div class="flash-error">{{ message }}</div>
+{% endfor %}
+{% for message in app.flashes('success') %}
+  <div class="flash-success">{{ message }}</div>
+{% endfor %}
+
+{{ form_start(form) }}
+    {{ form_row(form.year) }}
+    {{ form_row(form.make) }}
+    {{ form_row(form.model) }}
+    {{ form_row(form.vin) }}
+    {{ form_row(form.license_plate) }}
+    {{ form_row(form.nickname) }}
+    {{ form_row(form.axle_group) }}
+    <button type="submit">Assign Device to Vehicle</button>
+{{ form_end(form) }}
+
+<a href="{{ path('app_dashboard') }}">Back to Dashboard</a>
+{% endblock %}

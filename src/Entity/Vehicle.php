@@ -49,6 +49,9 @@ class Vehicle
     #[ORM\Column(nullable: true)]
     private ?\DateTimeImmutable $last_seen = null;
 
+    #[ORM\ManyToOne]
+    private ?AxleGroup $axleGroup = null;
+
     public function __construct()
     {
         $this->devices = new ArrayCollection();
@@ -88,7 +91,12 @@ class Vehicle
 
         return $this;
     }
-
+    public function getAxleGroup(): ?AxleGroup { return $this->axleGroup; }
+    public function setAxleGroup(?AxleGroup $axleGroup): self {
+        $this->axleGroup = $axleGroup;
+        return $this;
+    }   
+    
     public function getYear(): ?int
     {
         return $this->year;

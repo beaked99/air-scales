@@ -1,0 +1,31 @@
+{# templates/dashboard/edit_vehicle.html.twig #}
+
+{% extends 'base.html.twig' %}
+
+{% block title %}Edit Vehicle{% endblock %}
+
+{% block body %}
+<h1>Edit Vehicle: {{ vehicle.year }} {{ vehicle.make }} {{ vehicle.model }}</h1>
+
+{% for message in app.flashes('success') %}
+  <div class="flash-success">{{ message }}</div>
+{% endfor %}
+
+{{ form_start(form) }}
+    {{ form_row(form.year) }}
+    {{ form_row(form.make) }}
+    {{ form_row(form.model) }}
+    {{ form_row(form.vin) }}
+    {{ form_row(form.license_plate) }}
+    {{ form_row(form.nickname) }}
+    {{ form_row(form.axleGroup) }}
+    <button type="submit">Save Changes</button>
+{{ form_end(form) }}
+
+<form method="post" action="{{ path('device_vehicle_delete', { id: vehicle.id }) }}" onsubmit="return confirm('Are you sure you want to delete this vehicle and unassign any linked devices?');">
+    <input type="hidden" name="_token" value="{{ csrf_token('delete' ~ vehicle.id) }}">
+    <button class="btn btn-danger">Delete Vehicle</button>
+</form>
+
+<a href="{{ path('app_dashboard') }}">Back to Dashboard</a>
+{% endblock %}

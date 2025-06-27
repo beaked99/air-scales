@@ -1,8 +1,11 @@
 <?php
 namespace App\Controller;
 
+use App\Form\VehicleType;
+use Symfony\Component\HttpFoundation\Request;
 use App\Entity\Device;
 use App\Entity\DeviceAccess;
+use App\Entity\Vehicle;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Response;
@@ -40,11 +43,28 @@ class DashboardController extends AbstractController
         foreach ($purchasedDevices as $device) {
             $userDevices[$device->getId()] = $device; // ✅ merge properly here
         }
-        //dd($purchasedDevices);
+        // Vehicles the user created
+        $ownedVehicles = $em->getRepository(Vehicle::class)
+            ->findBy(['created_by' => $user]);
+
+        $vehicleSet = [];
+
+        // Collect from devices connected via DeviceAccess
+        foreach ($userDevices as $device) {
+            if ($device->getVehicle()) {
+                $vehicleSet[$device->getVehicle()->getId()] = $device->getVehicle();
+            }
+        }
+
+        // Add vehicles created by user
+        foreach ($ownedVehicles as $vehicle) {
+            $vehicleSet[$vehicle->getId()] = $vehicle;
+        }
 
         return $this->render('dashboard/index.html.twig', [
             'devices' => $userDevices,
             'accessRecords' => $accessRecords,
+            'vehicles' => $vehicleSet,
         ]);
     }
 
@@ -61,4 +81,6 @@ class DashboardController extends AbstractController
 
         return $this->redirectToRoute('app_dashboard');
     }
+    
+
 }

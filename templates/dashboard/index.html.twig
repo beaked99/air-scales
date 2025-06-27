@@ -1,38 +1,74 @@
+{# templates/dashboard/index.html.twig #}
+
 {% extends 'base.html.twig' %}
 
-{% block title %}Hello DashboardController!{% endblock %}
+{% block title %}Your Dashboard{% endblock %}
 
 {% block body %}
-<h1>Your Devices</h1>
+<h1>Vehicles / Trailers</h1>
 
-{% if devices is empty %}
-  <p>No devices found for your account.</p>
+{% if vehicles is empty %}
+  <p>No vehicles associated with your account.</p>
+{% else %}
+  <table style="width:100%; border-collapse: collapse; margin-bottom: 2em;">
+    <thead>
+      <tr>
+        <th style="text-align:left; border-bottom: 1px solid #ccc;">Year</th>
+        <th style="text-align:left; border-bottom: 1px solid #ccc;">Make</th>
+        <th style="text-align:left; border-bottom: 1px solid #ccc;">Model</th>
+        <th style="text-align:left; border-bottom: 1px solid #ccc;">Axle Group</th>
+        <th style="text-align:left; border-bottom: 1px solid #ccc;">Nickname</th>
+        <th style="text-align:left; border-bottom: 1px solid #ccc;">Device Status</th>
+        <th style="text-align:left; border-bottom: 1px solid #ccc;">Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for vehicle in vehicles %}
+        <tr>
+          <td>{{ vehicle.year }}</td>
+          <td>{{ vehicle.make }}</td>
+          <td>{{ vehicle.model }}</td>
+          <td>{{ vehicle.axleGroup ? vehicle.axleGroup.label : '—' }}</td>
+          <td>{{ vehicle.nickname ?: '—' }}</td>
+          <td>
+            {% set hasDevice = false %}
+            {% for device in devices %}
+              {% if device.vehicle and device.vehicle.id == vehicle.id %}
+                {% set hasDevice = true %}
+                {% set access = null %}
+                {% for record in accessRecords %}
+                  {% if record.device.id == device.id %}
+                    {% set access = record %}
+                  {% endif %}
+                {% endfor %}
+                {% if access %}
+                  Last connected: {{ access.lastConnectedAt|date('Y-m-d H:i') }}
+                {% else %}
+                  Purchased, not connected
+                {% endif %}
+              {% endif %}
+            {% endfor %}
+            {% if not hasDevice %}No device linked{% endif %}
+          </td>
+          <td><a href="{{ path('device_vehicle_edit', { id: vehicle.id }) }}">Edit</a></td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+{% endif %}
+
+<h2>Unconfigured Devices</h2>
+{% set unconfigured = devices|filter(device => not device.vehicle) %}
+{% if unconfigured is empty %}
+  <p>All devices have been configured.</p>
 {% else %}
   <ul>
-    {% for device in devices %}
+    {% for device in unconfigured %}
       <li>
-        <strong>ID:</strong> {{ device.id }}<br>
-        <strong>MAC:</strong> {{ device.macAddress }}<br>
-
-        {# check if user has access history #}
-        {% set access = null %}
-        {% for record in accessRecords %}
-          {% if record.device.id == device.id %}
-            {% set access = record %}
-          {% endif %}
-        {% endfor %}
-
-        {% if access %}
-          First seen: {{ access.firstSeenAt|date('Y-m-d H:i') }}<br>
-          Last connected: {{ access.lastConnectedAt|date('Y-m-d H:i') }}<br>
-          <a href="{{ path('unlink_device', { id: device.id }) }}">Unlink</a>
-        {% else %}
-          <em>You purchased this device but haven’t connected to it yet.</em><br>
-        {% endif %}
+        <strong>MAC:</strong> {{ device.macAddress }} - Purchased but not configured
+        <a href="{{ path('device_configure', { id: device.id }) }}">Configure</a>
       </li>
     {% endfor %}
   </ul>
 {% endif %}
-
-
 {% endblock %}
