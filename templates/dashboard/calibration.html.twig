@@ -1,0 +1,174 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}
+  Calibration for {{ device.serialNumber }}
+  {% if device.vehicle %}
+    installed on {{ device.vehicle.year }} {{ device.vehicle.make }} {{ device.vehicle.model }}
+    {% if device.vehicle.axleGroup %}
+      ({{ device.vehicle.axleGroup.label }})
+    {% endif %}
+  {% endif %}
+{% endblock %}
+
+{% block body %}
+<h1>
+  Calibration for Device {{ device.serialNumber }}
+  {% if device.vehicle %}
+    – {{ device.vehicle.year }} {{ device.vehicle.make }} {{ device.vehicle.model }}
+    {% if device.vehicle.axleGroup %}
+      ({{ device.vehicle.axleGroup.label }})
+    {% endif %}
+  {% endif %}
+</h1>
+
+{{ form_start(form) }}
+  {{ form_row(form.scaleWeight) }}
+  {{ form_row(form.airPressure) }}
+  {{ form_row(form.ambientAirPressure) }}
+  {{ form_row(form.airTemperature) }}
+  {{ form_row(form.elevation) }}
+  {{ form_row(form.comment) }}
+  <button type="submit">Save Calibration</button>
+{{ form_end(form) }}
+
+<hr>
+
+<h2>Existing Calibrations</h2>
+<table style="width: 100%; border-collapse: collapse;">
+  <thead>
+    <tr>
+      <th>Date</th>
+      <th>Weight (kg)</th>
+      <th>Air Pressure</th>
+      <th>Ambient Pressure</th>
+      <th>Temp (°C)</th>
+      <th>Elevation</th>
+      <th>Comment</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for cal in calibrations %}
+      <tr>
+        <td>{{ cal.createdAt|date('Y-m-d H:i') }}</td>
+        <td>{{ cal.scaleWeight }}</td>
+        <td>{{ cal.airPressure }}</td>
+        <td>{{ cal.ambientAirPressure }}</td>
+        <td>{{ cal.airTemperature }}</td>
+        <td>{{ cal.elevation }}</td>
+        <td>{{ cal.comment ?: '—' }}</td>
+      </tr>
+    {% else %}
+      <tr><td colspan="7">No calibration data available.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+{% if calibrations|length >= 1 %}
+<hr>
+<h2>Graph: Weight vs. Predicted Weight</h2>
+<canvas id="calibrationChart" style="max-width: 100%; height: 400px;"></canvas> 
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const canvas = document.getElementById('calibrationChart');
+  if (!canvas) return;
+
+  const ctx = canvas.getContext('2d');
+
+  const coeffs = {
+    intercept: {{ coefficients.intercept|default(0)|json_encode|raw }},
+    airPressure: {{ coefficients.airPressure|default(0)|json_encode|raw }},
+    ambientPressure: {{ coefficients.ambientPressure|default(0)|json_encode|raw }},
+    temperature: {{ coefficients.temperature|default(0)|json_encode|raw }}
+  };
+
+  const points = [
+    {% for cal in calibrations %}
+      {
+        x: {{ cal.airPressure }},
+        y: {{ cal.scaleWeight }},
+        id: {{ cal.id }},
+        ambient: {{ cal.ambientAirPressure }},
+        temp: {{ cal.airTemperature }}
+      }{{ not loop.last ? ',' }}
+    {% endfor %}
+  ];
+
+  const chart = new Chart(ctx, {
+    type: 'scatter',
+    data: {
+      datasets: [
+        {
+          label: 'Calibration Points',
+          data: points.map(p => ({ x: p.x, y: p.y, id: p.id })),
+          backgroundColor: 'rgba(0,255,0,0.4)',
+          borderColor: 'limegreen',
+          pointRadius: 4,
+          pointHoverRadius: 6,
+          showLine: false
+        }
+        // red line inserted later if ambient readings exist
+      ]
+    },
+    options: {
+      onClick: (event, elements) => {
+        if (elements.length > 0) {
+          const index = elements[0].index;
+          const point = chart.data.datasets[0].data[index];
+          if (confirm(`Delete calibration entry ID ${point.id}?`)) {
+            fetch(`/dashboard/calibration/delete/${point.id}`, {
+              method: 'POST',
+              headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'Content-Type': 'application/json'
+              }
+            }).then(() => window.location.reload());
+          }
+        }
+      },
+      scales: {
+        x: { title: { display: true, text: 'Air Pressure (Pa)' } },
+        y: { title: { display: true, text: 'Weight (kg)' } }
+      }
+    }
+  });
+
+  // Load ambient data and draw regression line if fresh
+const macAddress = {{ device.macAddress|default('""')|json_encode|raw }};
+
+  fetch(`/api/microdata/${macAddress}/latest`)
+    .then(res => res.json())
+    .then(data => {
+      if (!data) return;
+
+      const minX = Math.min(...points.map(p => p.x));
+      const maxX = Math.max(...points.map(p => p.x));
+      const regressionLine = [];
+
+      for (let x = minX; x <= maxX; x += (maxX - minX) / 30) {
+        const y = coeffs.intercept +
+                  x * coeffs.airPressure +
+                  data.ambient * coeffs.ambientPressure +
+                  data.temperature * coeffs.temperature;
+
+        regressionLine.push({ x, y });
+      }
+
+      chart.data.datasets.push({
+        label: 'Live Prediction Line',
+        data: regressionLine,
+        borderColor: 'red',
+        borderWidth: 2,
+        pointRadius: 0,
+        fill: false,
+        showLine: true,
+        type: 'line'
+      });
+
+      chart.update();
+    });
+});
+</script>
+{% endif %}
+{% endblock %}

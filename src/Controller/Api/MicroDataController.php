@@ -3,6 +3,7 @@
 namespace App\Controller\Api;
 
 use App\Entity\MicroData;
+use App\Repository\MicroDataRepository;
 use App\Repository\DeviceRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -59,4 +60,27 @@ class MicroDataController extends AbstractController
 
         return new JsonResponse(['status' => 'success']);
     }
+    #[Route('/api/microdata/{mac}/latest', name: 'api_microdata_latest', methods: ['GET'])]
+    public function latestAmbient(
+        string $mac,
+        MicroDataRepository $repo
+    ): JsonResponse {
+        $latest = $repo->createQueryBuilder('m')
+            ->where('m.macAddress = :mac')
+            ->setParameter('mac', $mac)
+            ->orderBy('m.timestamp', 'DESC')
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getOneOrNullResult();
+
+        if (!$latest || $latest->getTimestamp() < new \DateTimeImmutable('-20 minutes')) {
+            return new JsonResponse(null);
+        }
+
+        return new JsonResponse([
+            'ambient' => $latest->getAtmosphericPressure(),
+            'temperature' => $latest->getTemperature()
+        ]);
+    }
+
 }

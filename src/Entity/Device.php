@@ -61,6 +61,24 @@ class Device
     #[ORM\OneToMany(mappedBy: 'device', targetEntity: MicroData::class, orphanRemoval: true)]
     private Collection $microData;
 
+    #[ORM\Column(type: 'float', nullable: true)]
+    private ?float $regressionIntercept = null;
+
+    #[ORM\Column(type: 'float', nullable: true)]
+    private ?float $regressionAirPressureCoeff = null;
+
+    #[ORM\Column(type: 'float', nullable: true)]
+    private ?float $regressionAmbientPressureCoeff = null;
+
+    #[ORM\Column(type: 'float', nullable: true)]
+    private ?float $regressionAirTempCoeff = null;
+
+    #[ORM\Column(type: 'float', nullable: true)]
+    private ?float $regressionRsq = null;
+
+    #[ORM\Column(type: 'float', nullable: true)]
+    private ?float $regressionRmse = null;
+
     public function __construct()
     {
         $this->calibrations = new ArrayCollection();
@@ -242,4 +260,70 @@ class Device
     {
         return $this->vehicle ? $this->vehicle->__toString() : 'No Vehicle Assigned';
     }
+    public function getRegressionIntercept(): ?float
+    {
+        return $this->regressionIntercept;
+    }
+
+    public function setRegressionIntercept(?float $regressionIntercept): self
+    {
+        $this->regressionIntercept = $regressionIntercept;
+        return $this;
+    }
+
+    public function getRegressionAirPressureCoeff(): ?float
+    {
+        return $this->regressionAirPressureCoeff;
+    }
+
+    public function setRegressionAirPressureCoeff(?float $value): self
+    {
+        $this->regressionAirPressureCoeff = $value;
+        return $this;
+    }
+
+    public function getRegressionAmbientPressureCoeff(): ?float
+    {
+        return $this->regressionAmbientPressureCoeff;
+    }
+
+    public function setRegressionAmbientPressureCoeff(?float $value): self
+    {
+        $this->regressionAmbientPressureCoeff = $value;
+        return $this;
+    }
+
+    public function getRegressionAirTempCoeff(): ?float
+    {
+        return $this->regressionAirTempCoeff;
+    }
+
+    public function setRegressionAirTempCoeff(?float $value): self
+    {
+        $this->regressionAirTempCoeff = $value;
+        return $this;
+    }
+
+    public function getRegressionRsq(): ?float
+    {
+        return $this->regressionRsq;
+    }
+
+    public function setRegressionRsq(?float $rsq): self
+    {
+        $this->regressionRsq = $rsq;
+        return $this;
+    }
+
+    public function getRegressionRmse(): ?float
+    {
+        return $this->regressionRmse;
+    }
+
+    public function setRegressionRmse(?float $rmse): self
+    {
+        $this->regressionRmse = $rmse;
+        return $this;
+    }
+
 }

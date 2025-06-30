@@ -22,6 +22,7 @@
         <th style="text-align:left;">Nickname</th>
         <th style="text-align:left;">Device Status</th>
         <th style="text-align:left;">Toggle Connection</th>
+        <th style="text-align:left;">Calibrate</th>
         <th style="text-align:left;">Actions</th>
       </tr>
     </thead>
@@ -61,8 +62,13 @@
             </button>
           </td>
           <td>
-            <a href="{{ path('device_vehicle_edit', { id: vehicle.id }) }}">Edit</a>
+            {% for device in devices %}
+              {% if device.vehicle and device.vehicle.id == vehicle.id %}
+                <a href="{{ path('dashboard_device_calibration', { id: device.id }) }}" data-turbo="false">Calibrate</a>
+              {% endif %}
+            {% endfor %}
           </td>
+          <td><a href="{{ path('device_vehicle_edit', { id: vehicle.id }) }}">Edit</a></td>
         </tr>
       {% endfor %}
     </tbody>
