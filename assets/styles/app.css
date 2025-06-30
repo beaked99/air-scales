@@ -1,3 +1,25 @@
 body {
-    background-color: skyblue;
+  background-color: Canvas;
+  color: CanvasText;
+  color-scheme: light dark;
+}
+.pill-toggle {
+  all: unset;
+  display: inline-block;
+  padding: 4px 12px;
+  border: 1px solid #888;
+  border-radius: 999px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  text-align: center;
+}
+
+.pill-toggle.connected {
+  color: limegreen;
+  border-color: limegreen;
+}
+
+.pill-toggle.disconnected {
+  color: red;
+  border-color: red;
 }

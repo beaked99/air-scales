@@ -28,7 +28,7 @@ class DeviceCrudController extends AbstractCrudController
         return $crud
             ->setEntityLabelInSingular('Device')
             ->setEntityLabelInPlural('Devices')
-            ->setSearchFields(['serial_number', 'mac_address', 'device_type', 'firmware_version', 'tracking_id'])
+            ->setSearchFields(['serialNumber', 'macAddress', 'deviceType', 'firmwareVersion', 'trackingId'])
             ->setDefaultSort(['id' => 'DESC'])
             ->setPaginatorPageSize(25);
     }
@@ -39,20 +39,20 @@ class DeviceCrudController extends AbstractCrudController
             IdField::new('id')
                 ->hideOnForm(),
             
-            TextField::new('serial_number', 'Serial Number')
+            TextField::new('serialNumber', 'Serial Number')
                 ->setRequired(true),
             
-            TextField::new('mac_address', 'MAC Address')
+            TextField::new('macAddress', 'MAC Address')
                 ->setRequired(true)
                 ->setHelp('Format: AA:BB:CC:DD:EE:FF'),
             
-            TextField::new('device_type', 'Device Type')
+            TextField::new('deviceType', 'Device Type')
                 ->setRequired(true),
             
-            TextField::new('firmware_version', 'Firmware Version')
+            TextField::new('firmwareVersion', 'Firmware Version')
                 ->setRequired(true),
             
-            AssociationField::new('sold_to', 'Sold To')
+            AssociationField::new('soldTo', 'Sold To')
                 ->setRequired(false)
                 ->formatValue(function ($value, $entity) {
                     if ($value) {
@@ -61,15 +61,15 @@ class DeviceCrudController extends AbstractCrudController
                     return 'Not Assigned';
                 }),
             
-            DateTimeField::new('order_date', 'Order Date')
+            DateTimeField::new('orderDate', 'Order Date')
                 ->setRequired(false)
                 ->hideOnIndex(),
             
-            DateTimeField::new('ship_date', 'Ship Date')
+            DateTimeField::new('shipDate', 'Ship Date')
                 ->setRequired(false)
                 ->hideOnIndex(),
             
-            TextField::new('tracking_id', 'Tracking ID')
+            TextField::new('trackingId', 'Tracking ID')
                 ->setRequired(false)
                 ->hideOnIndex(),
             
@@ -91,11 +91,11 @@ class DeviceCrudController extends AbstractCrudController
     public function configureFilters(Filters $filters): Filters
     {
         return $filters
-            ->add(TextFilter::new('serial_number', 'Serial Number'))
-            ->add(TextFilter::new('device_type', 'Device Type'))
-            ->add(TextFilter::new('firmware_version', 'Firmware Version'))
-            ->add(EntityFilter::new('sold_to', 'Sold To'))
-            ->add(DateTimeFilter::new('order_date', 'Order Date'))
-            ->add(DateTimeFilter::new('ship_date', 'Ship Date'));
+            ->add(TextFilter::new('serialNumber', 'Serial Number'))
+            ->add(TextFilter::new('deviceType', 'Device Type'))
+            ->add(TextFilter::new('firmwareVersion', 'Firmware Version'))
+            ->add(EntityFilter::new('soldTo', 'Sold To'))
+            ->add(DateTimeFilter::new('orderDate', 'Order Date'))
+            ->add(DateTimeFilter::new('shipDate', 'Ship Date'));
     }
 }

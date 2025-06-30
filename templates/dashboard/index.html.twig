@@ -10,21 +10,26 @@
 {% if vehicles is empty %}
   <p>No vehicles associated with your account.</p>
 {% else %}
+  
   <table style="width:100%; border-collapse: collapse; margin-bottom: 2em;">
     <thead>
       <tr>
-        <th style="text-align:left; border-bottom: 1px solid #ccc;">Year</th>
-        <th style="text-align:left; border-bottom: 1px solid #ccc;">Make</th>
-        <th style="text-align:left; border-bottom: 1px solid #ccc;">Model</th>
-        <th style="text-align:left; border-bottom: 1px solid #ccc;">Axle Group</th>
-        <th style="text-align:left; border-bottom: 1px solid #ccc;">Nickname</th>
-        <th style="text-align:left; border-bottom: 1px solid #ccc;">Device Status</th>
-        <th style="text-align:left; border-bottom: 1px solid #ccc;">Actions</th>
+        <th style="text-align:left;">⇅</th>
+        <th style="text-align:left;">Year</th>
+        <th style="text-align:left;">Make</th>
+        <th style="text-align:left;">Model</th>
+        <th style="text-align:left;">Axle Group</th>
+        <th style="text-align:left;">Nickname</th>
+        <th style="text-align:left;">Device Status</th>
+        <th style="text-align:left;">Toggle Connection</th>
+        <th style="text-align:left;">Actions</th>
       </tr>
     </thead>
-    <tbody>
+    <tbody id="vehicle-list">
       {% for vehicle in vehicles %}
-        <tr>
+        {% set isConnected = connectedMap[vehicle.id] ?? false %}
+        <tr data-id="{{ vehicle.id }}" style="cursor: move;">
+          <td>::</td>
           <td>{{ vehicle.year }}</td>
           <td>{{ vehicle.make }}</td>
           <td>{{ vehicle.model }}</td>
@@ -50,7 +55,14 @@
             {% endfor %}
             {% if not hasDevice %}No device linked{% endif %}
           </td>
-          <td><a href="{{ path('device_vehicle_edit', { id: vehicle.id }) }}">Edit</a></td>
+          <td>
+            <button class="pill-toggle {{ isConnected ? 'connected' : 'disconnected' }}" data-id="{{ vehicle.id }}">
+              {{ isConnected ? 'Disconnect' : 'Connect' }}
+            </button>
+          </td>
+          <td>
+            <a href="{{ path('device_vehicle_edit', { id: vehicle.id }) }}">Edit</a>
+          </td>
         </tr>
       {% endfor %}
     </tbody>
@@ -71,4 +83,65 @@
     {% endfor %}
   </ul>
 {% endif %}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const list = document.getElementById('vehicle-list');
+
+  let dragging;
+
+  list.querySelectorAll('tr').forEach(row => {
+    row.setAttribute('draggable', true);
+
+    row.addEventListener('dragstart', (e) => {
+      dragging = row;
+      e.dataTransfer.effectAllowed = 'move';
+    });
+
+    row.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      const target = e.currentTarget;
+      if (target !== dragging) {
+        const rect = target.getBoundingClientRect();
+        const next = (e.clientY - rect.top) > (rect.height / 2);
+        list.insertBefore(dragging, next ? target.nextSibling : target);
+      }
+    });
+
+    row.addEventListener('drop', () => {
+      const order = Array.from(list.querySelectorAll('tr')).map(row => row.dataset.id);
+      fetch('{{ path('vehicle_sort_user') }}', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Requested-With': 'XMLHttpRequest',
+        },
+        body: JSON.stringify({ order })
+      });
+    });
+  });
+});
+</script>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('.pill-toggle').forEach(button => {
+    button.addEventListener('click', () => {
+      const vehicleId = button.dataset.id;
+
+      fetch(`/vehicle/${vehicleId}/toggle-connection`, {
+        method: 'POST',
+        headers: {
+          'X-Requested-With': 'XMLHttpRequest'
+        }
+      })
+      .then(res => res.json())
+      .then(data => {
+        button.textContent = data.connected ? 'Disconnect' : 'Connect';
+        button.classList.toggle('connected', data.connected);
+        button.classList.toggle('disconnected', !data.connected);
+      });
+    });
+  });
+});
+
+</script>
 {% endblock %}
