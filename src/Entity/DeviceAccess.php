@@ -17,7 +17,7 @@ class DeviceAccess
     #[ORM\JoinColumn(nullable: false)]
     private ?User $user = null;
 
-    #[ORM\ManyToOne(targetEntity: Device::class)]
+    #[ORM\ManyToOne(targetEntity: Device::class, inversedBy: 'deviceAccesses')]
     #[ORM\JoinColumn(nullable: false)]
     private ?Device $device = null;
 

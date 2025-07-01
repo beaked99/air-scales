@@ -3,6 +3,8 @@ namespace App\Controller;
 
 use App\Entity\Calibration;
 use App\Entity\Device;
+use App\Entity\DeviceAccess;
+use App\Entity\User;
 use App\Form\CalibrationType;
 use App\Service\DeviceCalibrationRegressor;
 use Doctrine\ORM\EntityManagerInterface;
@@ -25,6 +27,24 @@ class CalibrationDashboardController extends AbstractController
     public function calibrate(Device $device, Request $request): Response
     {
         $user = $this->getUser();
+        $hasAccess = false;
+
+        // Is this their purchased device?
+        if ($device->getSoldTo() === $user) {
+            $hasAccess = true;
+        }
+
+        // Did they ever connect to it?
+        foreach ($device->getDeviceAccesses() as $access) {
+            if ($access->getUser() === $user && $access->isActive()) {
+                $hasAccess = true;
+                break;
+            }
+        }
+
+        if (!$hasAccess) {
+            throw $this->createAccessDeniedException("FFS bro. You do not have permission to calibrate or see this device.");
+        }
 
         $calibration = new Calibration();
         $calibration->setDevice($device);

@@ -79,10 +79,14 @@ class Device
     #[ORM\Column(type: 'float', nullable: true)]
     private ?float $regressionRmse = null;
 
+    #[ORM\OneToMany(mappedBy: 'device', targetEntity: DeviceAccess::class)]
+    private Collection $deviceAccesses;
+
     public function __construct()
     {
         $this->calibrations = new ArrayCollection();
         $this->microData = new ArrayCollection();
+        $this->deviceAccesses = new ArrayCollection();
     }
 
     public function getId(): ?int
@@ -325,5 +329,11 @@ class Device
         $this->regressionRmse = $rmse;
         return $this;
     }
+
+    public function getDeviceAccesses(): Collection
+    {
+        return $this->deviceAccesses;
+    }
+
 
 }

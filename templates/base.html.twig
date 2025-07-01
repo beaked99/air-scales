@@ -3,9 +3,25 @@
     <head>
         <meta charset="UTF-8">
         <title>{% block title %}Welcome!{% endblock %}</title>
-        <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 128 128%22><text y=%221.2em%22 font-size=%2296%22>⚫️</text><text y=%221.3em%22 x=%220.2em%22 font-size=%2276%22 fill=%22%23fff%22>sf</text></svg>">
-        {% block stylesheets %}
-        {% endblock %}
+
+        <link rel="manifest" href="/pwa/manifest.json">
+        <link rel="icon" href="/pwa/icon-192.png">
+        <link rel="apple-touch-icon" href="/pwa/icon-192.png">
+        <meta name="theme-color" content="#1f7a1f">
+        <meta name="mobile-web-app-capable" content="yes">
+        <meta name="apple-mobile-web-app-capable" content="yes">
+        <link rel="icon" href="/pwa/icon-192.png">
+
+
+        <script>
+          if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/pwa/sw.js')
+              .then(reg => console.log('Service Worker registered', reg))
+              .catch(err => console.error('Service Worker registration failed:', err));
+          }
+        </script>
+
+        {% block stylesheets %}{% endblock %}
 
         {% block javascripts %}
             {% block importmap %}{{ importmap('app') }}{% endblock %}

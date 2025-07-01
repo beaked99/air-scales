@@ -73,9 +73,10 @@ class MicroDataController extends AbstractController
             ->getQuery()
             ->getOneOrNullResult();
 
-        if (!$latest || $latest->getTimestamp() < new \DateTimeImmutable('-20 minutes')) {
+        /*if (!$latest || $latest->getTimestamp() < new \DateTimeImmutable('-20 minutes')) {
             return new JsonResponse(null);
         }
+        */
 
         return new JsonResponse([
             'ambient' => $latest->getAtmosphericPressure(),

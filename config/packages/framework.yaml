@@ -8,6 +8,9 @@ framework:
         handler_id: null
         cookie_secure: auto
         cookie_samesite: lax
+        cookie_domain: null  # Allow any domain
+    trusted_proxies: '127.0.0.1'
+    trusted_headers: ['x-forwarded-for', 'x-forwarded-host', 'x-forwarded-proto', 'x-forwarded-port']
 
     #esi: true
     #fragments: true
