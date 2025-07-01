@@ -39,7 +39,7 @@ class Device
     #[ORM\Column(length: 64, nullable: true)]
     private ?string $firmwareVersion = null;
 
-    #[ORM\ManyToOne(targetEntity: User::class)]
+    #[ORM\ManyToOne(targetEntity: User::class, inversedBy: 'devices')]
     #[ORM\JoinColumn(name: "sold_to_id", referencedColumnName: "id", nullable: true)]
     private ?User $soldTo = null;
 

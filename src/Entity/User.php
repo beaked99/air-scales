@@ -48,7 +48,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column(length: 255, nullable: true)]
     private ?string $stripe_customer_id = null;
 
-    #[ORM\OneToMany(targetEntity: Device::class, mappedBy: 'sold_to')]
+    #[ORM\OneToMany(targetEntity: Device::class, mappedBy: 'soldTo')]
     private Collection $devices;
 
     #[ORM\OneToMany(targetEntity: Vehicle::class, mappedBy: 'created_by')]
