@@ -11,55 +11,40 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\Annotation\Route;
 
+use Psr\Log\LoggerInterface;
+
 class MicroDataController extends AbstractController
 {
     #[Route('/api/microdata', name: 'api_microdata', methods: ['POST'])]
-    
-    public function receive(
-        Request $request,
-        EntityManagerInterface $em,
-        DeviceRepository $deviceRepository
-    ): JsonResponse {
-        $data = json_decode($request->getContent(), true);
-        if ($data === null) {
-            return new JsonResponse(['error' => 'Invalid fkn JSON'], 400);
-        }
+public function post(Request $request, LoggerInterface $logger): JsonResponse
+{
+    $raw = $request->getContent();
+    $logger->info('Received /api/microdata POST', ['body' => $raw]);
 
-        // Check for required fields
-        $requiredFields = [
-            'mac_address', 'main_air_pressure', 'atmospheric_pressure', 'temperature',
-            'elevation', 'gps_lat', 'gps_lng', 'weight', 'timestamp'
-        ];
-
-        foreach ($requiredFields as $field) {
-            if (!isset($data[$field])) {
-                return new JsonResponse(['error' => "Missing field: $field"], 400);
-            }
-        }
-
-        // Find device by MAC Address
-        $device = $deviceRepository->findOneBy(['mac_address' => $data['mac_address']]);
-        if (!$device) {
-            return new JsonResponse(['error' => 'Device not registered'], 404);
-        }
-        // Create and populate MicroData entity
-        $microData = new MicroData();
-        $microData->setDevice($device);
-        $microData->setMacAddress($data['mac_address']);
-        $microData->setMainAirPressure((float) $data['main_air_pressure']);
-        $microData->setAtmosphericPressure((float) $data['atmospheric_pressure']);
-        $microData->setTemperature((float) $data['temperature']);
-        $microData->setElevation((float) $data['elevation']);
-        $microData->setGpsLat((float) $data['gps_lat']);
-        $microData->setGpsLng((float) $data['gps_lng']);
-        $microData->setWeight((float) $data['weight']);
-        $microData->setTimestamp(new \DateTime($data['timestamp']));
-
-        $em->persist($microData);
-        $em->flush();
-
-        return new JsonResponse(['status' => 'success']);
+    $data = json_decode($raw, true);
+    if ($data === null) {
+        $logger->error('Invalid JSON received');
+        return new JsonResponse(['error' => 'Invalid JSON'], 400);
     }
+
+    // TEMP: Log the parsed data to ensure all fields are present
+    $logger->info('Parsed data', $data);
+
+    $requiredFields = [
+        'mac_address', 'main_air_pressure', 'atmospheric_pressure', 'temperature',
+        'elevation', 'gps_lat', 'gps_lng', 'weight', 'timestamp'
+    ];
+
+    foreach ($requiredFields as $field) {
+        if (!array_key_exists($field, $data)) {
+            $logger->error("Missing required field: $field");
+            return new JsonResponse(['error' => "Missing field: $field"], 400);
+        }
+    }
+
+    // Continue your data processing...
+    return new JsonResponse(['success' => true]);
+}
     #[Route('/api/microdata/{mac}/latest', name: 'api_microdata_latest', methods: ['GET'])]
     public function latestAmbient(
         string $mac,
