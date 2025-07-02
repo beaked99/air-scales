@@ -43,9 +43,8 @@ class MicroDataController extends AbstractController
         if (!$device) {
             $device = new \App\Entity\Device();
             $device->setMacAddress($data['mac_address']);
-            $device->setName('Auto-registered ESP32');
-            $device->setCreatedAt(new \DateTimeImmutable());
             $em->persist($device);
+            $em->flush(); 
         }
 
         // 📝 Save the microdata
