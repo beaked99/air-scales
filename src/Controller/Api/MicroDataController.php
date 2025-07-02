@@ -18,6 +18,7 @@ class MicroDataController extends AbstractController
     #[Route('/api/microdata', name: 'api_microdata', methods: ['POST'])]
 public function post(Request $request, LoggerInterface $logger): JsonResponse
 {
+    dd('fuck this');
     file_put_contents('/tmp/microdata.log', $request->getContent() . "\n", FILE_APPEND);
     return new JsonResponse(['success' => true]);
     
