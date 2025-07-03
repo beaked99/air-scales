@@ -5,38 +5,54 @@
 {% block title %}Your Dashboard{% endblock %}
 
 {% block body %}
-<h1>Vehicles / Trailers</h1>
+<!-- PWA Status Indicator -->
+<div id="pwa-status" class="pwa-status-bar" style="background: #22c55e; color: #1a1a1a; padding: 8px; text-align: center; display: none; font-weight: 500;">
+  <span id="status-text">Online</span>
+  <span id="sync-indicator" style="display: none;">⟳ Syncing...</span>
+</div>
+
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5em;">
+  <h1 style="color: #f8fafc; margin: 0;">Vehicles / Trailers</h1>
+  <button id="add-device-btn" style="background: #3b82f6; color: white; padding: 10px 18px; border: none; border-radius: 6px; cursor: pointer; font-weight: 500; transition: background 0.2s;">
+    + Add New Device
+  </button>
+</div>
 
 {% if vehicles is empty %}
-  <p>No vehicles associated with your account.</p>
+  <div style="text-align: center; padding: 3em; background: #1e293b; border: 1px solid #334155; border-radius: 12px;">
+    <p style="color: #cbd5e1; font-size: 1.1em; margin-bottom: 1.5em;">No vehicles associated with your account.</p>
+    <button id="setup-first-device" style="background: #22c55e; color: #1a1a1a; padding: 14px 28px; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 1em; transition: all 0.2s;">
+      Setup Your First Device
+    </button>
+  </div>
 {% else %}
   
-  <table style="width:100%; border-collapse: collapse; margin-bottom: 2em;">
+  <table style="width:100%; border-collapse: collapse; margin-bottom: 2em; border: 1px solid #374151; background: #1e293b; border-radius: 8px; overflow: hidden;">
     <thead>
-      <tr>
-        <th style="text-align:left;">⇅</th>
-        <th style="text-align:left;">Year</th>
-        <th style="text-align:left;">Make</th>
-        <th style="text-align:left;">Model</th>
-        <th style="text-align:left;">Axle Group</th>
-        <th style="text-align:left;">Nickname</th>
-        <th style="text-align:left;">Device Status</th>
-        <th style="text-align:left;">Toggle Connection</th>
-        <th style="text-align:left;">Calibrate</th>
-        <th style="text-align:left;">Actions</th>
+      <tr style="background: #374151;">
+        <th style="text-align:left; padding: 16px; border-bottom: 1px solid #4b5563; color: #f1f5f9; font-weight: 600;">⇅</th>
+        <th style="text-align:left; padding: 16px; border-bottom: 1px solid #4b5563; color: #f1f5f9; font-weight: 600;">Year</th>
+        <th style="text-align:left; padding: 16px; border-bottom: 1px solid #4b5563; color: #f1f5f9; font-weight: 600;">Make</th>
+        <th style="text-align:left; padding: 16px; border-bottom: 1px solid #4b5563; color: #f1f5f9; font-weight: 600;">Model</th>
+        <th style="text-align:left; padding: 16px; border-bottom: 1px solid #4b5563; color: #f1f5f9; font-weight: 600;">Axle Group</th>
+        <th style="text-align:left; padding: 16px; border-bottom: 1px solid #4b5563; color: #f1f5f9; font-weight: 600;">Nickname</th>
+        <th style="text-align:left; padding: 16px; border-bottom: 1px solid #4b5563; color: #f1f5f9; font-weight: 600;">Device Status</th>
+        <th style="text-align:left; padding: 16px; border-bottom: 1px solid #4b5563; color: #f1f5f9; font-weight: 600;">Connection</th>
+        <th style="text-align:left; padding: 16px; border-bottom: 1px solid #4b5563; color: #f1f5f9; font-weight: 600;">Calibrate</th>
+        <th style="text-align:left; padding: 16px; border-bottom: 1px solid #4b5563; color: #f1f5f9; font-weight: 600;">Actions</th>
       </tr>
     </thead>
     <tbody id="vehicle-list">
       {% for vehicle in vehicles %}
         {% set isConnected = connectedMap[vehicle.id] ?? false %}
-        <tr data-id="{{ vehicle.id }}" style="cursor: move;">
-          <td>::</td>
-          <td>{{ vehicle.year }}</td>
-          <td>{{ vehicle.make }}</td>
-          <td>{{ vehicle.model }}</td>
-          <td>{{ vehicle.axleGroup ? vehicle.axleGroup.label : '—' }}</td>
-          <td>{{ vehicle.nickname ?: '—' }}</td>
-          <td>
+        <tr data-id="{{ vehicle.id }}" style="cursor: move; border-bottom: 1px solid #374151; transition: background 0.2s;" onmouseover="this.style.background='#334155'" onmouseout="this.style.background='transparent'">
+          <td style="padding: 16px; color: #94a3b8;">::</td>
+          <td style="padding: 16px; color: #e2e8f0;">{{ vehicle.year }}</td>
+          <td style="padding: 16px; color: #e2e8f0;">{{ vehicle.make }}</td>
+          <td style="padding: 16px; color: #e2e8f0;">{{ vehicle.model }}</td>
+          <td style="padding: 16px; color: #e2e8f0;">{{ vehicle.axleGroup ? vehicle.axleGroup.label : '—' }}</td>
+          <td style="padding: 16px; color: #e2e8f0;">{{ vehicle.nickname ?: '—' }}</td>
+          <td style="padding: 16px;">
             {% set hasDevice = false %}
             {% for device in devices %}
               {% if device.vehicle and device.vehicle.id == vehicle.id %}
@@ -48,52 +64,180 @@
                   {% endif %}
                 {% endfor %}
                 {% if access %}
-                  Last connected: {{ access.lastConnectedAt|date('Y-m-d H:i') }}
+                  <span style="color: #22c55e; font-weight: 500;">● Connected</span><br>
+                  <small style="color: #94a3b8;">{{ access.lastConnectedAt|date('M j, H:i') }}</small>
                 {% else %}
-                  Purchased, not connected
+                  <span style="color: #f59e0b; font-weight: 500;">● Purchased</span><br>
+                  <small style="color: #94a3b8;">Not connected</small>
                 {% endif %}
               {% endif %}
             {% endfor %}
-            {% if not hasDevice %}No device linked{% endif %}
+            {% if not hasDevice %}
+              <span style="color: #ef4444; font-weight: 500;">● No device</span>
+            {% endif %}
           </td>
-          <td>
-            <button class="pill-toggle {{ isConnected ? 'connected' : 'disconnected' }}" data-id="{{ vehicle.id }}">
+          <td style="padding: 16px;">
+            <button class="pill-toggle {{ isConnected ? 'connected' : 'disconnected' }}" 
+                    data-id="{{ vehicle.id }}"
+                    style="padding: 8px 16px; border: none; border-radius: 24px; cursor: pointer; font-weight: 500; transition: all 0.2s; {{ isConnected ? 'background: #ef4444; color: white;' : 'background: #22c55e; color: #1a1a1a;' }}">
               {{ isConnected ? 'Disconnect' : 'Connect' }}
             </button>
           </td>
-          <td>
+          <td style="padding: 16px;">
             {% for device in devices %}
               {% if device.vehicle and device.vehicle.id == vehicle.id %}
-                <a href="{{ path('dashboard_device_calibration', { id: device.id }) }}" data-turbo="false">Calibrate</a>
+                <a href="{{ path('dashboard_device_calibration', { id: device.id }) }}" 
+                   data-turbo="false"
+                   style="color: #3b82f6; text-decoration: none; font-weight: 500; transition: color 0.2s;"
+                   onmouseover="this.style.color='#60a5fa'" onmouseout="this.style.color='#3b82f6'">Calibrate</a>
               {% endif %}
             {% endfor %}
           </td>
-          <td><a href="{{ path('device_vehicle_edit', { id: vehicle.id }) }}">Edit</a></td>
+          <td style="padding: 16px;">
+            <a href="{{ path('device_vehicle_edit', { id: vehicle.id }) }}" 
+               style="color: #3b82f6; text-decoration: none; font-weight: 500; transition: color 0.2s;"
+               onmouseover="this.style.color='#60a5fa'" onmouseout="this.style.color='#3b82f6'">Edit</a>
+          </td>
         </tr>
       {% endfor %}
     </tbody>
   </table>
 {% endif %}
 
-<h2>Unconfigured Devices</h2>
+<h2 style="color: #f8fafc; margin: 2em 0 1em 0;">Unconfigured Devices</h2>
 {% set unconfigured = devices|filter(device => not device.vehicle) %}
 {% if unconfigured is empty %}
-  <p>All devices have been configured.</p>
+  <p style="color: #22c55e; font-weight: 500;">✓ All devices have been configured.</p>
 {% else %}
-  <ul>
-    {% for device in unconfigured %}
-      <li>
-        <strong>MAC:</strong> {{ device.macAddress }} - Purchased but not configured
-        <a href="{{ path('device_configure', { id: device.id }) }}">Configure</a>
-      </li>
-    {% endfor %}
-  </ul>
+  <div style="background: #1e293b; border: 1px solid #f59e0b; border-radius: 8px; padding: 1.5em; margin: 1em 0;">
+    <strong style="color: #f59e0b; font-size: 1.1em;">⚠️ Devices Pending Configuration:</strong>
+    <ul style="margin: 1em 0 0 0; padding-left: 1.5em;">
+      {% for device in unconfigured %}
+        <li style="margin: 0.75em 0; color: #cbd5e1;">
+          <strong style="color: #f1f5f9;">MAC:</strong> {{ device.macAddress }} - <span style="color: #94a3b8;">Purchased but not configured</span>
+          <button onclick="configureDevice('{{ device.id }}')" 
+                  style="background: #22c55e; color: #1a1a1a; padding: 6px 12px; border: none; border-radius: 6px; cursor: pointer; margin-left: 12px; font-weight: 500; transition: background 0.2s;">
+            Configure Now
+          </button>
+        </li>
+      {% endfor %}
+    </ul>
+  </div>
 {% endif %}
 
+<!-- Offline Data Indicator -->
+<div id="offline-data-indicator" style="display: none; background: #1e293b; border: 1px solid #3b82f6; border-radius: 8px; padding: 1.5em; margin: 1em 0;">
+  <strong style="color: #3b82f6; font-size: 1.1em;">📱 Offline Data Available</strong>
+  <p style="color: #cbd5e1; margin: 0.5em 0;">You have <span id="offline-count" style="color: #f1f5f9; font-weight: 600;">0</span> sensor readings cached offline.</p>
+  <button id="sync-offline-data" style="background: #3b82f6; color: white; padding: 10px 18px; border: none; border-radius: 6px; cursor: pointer; font-weight: 500; transition: background 0.2s;">
+    Sync Now
+  </button>
+</div>
 
 <script>
+// Enhanced dashboard functionality for PWA
 document.addEventListener('DOMContentLoaded', () => {
+  initializePWAFeatures();
+  initializeDragAndDrop();
+  initializeConnectionToggles();
+});
+
+function initializePWAFeatures() {
+  // Check if running as PWA
+  const isPWA = window.matchMedia('(display-mode: standalone)').matches || 
+                window.navigator.standalone || 
+                document.referrer.includes('android-app://');
+  
+  if (isPWA) {
+    document.body.classList.add('pwa-mode');
+  }
+  
+  // Online/Offline status
+  const statusBar = document.getElementById('pwa-status');
+  const statusText = document.getElementById('status-text');
+  const syncIndicator = document.getElementById('sync-indicator');
+  
+  function updateNetworkStatus() {
+    if (navigator.onLine) {
+      statusBar.style.background = '#22c55e';
+      statusBar.style.color = '#1a1a1a';
+      statusText.textContent = 'Online';
+      statusBar.style.display = 'block';
+      checkOfflineData();
+    } else {
+      statusBar.style.background = '#f59e0b';
+      statusBar.style.color = '#1a1a1a';
+      statusText.textContent = 'Offline Mode';
+      statusBar.style.display = 'block';
+    }
+  }
+  
+  window.addEventListener('online', updateNetworkStatus);
+  window.addEventListener('offline', updateNetworkStatus);
+  updateNetworkStatus();
+  
+  // Add device button handlers
+  document.getElementById('add-device-btn')?.addEventListener('click', () => {
+    window.location.href = '/setup-device';
+  });
+  
+  document.getElementById('setup-first-device')?.addEventListener('click', () => {
+    window.location.href = '/setup-device';
+  });
+  
+  // Sync offline data
+  document.getElementById('sync-offline-data')?.addEventListener('click', async () => {
+    syncIndicator.style.display = 'inline';
+    
+    if ('serviceWorker' in navigator && 'sync' in window.ServiceWorkerRegistration.prototype) {
+      const registration = await navigator.serviceWorker.ready;
+      await registration.sync.register('upload-sensor-data');
+    }
+    
+    setTimeout(() => {
+      syncIndicator.style.display = 'none';
+      checkOfflineData();
+    }, 2000);
+  });
+}
+
+async function checkOfflineData() {
+  // Check for cached offline data
+  try {
+    const request = indexedDB.open('air-scales-data', 1);
+    request.onsuccess = () => {
+      const db = request.result;
+      if (db.objectStoreNames.contains('sensor-data')) {
+        const transaction = db.transaction(['sensor-data'], 'readonly');
+        const store = transaction.objectStore('sensor-data');
+        const countRequest = store.count();
+        
+        countRequest.onsuccess = () => {
+          const count = countRequest.result;
+          const indicator = document.getElementById('offline-data-indicator');
+          const countSpan = document.getElementById('offline-count');
+          
+          if (count > 0) {
+            countSpan.textContent = count;
+            indicator.style.display = 'block';
+          } else {
+            indicator.style.display = 'none';
+          }
+        };
+      }
+    };
+  } catch (error) {
+    console.log('IndexedDB not available:', error);
+  }
+}
+
+function configureDevice(deviceId) {
+  window.location.href = `/setup-device?device_id=${deviceId}`;
+}
+
+function initializeDragAndDrop() {
   const list = document.getElementById('vehicle-list');
+  if (!list) return;
 
   let dragging;
 
@@ -103,6 +247,11 @@ document.addEventListener('DOMContentLoaded', () => {
     row.addEventListener('dragstart', (e) => {
       dragging = row;
       e.dataTransfer.effectAllowed = 'move';
+      row.style.opacity = '0.5';
+    });
+
+    row.addEventListener('dragend', () => {
+      row.style.opacity = '1';
     });
 
     row.addEventListener('dragover', (e) => {
@@ -124,32 +273,144 @@ document.addEventListener('DOMContentLoaded', () => {
           'X-Requested-With': 'XMLHttpRequest',
         },
         body: JSON.stringify({ order })
+      }).catch(() => {
+        // Store order change for offline sync
+        localStorage.setItem('pending_vehicle_order', JSON.stringify(order));
       });
     });
   });
-});
-</script>
-<script>
-document.addEventListener('DOMContentLoaded', () => {
-  document.querySelectorAll('.pill-toggle').forEach(button => {
-    button.addEventListener('click', () => {
-      const vehicleId = button.dataset.id;
+}
 
-      fetch(`/vehicle/${vehicleId}/toggle-connection`, {
-        method: 'POST',
-        headers: {
-          'X-Requested-With': 'XMLHttpRequest'
-        }
-      })
-      .then(res => res.json())
-      .then(data => {
+function initializeConnectionToggles() {
+  document.querySelectorAll('.pill-toggle').forEach(button => {
+    button.addEventListener('click', async () => {
+      const vehicleId = button.dataset.id;
+      const originalText = button.textContent;
+      
+      button.textContent = 'Connecting...';
+      button.disabled = true;
+
+      try {
+        const response = await fetch(`/vehicle/${vehicleId}/toggle-connection`, {
+          method: 'POST',
+          headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+          }
+        });
+        
+        const data = await response.json();
         button.textContent = data.connected ? 'Disconnect' : 'Connect';
+        button.style.background = data.connected ? '#ef4444' : '#22c55e';
+        button.style.color = data.connected ? 'white' : '#1a1a1a';
         button.classList.toggle('connected', data.connected);
         button.classList.toggle('disconnected', !data.connected);
-      });
+      } catch (error) {
+        console.error('Connection toggle failed:', error);
+        button.textContent = originalText;
+        // Could store this action for offline sync
+      } finally {
+        button.disabled = false;
+      }
     });
   });
-});
-
+}
 </script>
+
+<style>
+body {
+  background: #0f172a;
+  color: #e2e8f0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+  margin: 0;
+  padding: 20px;
+}
+
+.pwa-mode {
+  /* PWA-specific dark mode enhancements */
+}
+
+#add-device-btn:hover {
+  background: #2563eb !important;
+  transform: translateY(-1px);
+}
+
+#setup-first-device:hover {
+  background: #16a34a !important;
+  transform: translateY(-1px);
+}
+
+.pill-toggle:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+#sync-offline-data:hover {
+  background: #2563eb !important;
+}
+
+button[onclick*="configureDevice"]:hover {
+  background: #16a34a !important;
+}
+
+@media (max-width: 768px) {
+  body {
+    padding: 12px;
+  }
+  
+  table {
+    font-size: 0.9em;
+  }
+  
+  th, td {
+    padding: 12px !important;
+  }
+  
+  .pill-toggle {
+    font-size: 0.85em;
+    padding: 6px 12px !important;
+  }
+  
+  #add-device-btn {
+    padding: 8px 14px !important;
+    font-size: 0.9em;
+  }
+}
+
+@media (max-width: 480px) {
+  table, thead, tbody, th, td, tr {
+    display: block;
+  }
+  
+  thead tr {
+    position: absolute;
+    top: -9999px;
+    left: -9999px;
+  }
+  
+  tr {
+    border: 1px solid #374151;
+    border-radius: 8px;
+    margin-bottom: 1em;
+    padding: 1em;
+    background: #1e293b;
+  }
+  
+  td {
+    border: none;
+    position: relative;
+    padding: 8px 8px 8px 35% !important;
+  }
+  
+  td:before {
+    content: attr(data-label);
+    position: absolute;
+    left: 6px;
+    width: 30%;
+    padding-right: 10px;
+    white-space: nowrap;
+    color: #94a3b8;
+    font-weight: 600;
+  }
+}
+</style>
 {% endblock %}
