@@ -14,15 +14,21 @@ function initializeWebSocket() {
 }
 
 function initializeWebSocket() {
-  // Check if we're in AP mode (connected to ESP32 directly)
-  if (isConnectedToESP32Network()) {
+  // Force AP mode detection when we're clearly in ESP32 AP network
+  const currentHost = window.location.hostname;
+  
+  if (currentHost === '192.168.4.1' || currentHost === 'localhost' || currentHost === '') {
+    console.log('🔌 Detected direct ESP32 connection - forcing AP mode');
+    connectToESP32sInAPMode();
+  } else if (isConnectedToESP32Network()) {
+    console.log('🔌 Detected ESP32 AP network environment');
     connectToESP32sInAPMode();
   } else {
-    // Online mode - connect through your WiFi network
+    console.log('🌐 Detected online mode - scanning for ESP32s');
     connectToESP32sOnline();
   }
   
-  // Start data sync to beaker.ca every minute
+  // Start data sync to beaker.ca every minute (only works when online)
   startDataSync();
   
   updateConnectionStatus();
@@ -30,22 +36,92 @@ function initializeWebSocket() {
 
 function isConnectedToESP32Network() {
   // Check if connected to ESP32 AP network
-  // This is a heuristic - you might need to adjust based on your ESP32 AP naming
-  const userAgent = navigator.userAgent;
-  const connection = navigator.connection;
+  const currentURL = window.location.hostname;
   
-  // In AP mode, we typically have limited connectivity
-  return !navigator.onLine || 
-         (connection && connection.effectiveType === 'slow-2g') ||
-         window.location.hostname === '192.168.4.1';
+  // Direct connection to ESP32
+  if (currentURL === '192.168.4.1') {
+    return true;
+  }
+  
+  // Check if we're on a limited network (AP mode indicators)
+  if (!navigator.onLine) {
+    return true; // Likely in AP mode if showing as offline
+  }
+  
+  // Check if we can't reach beaker.ca (indicating AP mode)
+  if (window.location.hostname === 'beaker.ca' || window.location.hostname.includes('beaker')) {
+    return false; // We're on the real beaker.ca
+  }
+  
+  // Additional heuristics for AP mode detection
+  const connection = navigator.connection;
+  if (connection && (connection.effectiveType === 'slow-2g' || connection.downlink < 1)) {
+    return true; // Very slow connection suggests AP mode
+  }
+  
+  return false;
 }
 
 function connectToESP32sInAPMode() {
-  console.log('Connecting to ESP32s in AP mode...');
+  console.log('🔌 Connecting to ESP32 in AP mode...');
   
-  // In AP mode, ESP32 is typically at 192.168.4.1
+  // In AP mode, ESP32 is at 192.168.4.1
   const esp32IP = '192.168.4.1';
-  connectToSingleESP32(esp32IP, 'AP_MODE_DEVICE');
+  
+  // Update status to show we're trying to connect
+  updateConnectionStatus();
+  
+  // Try to connect directly to ESP32
+  connectToSingleESP32(esp32IP, 'AP_MODE_DEVICE', 'ESP32 AP Mode');
+  
+  // Also try to load the ESP32's web interface data
+  loadESP32StatusData(esp32IP);
+}
+
+async function loadESP32StatusData(ip) {
+  try {
+    console.log(`📡 Loading status data from ESP32 at ${ip}...`);
+    
+    // Try to get current sensor data
+    const dataResponse = await fetch(`http://${ip}/data`, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json'
+      }
+    });
+    
+    if (dataResponse.ok) {
+      const data = await dataResponse.json();
+      console.log('✅ Loaded ESP32 sensor data:', data);
+      
+      // Store the data as if it came from WebSocket
+      sensorData.set(data.mac_address, {
+        ...data,
+        device_name: 'ESP32 AP Mode',
+        ip_address: ip,
+        timestamp: new Date(),
+        connected: true
+      });
+      
+      updateSensorDataTable();
+    }
+    
+    // Try to get device status
+    const statusResponse = await fetch(`http://${ip}/status`, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json'
+      }
+    });
+    
+    if (statusResponse.ok) {
+      const status = await statusResponse.json();
+      console.log('✅ Loaded ESP32 status:', status);
+    }
+    
+  } catch (error) {
+    console.log('⚠️ Could not load ESP32 HTTP data (WebSocket should still work):', error);
+  }
 }
 
 function connectToESP32sOnline() {
@@ -292,6 +368,18 @@ function startDataSync() {
 }
 
 async function syncDataToBeaker() {
+  // Only try to sync if we're actually online and can reach beaker.ca
+  if (!navigator.onLine) {
+    console.log('📴 Offline - skipping data sync');
+    return;
+  }
+  
+  // Don't try to sync when connected to ESP32 AP mode
+  if (isConnectedToESP32Network()) {
+    console.log('📡 In AP mode - skipping beaker.ca sync');
+    return;
+  }
+  
   try {
     console.log('🔄 Starting data sync to beaker.ca...');
     
@@ -760,7 +848,10 @@ function initializePWAFeatures() {
     document.body.classList.add('pwa-mode');
   }
   
-  // Initialize WebSocket connection for live sensor data
+  // Detect current network mode and adapt accordingly
+  detectNetworkModeAndAdapt();
+  
+  // Initialize WebSocket connection based on detected mode
   initializeWebSocket();
   
   // Online/Offline status
@@ -768,20 +859,211 @@ function initializePWAFeatures() {
   const statusText = document.getElementById('status-text');
   const syncIndicator = document.getElementById('sync-indicator');
   
-  function updateNetworkStatus() {
-    if (navigator.onLine) {
-      statusBar.style.background = '#22c55e';
-      statusBar.style.color = '#1a1a1a';
-      statusText.textContent = 'Online';
-      statusBar.style.display = 'block';
-      checkOfflineData();
-    } else {
-      statusBar.style.background = '#f59e0b';
-      statusBar.style.color = '#1a1a1a';
-      statusText.textContent = 'Offline Mode';
-      statusBar.style.display = 'block';
+  async function detectNetworkModeAndAdapt() {
+  console.log('🔍 Detecting network mode...');
+  
+  const currentHost = window.location.hostname;
+  console.log('Current hostname:', currentHost);
+  
+  // Method 1: Direct ESP32 IP detection
+  if (currentHost === '192.168.4.1') {
+    console.log('✅ Detected: Direct ESP32 AP connection');
+    adaptToAPMode();
+    return 'ap_direct';
+  }
+  
+  // Method 2: Test ESP32 availability
+  const esp32Available = await testESP32Availability();
+  if (esp32Available) {
+    console.log('✅ Detected: ESP32 AP network (can reach 192.168.4.1)');
+    adaptToAPMode();
+    return 'ap_network';
+  }
+  
+  // Method 3: Test beaker.ca availability
+  const beakerAvailable = await testBeakerAvailability();
+  if (beakerAvailable) {
+    console.log('✅ Detected: Online mode (can reach beaker.ca)');
+    adaptToOnlineMode();
+    return 'online';
+  }
+  
+  // Method 4: Check network characteristics
+  const networkInfo = getNetworkCharacteristics();
+  if (networkInfo.likelyAPMode) {
+    console.log('✅ Detected: Likely AP mode (limited connectivity)');
+    adaptToAPMode();
+    return 'ap_likely';
+  }
+  
+  console.log('⚠️ Unknown network mode, defaulting to online');
+  adaptToOnlineMode();
+  return 'unknown';
+}
+
+async function testESP32Availability() {
+  try {
+    console.log('🔍 Testing ESP32 availability...');
+    
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 3000); // 3 second timeout
+    
+    const response = await fetch('http://192.168.4.1/status', {
+      method: 'GET',
+      signal: controller.signal,
+      mode: 'cors'
+    });
+    
+    clearTimeout(timeoutId);
+    
+    if (response.ok) {
+      const data = await response.json();
+      console.log('✅ ESP32 responded:', data);
+      return true;
+    }
+    
+    return false;
+  } catch (error) {
+    console.log('❌ ESP32 not available:', error.message);
+    return false;
+  }
+}
+
+async function testBeakerAvailability() {
+  try {
+    console.log('🔍 Testing beaker.ca availability...');
+    
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+    
+    const response = await fetch('https://beaker.ca/api/status', {
+      method: 'GET',
+      signal: controller.signal
+    });
+    
+    clearTimeout(timeoutId);
+    return response.ok;
+  } catch (error) {
+    console.log('❌ beaker.ca not available:', error.message);
+    return false;
+  }
+}
+
+function getNetworkCharacteristics() {
+  const characteristics = {
+    online: navigator.onLine,
+    connection: navigator.connection,
+    likelyAPMode: false
+  };
+  
+  // Check various indicators of AP mode
+  if (!navigator.onLine) {
+    characteristics.likelyAPMode = true;
+  }
+  
+  if (navigator.connection) {
+    const conn = navigator.connection;
+    
+    // Very slow connection suggests AP mode
+    if (conn.effectiveType === 'slow-2g' || conn.downlink < 1) {
+      characteristics.likelyAPMode = true;
+    }
+    
+    // No internet connection type
+    if (conn.type === 'wifi' && conn.downlink === 0) {
+      characteristics.likelyAPMode = true;
     }
   }
+  
+  console.log('📊 Network characteristics:', characteristics);
+  return characteristics;
+}
+
+function adaptToAPMode() {
+  console.log('🔧 Adapting UI for AP mode...');
+  
+  // Update status bar
+  const statusBar = document.getElementById('pwa-status');
+  const statusText = document.getElementById('status-text');
+  
+  if (statusBar && statusText) {
+    statusBar.style.background = '#f59e0b';
+    statusBar.style.color = '#1a1a1a';
+    statusText.textContent = 'AP Mode - Direct ESP32 Connection';
+    statusBar.style.display = 'block';
+  }
+  
+  // Hide sync-related UI elements
+  const syncButton = document.getElementById('sync-offline-data');
+  const offlineIndicator = document.getElementById('offline-data-indicator');
+  
+  if (syncButton) syncButton.style.display = 'none';
+  if (offlineIndicator) offlineIndicator.style.display = 'none';
+  
+  // Update page title/header to indicate AP mode
+  const mainTitle = document.querySelector('h1');
+  if (mainTitle && !mainTitle.textContent.includes('AP Mode')) {
+    mainTitle.innerHTML = '🏷️ Air Scales <span style="color: #f59e0b; font-size: 0.7em;">(AP Mode)</span>';
+  }
+  
+  // Add AP mode notice
+  addAPModeNotice();
+}
+
+function adaptToOnlineMode() {
+  console.log('🔧 Adapting UI for online mode...');
+  
+  // Update status bar will be handled by normal online/offline detection
+  
+  // Ensure sync UI is visible
+  const syncButton = document.getElementById('sync-offline-data');
+  if (syncButton) syncButton.style.display = 'inline-block';
+  
+  // Update page title to normal
+  const mainTitle = document.querySelector('h1');
+  if (mainTitle) {
+    mainTitle.innerHTML = 'Vehicles / Trailers';
+  }
+  
+  // Remove AP mode notice if present
+  removeAPModeNotice();
+}
+
+function addAPModeNotice() {
+  // Add a notice explaining AP mode
+  if (document.getElementById('ap-mode-notice')) return; // Already exists
+  
+  const notice = document.createElement('div');
+  notice.id = 'ap-mode-notice';
+  notice.style.cssText = `
+    background: #1e293b; 
+    border: 1px solid #f59e0b; 
+    border-radius: 8px; 
+    padding: 1em; 
+    margin: 1em 0; 
+    color: #f59e0b;
+  `;
+  
+  notice.innerHTML = `
+    <strong>📡 Direct ESP32 Connection</strong>
+    <p style="margin: 0.5em 0 0 0; color: #cbd5e1;">
+      Connected directly to ESP32 device. Data sync to beaker.ca will resume when WiFi is available.
+    </p>
+  `;
+  
+  // Insert after the main title
+  const mainTitle = document.querySelector('h1');
+  if (mainTitle && mainTitle.parentNode) {
+    mainTitle.parentNode.insertBefore(notice, mainTitle.nextSibling);
+  }
+}
+
+function removeAPModeNotice() {
+  const notice = document.getElementById('ap-mode-notice');
+  if (notice) {
+    notice.remove();
+  }
+}
   
   window.addEventListener('online', updateNetworkStatus);
   window.addEventListener('offline', updateNetworkStatus);
