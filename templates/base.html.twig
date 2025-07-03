@@ -20,13 +20,13 @@
               .catch(err => console.error('Service Worker registration failed:', err));
           }
         </script>
-        <script src="{{ asset('assets/pwa/index.js') }}" type="module"></script>
 
 
         {% block stylesheets %}{% endblock %}
 
         {% block javascripts %}
             {% block importmap %}{{ importmap('app') }}{% endblock %}
+            <script src="{{ asset('assets/pwa/index.js') }}" type="module"></script>
         {% endblock %}
     </head>
     <body>
