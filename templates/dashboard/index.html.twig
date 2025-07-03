@@ -1,5 +1,214 @@
 {# templates/dashboard/index.html.twig #}
 
+// WebSocket management for live sensor data
+let sensorWebSockets = new Map(); // MAC address -> WebSocket connection
+let sensorData = new Map(); // MAC address -> latest sensor data
+
+function initializeWebSocket() {
+  // For now, simulate connections to ESP32 devices
+  // In production, you'd get the ESP32 IPs from your backend
+  simulateESP32Connections();
+  
+  // Update connection status
+  updateConnectionStatus();
+}
+
+function simulateESP32Connections() {
+  // Simulate 3 ESP32 devices for demo
+  const demoDevices = [
+    { mac: 'AA:BB:CC:DD:EE:01', ip: '192.168.1.101', name: 'Front Axle' },
+    { mac: 'AA:BB:CC:DD:EE:02', ip: '192.168.1.102', name: 'Rear Axle' },
+    { mac: 'AA:BB:CC:DD:EE:03', ip: '192.168.1.103', name: 'Trailer' }
+  ];
+  
+  demoDevices.forEach(device => {
+    simulateDeviceData(device);
+  });
+}
+
+function simulateDeviceData(device) {
+  // Simulate WebSocket data reception
+  const interval = setInterval(() => {
+    const mockData = {
+      mac_address: device.mac,
+      main_air_pressure: (Math.random() * 20 + 100).toFixed(1), // 100-120 psi
+      atmospheric_pressure: (Math.random() * 10 + 101).toFixed(1), // 101-111 kPa
+      temperature: (Math.random() * 40 + 60).toFixed(1), // 60-100°F
+      elevation: Math.floor(Math.random() * 500), // 0-500 ft
+      gps_lat: (49.2827 + (Math.random() - 0.5) * 0.01).toFixed(6),
+      gps_lng: (-123.1207 + (Math.random() - 0.5) * 0.01).toFixed(6),
+      weight: (Math.random() * 200).toFixed(1), // 0-200 lbs
+      device_name: device.name
+    };
+    
+    // Update sensor data
+    sensorData.set(device.mac, {
+      ...mockData,
+      timestamp: new Date(),
+      connected: true
+    });
+    
+    updateSensorDataTable();
+  }, 2000 + Math.random() * 3000); // Update every 2-5 seconds
+  
+  // Store interval for cleanup if needed
+  sensorWebSockets.set(device.mac, interval);
+}
+
+function connectToESP32(ip, macAddress) {
+  // Real WebSocket connection to ESP32
+  const ws = new WebSocket(`ws://${ip}/ws`);
+  
+  ws.onopen = () => {
+    console.log(`Connected to ESP32 at ${ip}`);
+    updateConnectionStatus();
+  };
+  
+  ws.onmessage = (event) => {
+    try {
+      const data = JSON.parse(event.data);
+      sensorData.set(data.mac_address, {
+        ...data,
+        timestamp: new Date(),
+        connected: true
+      });
+      updateSensorDataTable();
+    } catch (error) {
+      console.error('Error parsing sensor data:', error);
+    }
+  };
+  
+  ws.onclose = () => {
+    console.log(`Disconnected from ESP32 at ${ip}`);
+    if (sensorData.has(macAddress)) {
+      const data = sensorData.get(macAddress);
+      data.connected = false;
+      sensorData.set(macAddress, data);
+    }
+    updateSensorDataTable();
+    updateConnectionStatus();
+    
+    // Attempt to reconnect after 5 seconds
+    setTimeout(() => connectToESP32(ip, macAddress), 5000);
+  };
+  
+  ws.onerror = (error) => {
+    console.error(`WebSocket error for ${ip}:`, error);
+  };
+  
+  sensorWebSockets.set(macAddress, ws);
+}
+
+function updateSensorDataTable() {
+  const tbody = document.getElementById('sensor-data-body');
+  const noDataDiv = document.getElementById('no-sensor-data');
+  const totalWeightEl = document.getElementById('total-weight');
+  const deviceCountEl = document.getElementById('device-count');
+  
+  if (sensorData.size === 0) {
+    noDataDiv.style.display = 'block';
+    tbody.innerHTML = '';
+    totalWeightEl.textContent = '0.0 lbs';
+    deviceCountEl.textContent = '0';
+    return;
+  }
+  
+  noDataDiv.style.display = 'none';
+  
+  let totalWeight = 0;
+  let connectedDevices = 0;
+  let html = '';
+  
+  sensorData.forEach((data, mac) => {
+    const weight = parseFloat(data.weight) || 0;
+    totalWeight += weight;
+    
+    if (data.connected) connectedDevices++;
+    
+    const statusColor = data.connected ? '#22c55e' : '#ef4444';
+    const statusText = data.connected ? 'Online' : 'Offline';
+    const timeAgo = getTimeAgo(data.timestamp);
+    
+    html += `
+      <tr style="border-bottom: 1px solid #374151; transition: background 0.2s;" 
+          onmouseover="this.style.background='#334155'" 
+          onmouseout="this.style.background='transparent'">
+        <td style="padding: 16px; color: #e2e8f0;">
+          <div style="font-weight: 600;">${data.device_name || 'Unknown Device'}</div>
+          <div style="font-size: 0.85em; color: #94a3b8;">${mac}</div>
+        </td>
+        <td style="text-align: right; padding: 16px; color: #f1f5f9; font-weight: 700; font-size: 1.1em;">
+          ${weight.toFixed(1)}
+        </td>
+        <td style="text-align: right; padding: 16px; color: #e2e8f0;">
+          ${data.main_air_pressure} psi
+        </td>
+        <td style="text-align: right; padding: 16px; color: #e2e8f0;">
+          ${data.temperature}°F
+        </td>
+        <td style="text-align: center; padding: 16px;">
+          <span style="display: inline-block; padding: 4px 8px; border-radius: 12px; font-size: 0.8em; font-weight: 600; background: ${statusColor}20; color: ${statusColor}; border: 1px solid ${statusColor};">
+            ● ${statusText}
+          </span>
+        </td>
+        <td style="text-align: center; padding: 16px; color: #94a3b8; font-size: 0.9em;">
+          ${timeAgo}
+        </td>
+      </tr>
+    `;
+  });
+  
+  tbody.innerHTML = html;
+  totalWeightEl.textContent = `${totalWeight.toFixed(1)} lbs`;
+  deviceCountEl.textContent = connectedDevices.toString();
+  
+  // Update total weight color based on value
+  if (totalWeight > 1500) {
+    totalWeightEl.style.color = '#ef4444'; // Red for overweight
+  } else if (totalWeight > 1000) {
+    totalWeightEl.style.color = '#f59e0b'; // Yellow for heavy
+  } else {
+    totalWeightEl.style.color = '#22c55e'; // Green for normal
+  }
+}
+
+function updateConnectionStatus() {
+  const statusEl = document.getElementById('connection-status');
+  const connectedCount = Array.from(sensorData.values()).filter(d => d.connected).length;
+  const totalCount = sensorData.size;
+  
+  if (totalCount === 0) {
+    statusEl.style.background = '#374151';
+    statusEl.style.color = '#94a3b8';
+    statusEl.textContent = 'No devices';
+  } else if (connectedCount === totalCount) {
+    statusEl.style.background = '#22c55e20';
+    statusEl.style.color = '#22c55e';
+    statusEl.style.border = '1px solid #22c55e';
+    statusEl.textContent = `${connectedCount}/${totalCount} Connected`;
+  } else if (connectedCount > 0) {
+    statusEl.style.background = '#f59e0b20';
+    statusEl.style.color = '#f59e0b';
+    statusEl.style.border = '1px solid #f59e0b';
+    statusEl.textContent = `${connectedCount}/${totalCount} Connected`;
+  } else {
+    statusEl.style.background = '#ef444420';
+    statusEl.style.color = '#ef4444';
+    statusEl.style.border = '1px solid #ef4444';
+    statusEl.textContent = 'All Offline';
+  }
+}
+
+function getTimeAgo(timestamp) {
+  const now = new Date();
+  const seconds = Math.floor((now - timestamp) / 1000);
+  
+  if (seconds < 60) return `${seconds}s ago`;
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
+  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
+  return `${Math.floor(seconds / 86400)}d ago`;
+}
+
 {% extends 'base.html.twig' %}
 
 {% block title %}Your Dashboard{% endblock %}
@@ -104,6 +313,47 @@
   </table>
 {% endif %}
 
+<!-- Live Sensor Data Section -->
+<div style="display: flex; justify-content: space-between; align-items: center; margin: 2em 0 1em 0;">
+  <h2 style="color: #f8fafc; margin: 0;">Live Sensor Data</h2>
+  <div id="connection-status" style="padding: 6px 12px; border-radius: 20px; font-size: 0.85em; font-weight: 600; background: #374151; color: #94a3b8;">
+    Connecting...
+  </div>
+</div>
+
+<div id="sensor-data-container" style="background: #1e293b; border: 1px solid #374151; border-radius: 12px; overflow: hidden; margin-bottom: 2em;">
+  <table id="sensor-data-table" style="width: 100%; border-collapse: collapse;">
+    <thead>
+      <tr style="background: #374151;">
+        <th style="text-align: left; padding: 16px; color: #f1f5f9; font-weight: 600; border-bottom: 1px solid #4b5563;">Device</th>
+        <th style="text-align: right; padding: 16px; color: #f1f5f9; font-weight: 600; border-bottom: 1px solid #4b5563;">Weight (lbs)</th>
+        <th style="text-align: right; padding: 16px; color: #f1f5f9; font-weight: 600; border-bottom: 1px solid #4b5563;">Air Pressure</th>
+        <th style="text-align: right; padding: 16px; color: #f1f5f9; font-weight: 600; border-bottom: 1px solid #4b5563;">Temperature (°F)</th>
+        <th style="text-align: center; padding: 16px; color: #f1f5f9; font-weight: 600; border-bottom: 1px solid #4b5563;">Status</th>
+        <th style="text-align: center; padding: 16px; color: #f1f5f9; font-weight: 600; border-bottom: 1px solid #4b5563;">Last Update</th>
+      </tr>
+    </thead>
+    <tbody id="sensor-data-body">
+      <!-- Dynamic content will be inserted here -->
+    </tbody>
+    <tfoot>
+      <tr style="background: #334155; border-top: 2px solid #4b5563;">
+        <td style="padding: 16px; color: #f1f5f9; font-weight: 700; font-size: 1.1em;">TOTAL WEIGHT</td>
+        <td id="total-weight" style="text-align: right; padding: 16px; color: #22c55e; font-weight: 700; font-size: 1.2em;">0.0 lbs</td>
+        <td colspan="4" style="padding: 16px; color: #94a3b8; text-align: center; font-style: italic;">
+          <span id="device-count">0</span> devices connected
+        </td>
+      </tr>
+    </tfoot>
+  </table>
+  
+  <div id="no-sensor-data" style="text-align: center; padding: 3em; color: #94a3b8; display: block;">
+    <div style="font-size: 2em; margin-bottom: 0.5em;">📡</div>
+    <p style="margin: 0; font-size: 1.1em;">Waiting for ESP32 connections...</p>
+    <p style="margin: 0.5em 0 0 0; font-size: 0.9em;">Make sure your devices are powered on and connected to WiFi</p>
+  </div>
+</div>
+
 <h2 style="color: #f8fafc; margin: 2em 0 1em 0;">Unconfigured Devices</h2>
 {% set unconfigured = devices|filter(device => not device.vehicle) %}
 {% if unconfigured is empty %}
@@ -151,6 +401,9 @@ function initializePWAFeatures() {
   if (isPWA) {
     document.body.classList.add('pwa-mode');
   }
+  
+  // Initialize WebSocket connection for live sensor data
+  initializeWebSocket();
   
   // Online/Offline status
   const statusBar = document.getElementById('pwa-status');
@@ -376,7 +629,25 @@ button[onclick*="configureDevice"]:hover {
   }
 }
 
-@media (max-width: 480px) {
+  @media (max-width: 480px) {
+    #sensor-data-table th:nth-child(3),
+    #sensor-data-table td:nth-child(3),
+    #sensor-data-table th:nth-child(4),
+    #sensor-data-table td:nth-child(4) {
+      display: none; /* Hide air pressure and temperature on very small screens */
+    }
+  }
+  
+  @media (max-width: 768px) {
+    #sensor-data-table {
+      font-size: 0.9em;
+    }
+    
+    #sensor-data-table th,
+    #sensor-data-table td {
+      padding: 12px 8px !important;
+    }
+  }
   table, thead, tbody, th, td, tr {
     display: block;
   }
