@@ -1,27 +1,26 @@
-// /public/pwa/sw.js - Revised for ESP32 Integration
+// /public/pwa/sw.js - Clean PWA Service Worker
 
 const CACHE_NAME = 'air-scales-v1';
-const BEAKER_API = 'https://beaker.ca/api';
 
-// Cache essential files for offline use
-const STATIC_ASSETS = [
-  '/pwa/offline-dashboard.html',
-  '/pwa/offline-dashboard.js',
-  '/pwa/offline-dashboard.css',
-  '/pwa/setup-instructions.html', // New setup page
+// What to cache for offline use
+const STATIC_FILES = [
+  '/dashboard',           // Main dashboard page
+  '/pwa/offline.html',    // Offline fallback page  
   '/pwa/icon-192.png',
   '/pwa/icon-512.png'
 ];
 
+// Install: Cache essential files
 self.addEventListener('install', event => {
   console.log('[SW] Installing...');
   event.waitUntil(
     caches.open(CACHE_NAME)
-      .then(cache => cache.addAll(STATIC_ASSETS))
+      .then(cache => cache.addAll(STATIC_FILES))
       .then(() => self.skipWaiting())
   );
 });
 
+// Activate: Clean old caches
 self.addEventListener('activate', event => {
   console.log('[SW] Activating...');
   event.waitUntil(
@@ -39,224 +38,185 @@ self.addEventListener('activate', event => {
   );
 });
 
+// Fetch: Handle requests
 self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
   
-  // Handle setup requests differently
-  if (url.pathname.includes('/setup-device')) {
-    // For setup, we need to exit PWA mode
-    event.respondWith(
-      Response.redirect('/setup-device?exit_pwa=true', 302)
-    );
+  // Handle dashboard requests
+  if (url.pathname === '/dashboard') {
+    event.respondWith(handleDashboardRequest(event.request));
     return;
   }
   
-  // Cache-first strategy for API requests to enable offline functionality
-  if (url.origin === BEAKER_API || url.pathname.startsWith('/api/')) {
-    event.respondWith(
-      caches.match(event.request)
-        .then(cachedResponse => {
-          if (cachedResponse) {
-            // Return cached response and update in background
-            fetch(event.request).then(networkResponse => {
-              if (networkResponse.ok) {
-                caches.open(CACHE_NAME).then(cache => {
-                  cache.put(event.request, networkResponse.clone());
-                });
-              }
-            });
-            return cachedResponse;
-          }
-          
-          // If not cached, fetch from network
-          return fetch(event.request).then(networkResponse => {
-            if (networkResponse.ok) {
-              caches.open(CACHE_NAME).then(cache => {
-                cache.put(event.request, networkResponse.clone());
-              });
-            }
-            return networkResponse;
-          });
-        })
-        .catch(() => {
-          // If completely offline, return cached offline response
-          return caches.match('/pwa/offline-dashboard.html');
-        })
-    );
-    return;
-  }
-  
-  // For other requests, try network first, then cache
+  // Handle other requests
   event.respondWith(
     fetch(event.request)
       .catch(() => {
-        // If offline, serve cached content
-        if (url.pathname === '/dashboard') {
-          return caches.match('/pwa/offline-dashboard.html');
-        }
+        // If network fails, try cache
         return caches.match(event.request);
       })
   );
 });
 
-// Background sync for uploading cached data
-self.addEventListener('sync', event => {
-  if (event.tag === 'upload-sensor-data') {
-    event.waitUntil(uploadCachedSensorData());
-  }
-});
-
-// Handle push notifications from ESP32 devices
-self.addEventListener('push', event => {
-  if (event.data) {
-    const data = event.data.json();
+async function handleDashboardRequest(request) {
+  try {
+    // Try network first
+    const response = await fetch(request);
     
-    // Store sensor data for offline sync
-    event.waitUntil(
-      storeSensorDataForSync(data)
-        .then(() => {
-          // Show notification if needed
-          if (data.alert) {
-            return self.registration.showNotification('Air Scales Alert', {
-              body: data.message,
-              icon: '/pwa/icon-192.png',
-              badge: '/pwa/icon-192.png'
-            });
-          }
-        })
+    if (response.ok) {
+      // Cache successful response
+      const cache = await caches.open(CACHE_NAME);
+      cache.put(request, response.clone());
+      return response;
+    }
+    
+    throw new Error('Network response not ok');
+    
+  } catch (error) {
+    console.log('[SW] Network failed, serving cached dashboard');
+    
+    // Network failed - serve cached version
+    const cachedResponse = await caches.match('/dashboard');
+    
+    if (cachedResponse) {
+      return cachedResponse;
+    }
+    
+    // No cache available - serve offline page
+    return caches.match('/pwa/offline.html') || new Response(
+      getOfflineHTML(),
+      { headers: { 'Content-Type': 'text/html' } }
     );
   }
-});
+}
 
-// Handle notification clicks
-self.addEventListener('notificationclick', event => {
-  event.notification.close();
-  
-  event.waitUntil(
-    clients.openWindow('/dashboard')
-  );
-});
-
-// Message handler for communication with main app
-self.addEventListener('message', event => {
-  if (event.data && event.data.type === 'SKIP_WAITING') {
-    self.skipWaiting();
-  }
-  
-  if (event.data && event.data.type === 'SYNC_SENSOR_DATA') {
-    // Trigger background sync
-    self.registration.sync.register('upload-sensor-data');
+// Background sync for data upload
+self.addEventListener('sync', event => {
+  if (event.tag === 'upload-data') {
+    event.waitUntil(uploadCachedData());
   }
 });
 
-async function uploadCachedSensorData() {
+async function uploadCachedData() {
   try {
-    const cachedData = await getCachedSensorData();
+    // Get cached sensor data from IndexedDB
+    const data = await getCachedSensorData();
     
-    if (cachedData && cachedData.length > 0) {
-      for (const dataPoint of cachedData) {
-        try {
-          const response = await fetch(`${BEAKER_API}/microdata`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${await getAuthToken()}`
-            },
-            body: JSON.stringify(dataPoint)
-          });
-          
-          if (response.ok) {
-            await removeCachedDataPoint(dataPoint.id);
-            console.log('[SW] Uploaded cached sensor data:', dataPoint.id);
-          }
-        } catch (error) {
-          console.log('[SW] Failed to upload cached data:', error);
-          // Keep data for next sync attempt
+    for (const item of data) {
+      try {
+        const response = await fetch('https://beaker.ca/api/microdata', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(item)
+        });
+        
+        if (response.ok) {
+          await markDataAsSynced(item.id);
+          console.log('[SW] Synced data:', item.id);
         }
+      } catch (error) {
+        console.log('[SW] Sync failed for:', item.id);
       }
     }
   } catch (error) {
-    console.log('[SW] Error in background sync:', error);
+    console.log('[SW] Background sync error:', error);
   }
 }
 
+// Store sensor data for offline sync
+self.addEventListener('message', event => {
+  if (event.data && event.data.type === 'CACHE_SENSOR_DATA') {
+    cacheSensorData(event.data.data);
+  }
+});
+
+function cacheSensorData(data) {
+  // Store in IndexedDB for later sync
+  const request = indexedDB.open('air-scales', 1);
+  
+  request.onupgradeneeded = () => {
+    const db = request.result;
+    if (!db.objectStoreNames.contains('sensor-data')) {
+      db.createObjectStore('sensor-data', { keyPath: 'id' });
+    }
+  };
+  
+  request.onsuccess = () => {
+    const db = request.result;
+    const tx = db.transaction(['sensor-data'], 'readwrite');
+    const store = tx.objectStore('sensor-data');
+    
+    store.add({
+      ...data,
+      id: Date.now() + Math.random(),
+      timestamp: new Date().toISOString(),
+      synced: false
+    });
+  };
+}
+
 async function getCachedSensorData() {
-  // Get data from IndexedDB
   return new Promise((resolve) => {
-    const request = indexedDB.open('air-scales-data', 1);
+    const request = indexedDB.open('air-scales', 1);
     
     request.onsuccess = () => {
       const db = request.result;
-      const transaction = db.transaction(['sensor-data'], 'readonly');
-      const store = transaction.objectStore('sensor-data');
-      const getAllRequest = store.getAll();
+      const tx = db.transaction(['sensor-data'], 'readonly');
+      const store = tx.objectStore('sensor-data');
+      const getAll = store.getAll();
       
-      getAllRequest.onsuccess = () => {
-        resolve(getAllRequest.result);
+      getAll.onsuccess = () => {
+        const unsynced = getAll.result.filter(item => !item.synced);
+        resolve(unsynced);
       };
     };
     
-    request.onerror = () => {
-      resolve([]);
-    };
+    request.onerror = () => resolve([]);
   });
 }
 
-async function removeCachedDataPoint(id) {
-  return new Promise((resolve) => {
-    const request = indexedDB.open('air-scales-data', 1);
+async function markDataAsSynced(id) {
+  const request = indexedDB.open('air-scales', 1);
+  
+  request.onsuccess = () => {
+    const db = request.result;
+    const tx = db.transaction(['sensor-data'], 'readwrite');
+    const store = tx.objectStore('sensor-data');
     
-    request.onsuccess = () => {
-      const db = request.result;
-      const transaction = db.transaction(['sensor-data'], 'readwrite');
-      const store = transaction.objectStore('sensor-data');
-      const deleteRequest = store.delete(id);
-      
-      deleteRequest.onsuccess = () => {
-        resolve();
-      };
-    };
-    
-    request.onerror = () => {
-      resolve(); // Don't fail the sync if we can't delete
-    };
-  });
-}
-
-async function storeSensorDataForSync(data) {
-  return new Promise((resolve) => {
-    const request = indexedDB.open('air-scales-data', 1);
-    
-    request.onupgradeneeded = () => {
-      const db = request.result;
-      if (!db.objectStoreNames.contains('sensor-data')) {
-        db.createObjectStore('sensor-data', { keyPath: 'id' });
+    const getRequest = store.get(id);
+    getRequest.onsuccess = () => {
+      const data = getRequest.result;
+      if (data) {
+        data.synced = true;
+        store.put(data);
       }
     };
-    
-    request.onsuccess = () => {
-      const db = request.result;
-      const transaction = db.transaction(['sensor-data'], 'readwrite');
-      const store = transaction.objectStore('sensor-data');
-      
-      const dataWithId = {
-        ...data,
-        id: Date.now() + Math.random(),
-        timestamp: new Date().toISOString()
-      };
-      
-      store.add(dataWithId);
-      resolve();
-    };
-    
-    request.onerror = () => {
-      resolve(); // Don't fail if we can't store
-    };
-  });
+  };
 }
 
-async function getAuthToken() {
-  // Get auth token from your Symfony session or storage
-  // This is a placeholder - implement based on your auth system
-  return localStorage.getItem('auth_token') || '';
+function getOfflineHTML() {
+  return `
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Air Scales - Offline</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body { font-family: Arial; background: #0f172a; color: #e2e8f0; padding: 40px; text-align: center; }
+        h1 { color: #22c55e; }
+        .status { background: #1e293b; padding: 20px; border-radius: 8px; margin: 20px 0; }
+    </style>
+</head>
+<body>
+    <h1>🏷️ Air Scales</h1>
+    <div class="status">
+        <h2>📴 Working Offline</h2>
+        <p>Connect to ESP32 AP network to view live sensor data</p>
+        <button onclick="location.reload()" style="background: #22c55e; color: #1a1a1a; padding: 10px 20px; border: none; border-radius: 4px;">
+            Retry Connection
+        </button>
+    </div>
+</body>
+</html>
+  `;
 }

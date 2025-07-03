@@ -1,1327 +1,199 @@
 {# templates/dashboard/index.html.twig #}
+{% extends 'base.html.twig' %}
 
-// WebSocket management for live sensor data
-let sensorWebSockets = new Map(); // MAC address -> WebSocket connection
-let sensorData = new Map(); // MAC address -> latest sensor data
+{% block title %}Dashboard{% endblock %}
 
-function initializeWebSocket() {
-  // For now, simulate connections to ESP32 devices
-  // In production, you'd get the ESP32 IPs from your backend
-  simulateESP32Connections();
+{% block body %}
+<div style="padding: 20px; background: #0f172a; color: #e2e8f0; min-height: 100vh;">
+  <h1 style="color: #22c55e; margin-bottom: 20px;">Air Scales Dashboard</h1>
   
-  // Update connection status
-  updateConnectionStatus();
-}
+  <!-- Status Bar -->
+  <div id="status-bar" style="background: #374151; padding: 10px; border-radius: 6px; margin-bottom: 20px;">
+    <span id="status-text">Loading...</span>
+  </div>
+  
+  <!-- Live Sensor Data -->
+  <div style="background: #1e293b; border-radius: 8px; overflow: hidden;">
+    <table id="sensor-table" style="width: 100%; border-collapse: collapse;">
+      <thead style="background: #374151;">
+        <tr>
+          <th style="padding: 15px; color: #f1f5f9;">Device</th>
+          <th style="padding: 15px; color: #f1f5f9; text-align: right;">Weight (lbs)</th>
+          <th style="padding: 15px; color: #f1f5f9; text-align: right;">Pressure (psi)</th>
+          <th style="padding: 15px; color: #f1f5f9; text-align: right;">Temp (°F)</th>
+          <th style="padding: 15px; color: #f1f5f9;">Status</th>
+        </tr>
+      </thead>
+      <tbody id="sensor-data">
+        <tr>
+          <td colspan="5" style="padding: 40px; text-align: center; color: #94a3b8;">
+            📡 Connecting to devices...
+          </td>
+        </tr>
+      </tbody>
+      <tfoot style="background: #334155;">
+        <tr>
+          <td style="padding: 15px; font-weight: bold; color: #f1f5f9;">TOTAL</td>
+          <td id="total-weight" style="padding: 15px; text-align: right; font-weight: bold; color: #22c55e;">0.0 lbs</td>
+          <td colspan="3" style="padding: 15px; color: #94a3b8;">
+            <span id="device-count">0</span> devices
+          </td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+  
+  <!-- Vehicle List (only show if online) -->
+  <div id="vehicle-section" style="margin-top: 30px;">
+    <h2 style="color: #f8fafc;">Vehicles</h2>
+    {% if vehicles is not empty %}
+      <div style="background: #1e293b; border-radius: 8px; padding: 20px;">
+        {% for vehicle in vehicles %}
+          <div style="padding: 10px; border-bottom: 1px solid #374151; display: flex; justify-content: space-between;">
+            <span style="color: #e2e8f0;">{{ vehicle.year }} {{ vehicle.make }} {{ vehicle.model }}</span>
+            <span style="color: #94a3b8;">{{ vehicle.nickname ?: 'No nickname' }}</span>
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <p style="color: #94a3b8;">No vehicles configured.</p>
+    {% endif %}
+  </div>
+</div>
 
-function initializeWebSocket() {
-  // Force AP mode detection when we're clearly in ESP32 AP network
-  const currentHost = window.location.hostname;
-  
-  if (currentHost === '192.168.4.1' || currentHost === 'localhost' || currentHost === '') {
-    console.log('🔌 Detected direct ESP32 connection - forcing AP mode');
-    connectToESP32sInAPMode();
-  } else if (isConnectedToESP32Network()) {
-    console.log('🔌 Detected ESP32 AP network environment');
-    connectToESP32sInAPMode();
-  } else {
-    console.log('🌐 Detected online mode - scanning for ESP32s');
-    connectToESP32sOnline();
-  }
-  
-  // Start data sync to beaker.ca every minute (only works when online)
-  startDataSync();
-  
-  updateConnectionStatus();
-}
+<script>
+let sensorData = new Map();
+let websocket = null;
+let isOnline = navigator.onLine;
 
-function isConnectedToESP32Network() {
-  // Check if connected to ESP32 AP network
-  const currentURL = window.location.hostname;
+// Initialize when page loads
+document.addEventListener('DOMContentLoaded', () => {
+  detectModeAndConnect();
+  updateStatus();
   
-  // Direct connection to ESP32
-  if (currentURL === '192.168.4.1') {
-    return true;
-  }
-  
-  // Check if we're on a limited network (AP mode indicators)
-  if (!navigator.onLine) {
-    return true; // Likely in AP mode if showing as offline
-  }
-  
-  // Check if we can't reach beaker.ca (indicating AP mode)
-  if (window.location.hostname === 'beaker.ca' || window.location.hostname.includes('beaker')) {
-    return false; // We're on the real beaker.ca
-  }
-  
-  // Additional heuristics for AP mode detection
-  const connection = navigator.connection;
-  if (connection && (connection.effectiveType === 'slow-2g' || connection.downlink < 1)) {
-    return true; // Very slow connection suggests AP mode
-  }
-  
-  return false;
-}
-
-function connectToESP32sInAPMode() {
-  console.log('🔌 Connecting to ESP32 in AP mode...');
-  
-  // In AP mode, ESP32 is at 192.168.4.1
-  const esp32IP = '192.168.4.1';
-  
-  // Update status to show we're trying to connect
-  updateConnectionStatus();
-  
-  // Try to connect directly to ESP32
-  connectToSingleESP32(esp32IP, 'AP_MODE_DEVICE', 'ESP32 AP Mode');
-  
-  // Also try to load the ESP32's web interface data
-  loadESP32StatusData(esp32IP);
-}
-
-async function loadESP32StatusData(ip) {
-  try {
-    console.log(`📡 Loading status data from ESP32 at ${ip}...`);
-    
-    // Try to get current sensor data
-    const dataResponse = await fetch(`http://${ip}/data`, {
-      method: 'GET',
-      headers: {
-        'Accept': 'application/json'
-      }
-    });
-    
-    if (dataResponse.ok) {
-      const data = await dataResponse.json();
-      console.log('✅ Loaded ESP32 sensor data:', data);
-      
-      // Store the data as if it came from WebSocket
-      sensorData.set(data.mac_address, {
-        ...data,
-        device_name: 'ESP32 AP Mode',
-        ip_address: ip,
-        timestamp: new Date(),
-        connected: true
-      });
-      
-      updateSensorDataTable();
-    }
-    
-    // Try to get device status
-    const statusResponse = await fetch(`http://${ip}/status`, {
-      method: 'GET',
-      headers: {
-        'Accept': 'application/json'
-      }
-    });
-    
-    if (statusResponse.ok) {
-      const status = await statusResponse.json();
-      console.log('✅ Loaded ESP32 status:', status);
-    }
-    
-  } catch (error) {
-    console.log('⚠️ Could not load ESP32 HTTP data (WebSocket should still work):', error);
-  }
-}
-
-function connectToESP32sOnline() {
-  console.log('🔍 Scanning for ESP32s in online mode...');
-  
-  // Common IP ranges for home networks
-  const commonRanges = [
-    '192.168.1.',  // Most common
-    '192.168.0.',  // Second most common  
-    '10.0.0.',     // Some routers
-    '172.16.0.'    // Less common
-  ];
-  
-  // Try to discover ESP32s by scanning common IP ranges
-  discoverESP32Devices(commonRanges);
-}
-
-async function discoverESP32Devices(ipRanges) {
-  console.log('🔍 Auto-discovering ESP32 devices...');
-  
-  const discoveredDevices = [];
-  
-  for (const baseIP of ipRanges) {
-    // Scan a reasonable range (e.g., .100 to .200)
-    const promises = [];
-    
-    for (let i = 100; i <= 200; i++) {
-      const ip = baseIP + i;
-      promises.push(testESP32Connection(ip));
-    }
-    
-    // Test connections in parallel but limit concurrency
-    const chunkSize = 10;
-    for (let i = 0; i < promises.length; i += chunkSize) {
-      const chunk = promises.slice(i, i + chunkSize);
-      const results = await Promise.allSettled(chunk);
-      
-      results.forEach((result, index) => {
-        if (result.status === 'fulfilled' && result.value) {
-          const ip = baseIP + (100 + i + index);
-          discoveredDevices.push(ip);
-          console.log(`✅ Found ESP32 at ${ip}`);
-        }
-      });
-      
-      // Small delay between chunks to avoid overwhelming the network
-      await new Promise(resolve => setTimeout(resolve, 100));
-    }
-  }
-  
-  // Connect to discovered devices
-  if (discoveredDevices.length > 0) {
-    console.log(`🎯 Connecting to ${discoveredDevices.length} discovered ESP32(s)...`);
-    discoveredDevices.forEach(ip => {
-      connectToSingleESP32(ip, `DISCOVERED_${ip}`, `ESP32 at ${ip}`);
-    });
-  } else {
-    console.log('❌ No ESP32 devices found in automatic scan');
-    console.log('💡 Tip: Make sure your ESP32s are powered on and connected to WiFi');
-    
-    // Fallback: try some common ESP32 IPs
-    const fallbackIPs = ['192.168.1.101', '192.168.1.102', '192.168.0.101', '192.168.0.102'];
-    console.log('🔄 Trying fallback IPs:', fallbackIPs);
-    
-    fallbackIPs.forEach(ip => {
-      connectToSingleESP32(ip, `FALLBACK_${ip}`, `ESP32 at ${ip}`);
-    });
-  }
-}
-
-async function testESP32Connection(ip) {
-  return new Promise((resolve) => {
-    const timeout = 2000; // 2 second timeout per IP
-    
-    try {
-      const ws = new WebSocket(`ws://${ip}/ws`);
-      
-      const timeoutId = setTimeout(() => {
-        ws.close();
-        resolve(false);
-      }, timeout);
-      
-      ws.onopen = () => {
-        clearTimeout(timeoutId);
-        ws.close();
-        resolve(true);
-      };
-      
-      ws.onerror = () => {
-        clearTimeout(timeoutId);
-        resolve(false);
-      };
-      
-      ws.onclose = () => {
-        clearTimeout(timeoutId);
-        // Don't resolve here as onopen or onerror will handle it
-      };
-      
-    } catch (error) {
-      resolve(false);
-    }
-  });
-}
-
-function connectToSingleESP32(ip, tempMacAddress, deviceName = 'ESP32 Device') {
-  console.log(`🔌 Attempting to connect to ESP32 at ${ip}`);
-  
-  try {
-    const ws = new WebSocket(`ws://${ip}/ws`);
-    
-    ws.onopen = () => {
-      console.log(`✅ Connected to ESP32 at ${ip}`);
-      updateConnectionStatus();
-    };
-    
-    ws.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        console.log(`📡 Received data from ${ip}:`, data);
-        
-        // Use the REAL MAC address from the ESP32 data
-        const realMacAddress = data.mac_address;
-        
-        if (!realMacAddress) {
-          console.error(`❌ No MAC address in data from ${ip}`);
-          return;
-        }
-        
-        // Update our connection mapping with the real MAC
-        if (tempMacAddress !== realMacAddress && sensorWebSockets.has(tempMacAddress)) {
-          sensorWebSockets.delete(tempMacAddress);
-          sensorWebSockets.set(realMacAddress, ws);
-        }
-        
-        // Store the real sensor data with actual MAC address
-        sensorData.set(realMacAddress, {
-          ...data,
-          device_name: deviceName,
-          ip_address: ip,
-          timestamp: new Date(),
-          connected: true
-        });
-        
-        updateSensorDataTable();
-        
-        // Cache data for offline sync
-        cacheDataForSync(data);
-        
-      } catch (error) {
-        console.error(`❌ Error parsing sensor data from ${ip}:`, error);
-      }
-    };
-    
-    ws.onclose = (event) => {
-      console.log(`🔌 Disconnected from ESP32 at ${ip} (Code: ${event.code})`);
-      
-      // Find the device by IP and mark as disconnected
-      sensorData.forEach((data, mac) => {
-        if (data.ip_address === ip) {
-          data.connected = false;
-          data.last_disconnect = new Date();
-          sensorData.set(mac, data);
-        }
-      });
-      
-      updateSensorDataTable();
-      updateConnectionStatus();
-      
-      // Attempt to reconnect after 15 seconds
-      setTimeout(() => {
-        console.log(`🔄 Attempting to reconnect to ${ip}...`);
-        connectToSingleESP32(ip, tempMacAddress, deviceName);
-      }, 15000);
-    };
-    
-    ws.onerror = (error) => {
-      console.error(`❌ WebSocket error for ${ip}:`, error);
-    };
-    
-    // Store with temporary key initially, will be updated when we get real MAC
-    sensorWebSockets.set(tempMacAddress, ws);
-    
-  } catch (error) {
-    console.error(`❌ Failed to create WebSocket connection to ${ip}:`, error);
-    
-    // Retry connection after 20 seconds
-    setTimeout(() => {
-      connectToSingleESP32(ip, tempMacAddress, deviceName);
-    }, 20000);
-  }
-}
-
-async function cacheDataForSync(data) {
-  // Cache sensor data in IndexedDB for syncing to beaker.ca
-  try {
-    const request = indexedDB.open('air-scales-data', 1);
-    
-    request.onupgradeneeded = () => {
-      const db = request.result;
-      if (!db.objectStoreNames.contains('sensor-data')) {
-        const store = db.createObjectStore('sensor-data', { keyPath: 'id' });
-        store.createIndex('timestamp', 'timestamp', { unique: false });
-        store.createIndex('synced', 'synced', { unique: false });
-      }
-    };
-    
-    request.onsuccess = () => {
-      const db = request.result;
-      const transaction = db.transaction(['sensor-data'], 'readwrite');
-      const store = transaction.objectStore('sensor-data');
-      
-      const dataToCache = {
-        ...data,
-        id: `${data.mac_address}_${Date.now()}_${Math.random()}`,
-        timestamp: new Date().toISOString(),
-        synced: false,
-        cached_at: new Date().toISOString()
-      };
-      
-      store.add(dataToCache);
-      console.log('💾 Cached sensor data for sync:', dataToCache.id);
-    };
-    
-  } catch (error) {
-    console.error('❌ Error caching sensor data:', error);
-  }
-}
-
-function startDataSync() {
-  // Sync data to beaker.ca every minute
-  setInterval(async () => {
-    if (navigator.onLine) {
-      await syncDataToBeaker();
-    } else {
-      console.log('📴 Offline - skipping data sync');
-    }
-  }, 60000); // 60 seconds
-  
-  // Also sync immediately if we come online
+  // Listen for network changes
   window.addEventListener('online', () => {
-    console.log('🌐 Back online - syncing cached data...');
-    syncDataToBeaker();
+    isOnline = true;
+    detectModeAndConnect();
   });
-}
+  
+  window.addEventListener('offline', () => {
+    isOnline = false;
+    updateStatus();
+  });
+});
 
-async function syncDataToBeaker() {
-  // Only try to sync if we're actually online and can reach beaker.ca
-  if (!navigator.onLine) {
-    console.log('📴 Offline - skipping data sync');
-    return;
-  }
-  
-  // Don't try to sync when connected to ESP32 AP mode
-  if (isConnectedToESP32Network()) {
-    console.log('📡 In AP mode - skipping beaker.ca sync');
-    return;
-  }
-  
-  try {
-    console.log('🔄 Starting data sync to beaker.ca...');
-    
-    const cachedData = await getCachedSensorData();
-    const unsyncedData = cachedData.filter(item => !item.synced);
-    
-    if (unsyncedData.length === 0) {
-      console.log('✅ No unsynced data to upload');
-      return;
-    }
-    
-    console.log(`📤 Syncing ${unsyncedData.length} data points to beaker.ca...`);
-    
-    let successCount = 0;
-    let errorCount = 0;
-    
-    for (const dataPoint of unsyncedData) {
-      try {
-        // Prepare data exactly as your MicrodataController expects
-        const payload = {
-          mac_address: dataPoint.mac_address,
-          main_air_pressure: parseFloat(dataPoint.main_air_pressure),
-          atmospheric_pressure: parseFloat(dataPoint.atmospheric_pressure),
-          temperature: parseFloat(dataPoint.temperature),
-          elevation: parseInt(dataPoint.elevation),
-          gps_lat: parseFloat(dataPoint.gps_lat),
-          gps_lng: parseFloat(dataPoint.gps_lng),
-          weight: parseFloat(dataPoint.weight),
-          timestamp: dataPoint.timestamp
-        };
-        
-        console.log('📦 Sending payload:', payload);
-        
-        const response = await fetch('https://beaker.ca/api/microdata', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-            'X-Requested-With': 'XMLHttpRequest'
-          },
-          body: JSON.stringify(payload)
-        });
-        
-        const responseData = await response.json();
-        
-        if (response.ok && responseData.success) {
-          await markDataAsSynced(dataPoint.id);
-          successCount++;
-          console.log(`✅ Synced data point: ${dataPoint.id} (${dataPoint.mac_address})`);
-        } else {
-          errorCount++;
-          console.error(`❌ Failed to sync data point ${dataPoint.id}:`, {
-            status: response.status,
-            statusText: response.statusText,
-            response: responseData
-          });
-          
-          // If it's a validation error (400), mark as failed so we don't keep retrying
-          if (response.status === 400) {
-            await markDataAsFailed(dataPoint.id, responseData.error || 'Validation error');
-          }
-        }
-        
-      } catch (error) {
-        errorCount++;
-        console.error(`❌ Network error syncing data point ${dataPoint.id}:`, error);
-        // Network errors will be retried on next sync
-      }
-      
-      // Small delay between requests to be nice to the server
-      await new Promise(resolve => setTimeout(resolve, 100));
-    }
-    
-    // Update UI to show sync status
-    const syncIndicator = document.getElementById('sync-indicator');
-    if (syncIndicator) {
-      syncIndicator.style.display = 'inline';
-      
-      if (errorCount === 0) {
-        syncIndicator.textContent = `✓ Synced ${successCount}`;
-        syncIndicator.style.color = '#22c55e';
+function detectModeAndConnect() {
+  // Try ESP32 first (AP mode)
+  testESP32Connection()
+    .then(available => {
+      if (available) {
+        connectToESP32();
+      } else if (isOnline) {
+        // Online mode - could scan for ESP32s on network here
+        updateStatus('online');
       } else {
-        syncIndicator.textContent = `⚠ ${successCount} synced, ${errorCount} failed`;
-        syncIndicator.style.color = '#f59e0b';
+        updateStatus('offline');
       }
-      
-      setTimeout(() => {
-        syncIndicator.style.display = 'none';
-      }, 5000);
-    }
-    
-    // Update offline data indicator
-    checkOfflineData();
-    
-  } catch (error) {
-    console.error('❌ Error in data sync process:', error);
-    
-    // Show sync error in UI
-    const syncIndicator = document.getElementById('sync-indicator');
-    if (syncIndicator) {
-      syncIndicator.style.display = 'inline';
-      syncIndicator.textContent = '❌ Sync failed';
-      syncIndicator.style.color = '#ef4444';
-      setTimeout(() => {
-        syncIndicator.style.display = 'none';
-      }, 5000);
-    }
+    });
+}
+
+async function testESP32Connection() {
+  try {
+    const response = await fetch('http://192.168.4.1/status', { 
+      method: 'GET',
+      signal: AbortSignal.timeout(2000) // 2 second timeout
+    });
+    return response.ok;
+  } catch {
+    return false;
   }
 }
 
-async function markDataAsFailed(dataId, error) {
-  return new Promise((resolve) => {
-    const request = indexedDB.open('air-scales-data', 1);
-    
-    request.onsuccess = () => {
-      const db = request.result;
-      const transaction = db.transaction(['sensor-data'], 'readwrite');
-      const store = transaction.objectStore('sensor-data');
-      
-      const getRequest = store.get(dataId);
-      getRequest.onsuccess = () => {
-        const data = getRequest.result;
-        if (data) {
-          data.sync_failed = true;
-          data.sync_error = error;
-          data.failed_at = new Date().toISOString();
-          store.put(data);
-        }
-        resolve();
-      };
-    };
-    
-    request.onerror = () => {
-      resolve();
-    };
-  });
-}
-
-async function markDataAsSynced(dataId) {
-  return new Promise((resolve) => {
-    const request = indexedDB.open('air-scales-data', 1);
-    
-    request.onsuccess = () => {
-      const db = request.result;
-      const transaction = db.transaction(['sensor-data'], 'readwrite');
-      const store = transaction.objectStore('sensor-data');
-      
-      const getRequest = store.get(dataId);
-      getRequest.onsuccess = () => {
-        const data = getRequest.result;
-        if (data) {
-          data.synced = true;
-          data.synced_at = new Date().toISOString();
-          store.put(data);
-        }
-        resolve();
-      };
-    };
-    
-    request.onerror = () => {
-      resolve(); // Don't fail the sync if we can't mark as synced
-    };
-  });
-}
-
-function updateSensorDataTable() {
-  const tbody = document.getElementById('sensor-data-body');
-  const noDataDiv = document.getElementById('no-sensor-data');
-  const totalWeightEl = document.getElementById('total-weight');
-  const deviceCountEl = document.getElementById('device-count');
+function connectToESP32() {
+  updateStatus('ap');
   
-  if (sensorData.size === 0) {
-    noDataDiv.style.display = 'block';
-    tbody.innerHTML = '';
-    totalWeightEl.textContent = '0.0 lbs';
-    deviceCountEl.textContent = '0';
-    return;
+  // Connect WebSocket
+  websocket = new WebSocket('ws://192.168.4.1/ws');
+  
+  websocket.onopen = () => {
+    console.log('Connected to ESP32');
+    updateStatus('connected');
+  };
+  
+  websocket.onmessage = (event) => {
+    const data = JSON.parse(event.data);
+    sensorData.set(data.mac_address, data);
+    updateTable();
+  };
+  
+  websocket.onclose = () => {
+    console.log('ESP32 disconnected');
+    updateStatus('disconnected');
+    // Retry connection
+    setTimeout(connectToESP32, 3000);
+  };
+}
+
+function updateStatus(mode = 'loading') {
+  const statusBar = document.getElementById('status-bar');
+  const statusText = document.getElementById('status-text');
+  
+  switch(mode) {
+    case 'connected':
+      statusBar.style.background = '#22c55e';
+      statusText.textContent = '✅ Connected to ESP32';
+      break;
+    case 'ap':
+      statusBar.style.background = '#f59e0b';
+      statusText.textContent = '📡 AP Mode - Connecting...';
+      break;
+    case 'online':
+      statusBar.style.background = '#3b82f6';
+      statusText.textContent = '🌐 Online Mode';
+      break;
+    case 'offline':
+      statusBar.style.background = '#ef4444';
+      statusText.textContent = '📴 Offline';
+      break;
+    case 'disconnected':
+      statusBar.style.background = '#ef4444';
+      statusText.textContent = '❌ Disconnected - Retrying...';
+      break;
+    default:
+      statusBar.style.background = '#374151';
+      statusText.textContent = '⏳ Loading...';
   }
+}
+
+function updateTable() {
+  const tbody = document.getElementById('sensor-data');
+  const totalWeight = document.getElementById('total-weight');
+  const deviceCount = document.getElementById('device-count');
   
-  noDataDiv.style.display = 'none';
+  if (sensorData.size === 0) return;
   
-  let totalWeight = 0;
-  let connectedDevices = 0;
   let html = '';
+  let total = 0;
   
   sensorData.forEach((data, mac) => {
     const weight = parseFloat(data.weight) || 0;
-    totalWeight += weight;
-    
-    if (data.connected) connectedDevices++;
-    
-    const statusColor = data.connected ? '#22c55e' : '#ef4444';
-    const statusText = data.connected ? 'Online' : 'Offline';
-    const timeAgo = getTimeAgo(data.timestamp);
+    total += weight;
     
     html += `
-      <tr style="border-bottom: 1px solid #374151; transition: background 0.2s;" 
-          onmouseover="this.style.background='#334155'" 
-          onmouseout="this.style.background='transparent'">
-        <td style="padding: 16px; color: #e2e8f0;">
-          <div style="font-weight: 600;">${data.device_name || 'Unknown Device'}</div>
-          <div style="font-size: 0.85em; color: #94a3b8;">${mac}</div>
-        </td>
-        <td style="text-align: right; padding: 16px; color: #f1f5f9; font-weight: 700; font-size: 1.1em;">
-          ${weight.toFixed(1)}
-        </td>
-        <td style="text-align: right; padding: 16px; color: #e2e8f0;">
-          ${data.main_air_pressure} psi
-        </td>
-        <td style="text-align: right; padding: 16px; color: #e2e8f0;">
-          ${data.temperature}°F
-        </td>
-        <td style="text-align: center; padding: 16px;">
-          <span style="display: inline-block; padding: 4px 8px; border-radius: 12px; font-size: 0.8em; font-weight: 600; background: ${statusColor}20; color: ${statusColor}; border: 1px solid ${statusColor};">
-            ● ${statusText}
-          </span>
-        </td>
-        <td style="text-align: center; padding: 16px; color: #94a3b8; font-size: 0.9em;">
-          ${timeAgo}
-        </td>
+      <tr style="border-bottom: 1px solid #374151;">
+        <td style="padding: 15px; color: #e2e8f0;">${data.device_name || mac.slice(-4)}</td>
+        <td style="padding: 15px; text-align: right; color: #f1f5f9; font-weight: bold;">${weight.toFixed(1)}</td>
+        <td style="padding: 15px; text-align: right; color: #e2e8f0;">${data.main_air_pressure}</td>
+        <td style="padding: 15px; text-align: right; color: #e2e8f0;">${data.temperature}</td>
+        <td style="padding: 15px; color: #22c55e;">● Online</td>
       </tr>
     `;
   });
   
   tbody.innerHTML = html;
-  totalWeightEl.textContent = `${totalWeight.toFixed(1)} lbs`;
-  deviceCountEl.textContent = connectedDevices.toString();
-  
-  // Update total weight color based on value
-  if (totalWeight > 1500) {
-    totalWeightEl.style.color = '#ef4444'; // Red for overweight
-  } else if (totalWeight > 1000) {
-    totalWeightEl.style.color = '#f59e0b'; // Yellow for heavy
-  } else {
-    totalWeightEl.style.color = '#22c55e'; // Green for normal
-  }
-}
-
-function updateConnectionStatus() {
-  const statusEl = document.getElementById('connection-status');
-  const connectedCount = Array.from(sensorData.values()).filter(d => d.connected).length;
-  const totalCount = sensorData.size;
-  
-  if (totalCount === 0) {
-    statusEl.style.background = '#374151';
-    statusEl.style.color = '#94a3b8';
-    statusEl.textContent = 'No devices';
-  } else if (connectedCount === totalCount) {
-    statusEl.style.background = '#22c55e20';
-    statusEl.style.color = '#22c55e';
-    statusEl.style.border = '1px solid #22c55e';
-    statusEl.textContent = `${connectedCount}/${totalCount} Connected`;
-  } else if (connectedCount > 0) {
-    statusEl.style.background = '#f59e0b20';
-    statusEl.style.color = '#f59e0b';
-    statusEl.style.border = '1px solid #f59e0b';
-    statusEl.textContent = `${connectedCount}/${totalCount} Connected`;
-  } else {
-    statusEl.style.background = '#ef444420';
-    statusEl.style.color = '#ef4444';
-    statusEl.style.border = '1px solid #ef4444';
-    statusEl.textContent = 'All Offline';
-  }
-}
-
-function getTimeAgo(timestamp) {
-  const now = new Date();
-  const seconds = Math.floor((now - timestamp) / 1000);
-  
-  if (seconds < 60) return `${seconds}s ago`;
-  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
-  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
-  return `${Math.floor(seconds / 86400)}d ago`;
-}
-
-{% extends 'base.html.twig' %}
-
-{% block title %}Your Dashboard{% endblock %}
-
-{% block body %}
-<!-- PWA Status Indicator -->
-<div id="pwa-status" class="pwa-status-bar" style="background: #22c55e; color: #1a1a1a; padding: 8px; text-align: center; display: none; font-weight: 500;">
-  <span id="status-text">Online</span>
-  <span id="sync-indicator" style="display: none;">⟳ Syncing...</span>
-</div>
-
-<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5em;">
-  <h1 style="color: #f8fafc; margin: 0;">Vehicles / Trailers</h1>
-  <button id="add-device-btn" style="background: #3b82f6; color: white; padding: 10px 18px; border: none; border-radius: 6px; cursor: pointer; font-weight: 500; transition: background 0.2s;">
-    + Add New Device
-  </button>
-</div>
-
-{% if vehicles is empty %}
-  <div style="text-align: center; padding: 3em; background: #1e293b; border: 1px solid #334155; border-radius: 12px;">
-    <p style="color: #cbd5e1; font-size: 1.1em; margin-bottom: 1.5em;">No vehicles associated with your account.</p>
-    <button id="setup-first-device" style="background: #22c55e; color: #1a1a1a; padding: 14px 28px; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 1em; transition: all 0.2s;">
-      Setup Your First Device
-    </button>
-  </div>
-{% else %}
-  
-  <table style="width:100%; border-collapse: collapse; margin-bottom: 2em; border: 1px solid #374151; background: #1e293b; border-radius: 8px; overflow: hidden;">
-    <thead>
-      <tr style="background: #374151;">
-        <th style="text-align:left; padding: 16px; border-bottom: 1px solid #4b5563; color: #f1f5f9; font-weight: 600;">⇅</th>
-        <th style="text-align:left; padding: 16px; border-bottom: 1px solid #4b5563; color: #f1f5f9; font-weight: 600;">Year</th>
-        <th style="text-align:left; padding: 16px; border-bottom: 1px solid #4b5563; color: #f1f5f9; font-weight: 600;">Make</th>
-        <th style="text-align:left; padding: 16px; border-bottom: 1px solid #4b5563; color: #f1f5f9; font-weight: 600;">Model</th>
-        <th style="text-align:left; padding: 16px; border-bottom: 1px solid #4b5563; color: #f1f5f9; font-weight: 600;">Axle Group</th>
-        <th style="text-align:left; padding: 16px; border-bottom: 1px solid #4b5563; color: #f1f5f9; font-weight: 600;">Nickname</th>
-        <th style="text-align:left; padding: 16px; border-bottom: 1px solid #4b5563; color: #f1f5f9; font-weight: 600;">Device Status</th>
-        <th style="text-align:left; padding: 16px; border-bottom: 1px solid #4b5563; color: #f1f5f9; font-weight: 600;">Connection</th>
-        <th style="text-align:left; padding: 16px; border-bottom: 1px solid #4b5563; color: #f1f5f9; font-weight: 600;">Calibrate</th>
-        <th style="text-align:left; padding: 16px; border-bottom: 1px solid #4b5563; color: #f1f5f9; font-weight: 600;">Actions</th>
-      </tr>
-    </thead>
-    <tbody id="vehicle-list">
-      {% for vehicle in vehicles %}
-        {% set isConnected = connectedMap[vehicle.id] ?? false %}
-        <tr data-id="{{ vehicle.id }}" style="cursor: move; border-bottom: 1px solid #374151; transition: background 0.2s;" onmouseover="this.style.background='#334155'" onmouseout="this.style.background='transparent'">
-          <td style="padding: 16px; color: #94a3b8;">::</td>
-          <td style="padding: 16px; color: #e2e8f0;">{{ vehicle.year }}</td>
-          <td style="padding: 16px; color: #e2e8f0;">{{ vehicle.make }}</td>
-          <td style="padding: 16px; color: #e2e8f0;">{{ vehicle.model }}</td>
-          <td style="padding: 16px; color: #e2e8f0;">{{ vehicle.axleGroup ? vehicle.axleGroup.label : '—' }}</td>
-          <td style="padding: 16px; color: #e2e8f0;">{{ vehicle.nickname ?: '—' }}</td>
-          <td style="padding: 16px;">
-            {% set hasDevice = false %}
-            {% for device in devices %}
-              {% if device.vehicle and device.vehicle.id == vehicle.id %}
-                {% set hasDevice = true %}
-                {% set access = null %}
-                {% for record in accessRecords %}
-                  {% if record.device.id == device.id %}
-                    {% set access = record %}
-                  {% endif %}
-                {% endfor %}
-                {% if access %}
-                  <span style="color: #22c55e; font-weight: 500;">● Connected</span><br>
-                  <small style="color: #94a3b8;">{{ access.lastConnectedAt|date('M j, H:i') }}</small>
-                {% else %}
-                  <span style="color: #f59e0b; font-weight: 500;">● Purchased</span><br>
-                  <small style="color: #94a3b8;">Not connected</small>
-                {% endif %}
-              {% endif %}
-            {% endfor %}
-            {% if not hasDevice %}
-              <span style="color: #ef4444; font-weight: 500;">● No device</span>
-            {% endif %}
-          </td>
-          <td style="padding: 16px;">
-            <button class="pill-toggle {{ isConnected ? 'connected' : 'disconnected' }}" 
-                    data-id="{{ vehicle.id }}"
-                    style="padding: 8px 16px; border: none; border-radius: 24px; cursor: pointer; font-weight: 500; transition: all 0.2s; {{ isConnected ? 'background: #ef4444; color: white;' : 'background: #22c55e; color: #1a1a1a;' }}">
-              {{ isConnected ? 'Disconnect' : 'Connect' }}
-            </button>
-          </td>
-          <td style="padding: 16px;">
-            {% for device in devices %}
-              {% if device.vehicle and device.vehicle.id == vehicle.id %}
-                <a href="{{ path('dashboard_device_calibration', { id: device.id }) }}" 
-                   data-turbo="false"
-                   style="color: #3b82f6; text-decoration: none; font-weight: 500; transition: color 0.2s;"
-                   onmouseover="this.style.color='#60a5fa'" onmouseout="this.style.color='#3b82f6'">Calibrate</a>
-              {% endif %}
-            {% endfor %}
-          </td>
-          <td style="padding: 16px;">
-            <a href="{{ path('device_vehicle_edit', { id: vehicle.id }) }}" 
-               style="color: #3b82f6; text-decoration: none; font-weight: 500; transition: color 0.2s;"
-               onmouseover="this.style.color='#60a5fa'" onmouseout="this.style.color='#3b82f6'">Edit</a>
-          </td>
-        </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-{% endif %}
-
-<!-- Live Sensor Data Section -->
-<div style="display: flex; justify-content: space-between; align-items: center; margin: 2em 0 1em 0;">
-  <h2 style="color: #f8fafc; margin: 0;">Live Sensor Data</h2>
-  <div id="connection-status" style="padding: 6px 12px; border-radius: 20px; font-size: 0.85em; font-weight: 600; background: #374151; color: #94a3b8;">
-    Connecting...
-  </div>
-</div>
-
-<div id="sensor-data-container" style="background: #1e293b; border: 1px solid #374151; border-radius: 12px; overflow: hidden; margin-bottom: 2em;">
-  <table id="sensor-data-table" style="width: 100%; border-collapse: collapse;">
-    <thead>
-      <tr style="background: #374151;">
-        <th style="text-align: left; padding: 16px; color: #f1f5f9; font-weight: 600; border-bottom: 1px solid #4b5563;">Device</th>
-        <th style="text-align: right; padding: 16px; color: #f1f5f9; font-weight: 600; border-bottom: 1px solid #4b5563;">Weight (lbs)</th>
-        <th style="text-align: right; padding: 16px; color: #f1f5f9; font-weight: 600; border-bottom: 1px solid #4b5563;">Air Pressure</th>
-        <th style="text-align: right; padding: 16px; color: #f1f5f9; font-weight: 600; border-bottom: 1px solid #4b5563;">Temperature (°F)</th>
-        <th style="text-align: center; padding: 16px; color: #f1f5f9; font-weight: 600; border-bottom: 1px solid #4b5563;">Status</th>
-        <th style="text-align: center; padding: 16px; color: #f1f5f9; font-weight: 600; border-bottom: 1px solid #4b5563;">Last Update</th>
-      </tr>
-    </thead>
-    <tbody id="sensor-data-body">
-      <!-- Dynamic content will be inserted here -->
-    </tbody>
-    <tfoot>
-      <tr style="background: #334155; border-top: 2px solid #4b5563;">
-        <td style="padding: 16px; color: #f1f5f9; font-weight: 700; font-size: 1.1em;">TOTAL WEIGHT</td>
-        <td id="total-weight" style="text-align: right; padding: 16px; color: #22c55e; font-weight: 700; font-size: 1.2em;">0.0 lbs</td>
-        <td colspan="4" style="padding: 16px; color: #94a3b8; text-align: center; font-style: italic;">
-          <span id="device-count">0</span> devices connected
-        </td>
-      </tr>
-    </tfoot>
-  </table>
-  
-  <div id="no-sensor-data" style="text-align: center; padding: 3em; color: #94a3b8; display: block;">
-    <div style="font-size: 2em; margin-bottom: 0.5em;">📡</div>
-    <p style="margin: 0; font-size: 1.1em;">Waiting for ESP32 connections...</p>
-    <p style="margin: 0.5em 0 0 0; font-size: 0.9em;">Make sure your devices are powered on and connected to WiFi</p>
-  </div>
-</div>
-
-<h2 style="color: #f8fafc; margin: 2em 0 1em 0;">Unconfigured Devices</h2>
-{% set unconfigured = devices|filter(device => not device.vehicle) %}
-{% if unconfigured is empty %}
-  <p style="color: #22c55e; font-weight: 500;">✓ All devices have been configured.</p>
-{% else %}
-  <div style="background: #1e293b; border: 1px solid #f59e0b; border-radius: 8px; padding: 1.5em; margin: 1em 0;">
-    <strong style="color: #f59e0b; font-size: 1.1em;">⚠️ Devices Pending Configuration:</strong>
-    <ul style="margin: 1em 0 0 0; padding-left: 1.5em;">
-      {% for device in unconfigured %}
-        <li style="margin: 0.75em 0; color: #cbd5e1;">
-          <strong style="color: #f1f5f9;">MAC:</strong> {{ device.macAddress }} - <span style="color: #94a3b8;">Purchased but not configured</span>
-          <button onclick="configureDevice('{{ device.id }}')" 
-                  style="background: #22c55e; color: #1a1a1a; padding: 6px 12px; border: none; border-radius: 6px; cursor: pointer; margin-left: 12px; font-weight: 500; transition: background 0.2s;">
-            Configure Now
-          </button>
-        </li>
-      {% endfor %}
-    </ul>
-  </div>
-{% endif %}
-
-<!-- Offline Data Indicator -->
-<div id="offline-data-indicator" style="display: none; background: #1e293b; border: 1px solid #3b82f6; border-radius: 8px; padding: 1.5em; margin: 1em 0;">
-  <strong style="color: #3b82f6; font-size: 1.1em;">📱 Offline Data Available</strong>
-  <p style="color: #cbd5e1; margin: 0.5em 0;">You have <span id="offline-count" style="color: #f1f5f9; font-weight: 600;">0</span> sensor readings cached offline.</p>
-  <button id="sync-offline-data" style="background: #3b82f6; color: white; padding: 10px 18px; border: none; border-radius: 6px; cursor: pointer; font-weight: 500; transition: background 0.2s;">
-    Sync Now
-  </button>
-</div>
-
-<script>
-// Enhanced dashboard functionality for PWA
-document.addEventListener('DOMContentLoaded', () => {
-  initializePWAFeatures();
-  initializeDragAndDrop();
-  initializeConnectionToggles();
-});
-
-function initializePWAFeatures() {
-  // Check if running as PWA
-  const isPWA = window.matchMedia('(display-mode: standalone)').matches || 
-                window.navigator.standalone || 
-                document.referrer.includes('android-app://');
-  
-  if (isPWA) {
-    document.body.classList.add('pwa-mode');
-  }
-  
-  // Detect current network mode and adapt accordingly
-  detectNetworkModeAndAdapt();
-  
-  // Initialize WebSocket connection based on detected mode
-  initializeWebSocket();
-  
-  // Online/Offline status
-  const statusBar = document.getElementById('pwa-status');
-  const statusText = document.getElementById('status-text');
-  const syncIndicator = document.getElementById('sync-indicator');
-  
-  async function detectNetworkModeAndAdapt() {
-  console.log('🔍 Detecting network mode...');
-  
-  const currentHost = window.location.hostname;
-  console.log('Current hostname:', currentHost);
-  
-  // Method 1: Direct ESP32 IP detection
-  if (currentHost === '192.168.4.1') {
-    console.log('✅ Detected: Direct ESP32 AP connection');
-    adaptToAPMode();
-    return 'ap_direct';
-  }
-  
-  // Method 2: Test ESP32 availability
-  const esp32Available = await testESP32Availability();
-  if (esp32Available) {
-    console.log('✅ Detected: ESP32 AP network (can reach 192.168.4.1)');
-    adaptToAPMode();
-    return 'ap_network';
-  }
-  
-  // Method 3: Test beaker.ca availability
-  const beakerAvailable = await testBeakerAvailability();
-  if (beakerAvailable) {
-    console.log('✅ Detected: Online mode (can reach beaker.ca)');
-    adaptToOnlineMode();
-    return 'online';
-  }
-  
-  // Method 4: Check network characteristics
-  const networkInfo = getNetworkCharacteristics();
-  if (networkInfo.likelyAPMode) {
-    console.log('✅ Detected: Likely AP mode (limited connectivity)');
-    adaptToAPMode();
-    return 'ap_likely';
-  }
-  
-  console.log('⚠️ Unknown network mode, defaulting to online');
-  adaptToOnlineMode();
-  return 'unknown';
-}
-
-async function testESP32Availability() {
-  try {
-    console.log('🔍 Testing ESP32 availability...');
-    
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 3000); // 3 second timeout
-    
-    const response = await fetch('http://192.168.4.1/status', {
-      method: 'GET',
-      signal: controller.signal,
-      mode: 'cors'
-    });
-    
-    clearTimeout(timeoutId);
-    
-    if (response.ok) {
-      const data = await response.json();
-      console.log('✅ ESP32 responded:', data);
-      return true;
-    }
-    
-    return false;
-  } catch (error) {
-    console.log('❌ ESP32 not available:', error.message);
-    return false;
-  }
-}
-
-async function testBeakerAvailability() {
-  try {
-    console.log('🔍 Testing beaker.ca availability...');
-    
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
-    
-    const response = await fetch('https://beaker.ca/api/status', {
-      method: 'GET',
-      signal: controller.signal
-    });
-    
-    clearTimeout(timeoutId);
-    return response.ok;
-  } catch (error) {
-    console.log('❌ beaker.ca not available:', error.message);
-    return false;
-  }
-}
-
-function getNetworkCharacteristics() {
-  const characteristics = {
-    online: navigator.onLine,
-    connection: navigator.connection,
-    likelyAPMode: false
-  };
-  
-  // Check various indicators of AP mode
-  if (!navigator.onLine) {
-    characteristics.likelyAPMode = true;
-  }
-  
-  if (navigator.connection) {
-    const conn = navigator.connection;
-    
-    // Very slow connection suggests AP mode
-    if (conn.effectiveType === 'slow-2g' || conn.downlink < 1) {
-      characteristics.likelyAPMode = true;
-    }
-    
-    // No internet connection type
-    if (conn.type === 'wifi' && conn.downlink === 0) {
-      characteristics.likelyAPMode = true;
-    }
-  }
-  
-  console.log('📊 Network characteristics:', characteristics);
-  return characteristics;
-}
-
-function adaptToAPMode() {
-  console.log('🔧 Adapting UI for AP mode...');
-  
-  // Update status bar
-  const statusBar = document.getElementById('pwa-status');
-  const statusText = document.getElementById('status-text');
-  
-  if (statusBar && statusText) {
-    statusBar.style.background = '#f59e0b';
-    statusBar.style.color = '#1a1a1a';
-    statusText.textContent = 'AP Mode - Direct ESP32 Connection';
-    statusBar.style.display = 'block';
-  }
-  
-  // Hide sync-related UI elements
-  const syncButton = document.getElementById('sync-offline-data');
-  const offlineIndicator = document.getElementById('offline-data-indicator');
-  
-  if (syncButton) syncButton.style.display = 'none';
-  if (offlineIndicator) offlineIndicator.style.display = 'none';
-  
-  // Update page title/header to indicate AP mode
-  const mainTitle = document.querySelector('h1');
-  if (mainTitle && !mainTitle.textContent.includes('AP Mode')) {
-    mainTitle.innerHTML = '🏷️ Air Scales <span style="color: #f59e0b; font-size: 0.7em;">(AP Mode)</span>';
-  }
-  
-  // Add AP mode notice
-  addAPModeNotice();
-}
-
-function adaptToOnlineMode() {
-  console.log('🔧 Adapting UI for online mode...');
-  
-  // Update status bar will be handled by normal online/offline detection
-  
-  // Ensure sync UI is visible
-  const syncButton = document.getElementById('sync-offline-data');
-  if (syncButton) syncButton.style.display = 'inline-block';
-  
-  // Update page title to normal
-  const mainTitle = document.querySelector('h1');
-  if (mainTitle) {
-    mainTitle.innerHTML = 'Vehicles / Trailers';
-  }
-  
-  // Remove AP mode notice if present
-  removeAPModeNotice();
-}
-
-function addAPModeNotice() {
-  // Add a notice explaining AP mode
-  if (document.getElementById('ap-mode-notice')) return; // Already exists
-  
-  const notice = document.createElement('div');
-  notice.id = 'ap-mode-notice';
-  notice.style.cssText = `
-    background: #1e293b; 
-    border: 1px solid #f59e0b; 
-    border-radius: 8px; 
-    padding: 1em; 
-    margin: 1em 0; 
-    color: #f59e0b;
-  `;
-  
-  notice.innerHTML = `
-    <strong>📡 Direct ESP32 Connection</strong>
-    <p style="margin: 0.5em 0 0 0; color: #cbd5e1;">
-      Connected directly to ESP32 device. Data sync to beaker.ca will resume when WiFi is available.
-    </p>
-  `;
-  
-  // Insert after the main title
-  const mainTitle = document.querySelector('h1');
-  if (mainTitle && mainTitle.parentNode) {
-    mainTitle.parentNode.insertBefore(notice, mainTitle.nextSibling);
-  }
-}
-
-function removeAPModeNotice() {
-  const notice = document.getElementById('ap-mode-notice');
-  if (notice) {
-    notice.remove();
-  }
-}
-  
-  window.addEventListener('online', updateNetworkStatus);
-  window.addEventListener('offline', updateNetworkStatus);
-  updateNetworkStatus();
-  
-  // Add device button handlers
-  document.getElementById('add-device-btn')?.addEventListener('click', () => {
-    window.location.href = '/setup-device';
-  });
-  
-  document.getElementById('setup-first-device')?.addEventListener('click', () => {
-    window.location.href = '/setup-device';
-  });
-  
-  // Sync offline data
-  document.getElementById('sync-offline-data')?.addEventListener('click', async () => {
-    syncIndicator.style.display = 'inline';
-    
-    if ('serviceWorker' in navigator && 'sync' in window.ServiceWorkerRegistration.prototype) {
-      const registration = await navigator.serviceWorker.ready;
-      await registration.sync.register('upload-sensor-data');
-    }
-    
-    setTimeout(() => {
-      syncIndicator.style.display = 'none';
-      checkOfflineData();
-    }, 2000);
-  });
-}
-
-async function checkOfflineData() {
-  // Check for cached offline data
-  try {
-    const request = indexedDB.open('air-scales-data', 1);
-    request.onsuccess = () => {
-      const db = request.result;
-      if (db.objectStoreNames.contains('sensor-data')) {
-        const transaction = db.transaction(['sensor-data'], 'readonly');
-        const store = transaction.objectStore('sensor-data');
-        const countRequest = store.count();
-        
-        countRequest.onsuccess = () => {
-          const count = countRequest.result;
-          const indicator = document.getElementById('offline-data-indicator');
-          const countSpan = document.getElementById('offline-count');
-          
-          if (count > 0) {
-            countSpan.textContent = count;
-            indicator.style.display = 'block';
-          } else {
-            indicator.style.display = 'none';
-          }
-        };
-      }
-    };
-  } catch (error) {
-    console.log('IndexedDB not available:', error);
-  }
-}
-
-function configureDevice(deviceId) {
-  window.location.href = `/setup-device?device_id=${deviceId}`;
-}
-
-function initializeDragAndDrop() {
-  const list = document.getElementById('vehicle-list');
-  if (!list) return;
-
-  let dragging;
-
-  list.querySelectorAll('tr').forEach(row => {
-    row.setAttribute('draggable', true);
-
-    row.addEventListener('dragstart', (e) => {
-      dragging = row;
-      e.dataTransfer.effectAllowed = 'move';
-      row.style.opacity = '0.5';
-    });
-
-    row.addEventListener('dragend', () => {
-      row.style.opacity = '1';
-    });
-
-    row.addEventListener('dragover', (e) => {
-      e.preventDefault();
-      const target = e.currentTarget;
-      if (target !== dragging) {
-        const rect = target.getBoundingClientRect();
-        const next = (e.clientY - rect.top) > (rect.height / 2);
-        list.insertBefore(dragging, next ? target.nextSibling : target);
-      }
-    });
-
-    row.addEventListener('drop', () => {
-      const order = Array.from(list.querySelectorAll('tr')).map(row => row.dataset.id);
-      fetch('{{ path('vehicle_sort_user') }}', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Requested-With': 'XMLHttpRequest',
-        },
-        body: JSON.stringify({ order })
-      }).catch(() => {
-        // Store order change for offline sync
-        localStorage.setItem('pending_vehicle_order', JSON.stringify(order));
-      });
-    });
-  });
-}
-
-function initializeConnectionToggles() {
-  document.querySelectorAll('.pill-toggle').forEach(button => {
-    button.addEventListener('click', async () => {
-      const vehicleId = button.dataset.id;
-      const originalText = button.textContent;
-      
-      button.textContent = 'Connecting...';
-      button.disabled = true;
-
-      try {
-        const response = await fetch(`/vehicle/${vehicleId}/toggle-connection`, {
-          method: 'POST',
-          headers: {
-            'X-Requested-With': 'XMLHttpRequest'
-          }
-        });
-        
-        const data = await response.json();
-        button.textContent = data.connected ? 'Disconnect' : 'Connect';
-        button.style.background = data.connected ? '#ef4444' : '#22c55e';
-        button.style.color = data.connected ? 'white' : '#1a1a1a';
-        button.classList.toggle('connected', data.connected);
-        button.classList.toggle('disconnected', !data.connected);
-      } catch (error) {
-        console.error('Connection toggle failed:', error);
-        button.textContent = originalText;
-        // Could store this action for offline sync
-      } finally {
-        button.disabled = false;
-      }
-    });
-  });
+  totalWeight.textContent = `${total.toFixed(1)} lbs`;
+  deviceCount.textContent = sensorData.size;
 }
 </script>
-
-<style>
-body {
-  background: #0f172a;
-  color: #e2e8f0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
-  margin: 0;
-  padding: 20px;
-}
-
-.pwa-mode {
-  /* PWA-specific dark mode enhancements */
-}
-
-#add-device-btn:hover {
-  background: #2563eb !important;
-  transform: translateY(-1px);
-}
-
-#setup-first-device:hover {
-  background: #16a34a !important;
-  transform: translateY(-1px);
-}
-
-.pill-toggle:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-}
-
-#sync-offline-data:hover {
-  background: #2563eb !important;
-}
-
-button[onclick*="configureDevice"]:hover {
-  background: #16a34a !important;
-}
-
-@media (max-width: 768px) {
-  body {
-    padding: 12px;
-  }
-  
-  table {
-    font-size: 0.9em;
-  }
-  
-  th, td {
-    padding: 12px !important;
-  }
-  
-  .pill-toggle {
-    font-size: 0.85em;
-    padding: 6px 12px !important;
-  }
-  
-  #add-device-btn {
-    padding: 8px 14px !important;
-    font-size: 0.9em;
-  }
-}
-
-  @media (max-width: 480px) {
-    #sensor-data-table th:nth-child(3),
-    #sensor-data-table td:nth-child(3),
-    #sensor-data-table th:nth-child(4),
-    #sensor-data-table td:nth-child(4) {
-      display: none; /* Hide air pressure and temperature on very small screens */
-    }
-  }
-  
-  @media (max-width: 768px) {
-    #sensor-data-table {
-      font-size: 0.9em;
-    }
-    
-    #sensor-data-table th,
-    #sensor-data-table td {
-      padding: 12px 8px !important;
-    }
-  }
-  table, thead, tbody, th, td, tr {
-    display: block;
-  }
-  
-  thead tr {
-    position: absolute;
-    top: -9999px;
-    left: -9999px;
-  }
-  
-  tr {
-    border: 1px solid #374151;
-    border-radius: 8px;
-    margin-bottom: 1em;
-    padding: 1em;
-    background: #1e293b;
-  }
-  
-  td {
-    border: none;
-    position: relative;
-    padding: 8px 8px 8px 35% !important;
-  }
-  
-  td:before {
-    content: attr(data-label);
-    position: absolute;
-    left: 6px;
-    width: 30%;
-    padding-right: 10px;
-    white-space: nowrap;
-    color: #94a3b8;
-    font-weight: 600;
-  }
-}
-</style>
 {% endblock %}
