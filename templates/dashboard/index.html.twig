@@ -49,52 +49,116 @@ function connectToESP32sInAPMode() {
 }
 
 function connectToESP32sOnline() {
-  console.log('Connecting to ESP32s in online mode...');
+  console.log('🔍 Scanning for ESP32s in online mode...');
   
-  // Your ESP32s on your WiFi network
-  // Replace these IPs with your actual ESP32 IP addresses
-  const esp32Devices = [
-    { mac: 'DEVICE_1_MAC', ip: '192.168.1.101', name: 'Front Axle' },
-    { mac: 'DEVICE_2_MAC', ip: '192.168.1.102', name: 'Rear Axle' }
+  // Common IP ranges for home networks
+  const commonRanges = [
+    '192.168.1.',  // Most common
+    '192.168.0.',  // Second most common  
+    '10.0.0.',     // Some routers
+    '172.16.0.'    // Less common
   ];
   
-  esp32Devices.forEach(device => {
-    connectToSingleESP32(device.ip, device.mac, device.name);
+  // Try to discover ESP32s by scanning common IP ranges
+  discoverESP32Devices(commonRanges);
+}
+
+async function discoverESP32Devices(ipRanges) {
+  console.log('🔍 Auto-discovering ESP32 devices...');
+  
+  const discoveredDevices = [];
+  
+  for (const baseIP of ipRanges) {
+    // Scan a reasonable range (e.g., .100 to .200)
+    const promises = [];
+    
+    for (let i = 100; i <= 200; i++) {
+      const ip = baseIP + i;
+      promises.push(testESP32Connection(ip));
+    }
+    
+    // Test connections in parallel but limit concurrency
+    const chunkSize = 10;
+    for (let i = 0; i < promises.length; i += chunkSize) {
+      const chunk = promises.slice(i, i + chunkSize);
+      const results = await Promise.allSettled(chunk);
+      
+      results.forEach((result, index) => {
+        if (result.status === 'fulfilled' && result.value) {
+          const ip = baseIP + (100 + i + index);
+          discoveredDevices.push(ip);
+          console.log(`✅ Found ESP32 at ${ip}`);
+        }
+      });
+      
+      // Small delay between chunks to avoid overwhelming the network
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+  }
+  
+  // Connect to discovered devices
+  if (discoveredDevices.length > 0) {
+    console.log(`🎯 Connecting to ${discoveredDevices.length} discovered ESP32(s)...`);
+    discoveredDevices.forEach(ip => {
+      connectToSingleESP32(ip, `DISCOVERED_${ip}`, `ESP32 at ${ip}`);
+    });
+  } else {
+    console.log('❌ No ESP32 devices found in automatic scan');
+    console.log('💡 Tip: Make sure your ESP32s are powered on and connected to WiFi');
+    
+    // Fallback: try some common ESP32 IPs
+    const fallbackIPs = ['192.168.1.101', '192.168.1.102', '192.168.0.101', '192.168.0.102'];
+    console.log('🔄 Trying fallback IPs:', fallbackIPs);
+    
+    fallbackIPs.forEach(ip => {
+      connectToSingleESP32(ip, `FALLBACK_${ip}`, `ESP32 at ${ip}`);
+    });
+  }
+}
+
+async function testESP32Connection(ip) {
+  return new Promise((resolve) => {
+    const timeout = 2000; // 2 second timeout per IP
+    
+    try {
+      const ws = new WebSocket(`ws://${ip}/ws`);
+      
+      const timeoutId = setTimeout(() => {
+        ws.close();
+        resolve(false);
+      }, timeout);
+      
+      ws.onopen = () => {
+        clearTimeout(timeoutId);
+        ws.close();
+        resolve(true);
+      };
+      
+      ws.onerror = () => {
+        clearTimeout(timeoutId);
+        resolve(false);
+      };
+      
+      ws.onclose = () => {
+        clearTimeout(timeoutId);
+        // Don't resolve here as onopen or onerror will handle it
+      };
+      
+    } catch (error) {
+      resolve(false);
+    }
   });
 }
 
-function connectToSingleESP32(ip, macAddress, deviceName = 'ESP32 Device') {
-  console.log(`Attempting to connect to ESP32 at ${ip}`);
+function connectToSingleESP32(ip, tempMacAddress, deviceName = 'ESP32 Device') {
+  console.log(`🔌 Attempting to connect to ESP32 at ${ip}`);
   
   try {
     const ws = new WebSocket(`ws://${ip}/ws`);
     
     ws.onopen = () => {
       console.log(`✅ Connected to ESP32 at ${ip}`);
-      
-      // Store connection info
-      sensorWebSockets.set(macAddress, ws);
-      
-      // Initialize device data
-      if (!sensorData.has(macAddress)) {
-        sensorData.set(macAddress, {
-          mac_address: macAddress,
-          device_name: deviceName,
-          ip_address: ip,
-          connected: true,
-          timestamp: new Date(),
-          weight: 0,
-          main_air_pressure: 0,
-          atmospheric_pressure: 0,
-          temperature: 0,
-          elevation: 0,
-          gps_lat: 0,
-          gps_lng: 0
-        });
-      }
-      
       updateConnectionStatus();
-      updateSensorDataTable();
     };
     
     ws.onmessage = (event) => {
@@ -102,8 +166,22 @@ function connectToSingleESP32(ip, macAddress, deviceName = 'ESP32 Device') {
         const data = JSON.parse(event.data);
         console.log(`📡 Received data from ${ip}:`, data);
         
-        // Store the real sensor data
-        sensorData.set(data.mac_address || macAddress, {
+        // Use the REAL MAC address from the ESP32 data
+        const realMacAddress = data.mac_address;
+        
+        if (!realMacAddress) {
+          console.error(`❌ No MAC address in data from ${ip}`);
+          return;
+        }
+        
+        // Update our connection mapping with the real MAC
+        if (tempMacAddress !== realMacAddress && sensorWebSockets.has(tempMacAddress)) {
+          sensorWebSockets.delete(tempMacAddress);
+          sensorWebSockets.set(realMacAddress, ws);
+        }
+        
+        // Store the real sensor data with actual MAC address
+        sensorData.set(realMacAddress, {
           ...data,
           device_name: deviceName,
           ip_address: ip,
@@ -117,41 +195,46 @@ function connectToSingleESP32(ip, macAddress, deviceName = 'ESP32 Device') {
         cacheDataForSync(data);
         
       } catch (error) {
-        console.error('❌ Error parsing sensor data from', ip, ':', error);
+        console.error(`❌ Error parsing sensor data from ${ip}:`, error);
       }
     };
     
     ws.onclose = (event) => {
       console.log(`🔌 Disconnected from ESP32 at ${ip} (Code: ${event.code})`);
       
-      if (sensorData.has(macAddress)) {
-        const data = sensorData.get(macAddress);
-        data.connected = false;
-        data.last_disconnect = new Date();
-        sensorData.set(macAddress, data);
-      }
+      // Find the device by IP and mark as disconnected
+      sensorData.forEach((data, mac) => {
+        if (data.ip_address === ip) {
+          data.connected = false;
+          data.last_disconnect = new Date();
+          sensorData.set(mac, data);
+        }
+      });
       
       updateSensorDataTable();
       updateConnectionStatus();
       
-      // Attempt to reconnect after 10 seconds
+      // Attempt to reconnect after 15 seconds
       setTimeout(() => {
         console.log(`🔄 Attempting to reconnect to ${ip}...`);
-        connectToSingleESP32(ip, macAddress, deviceName);
-      }, 10000);
+        connectToSingleESP32(ip, tempMacAddress, deviceName);
+      }, 15000);
     };
     
     ws.onerror = (error) => {
       console.error(`❌ WebSocket error for ${ip}:`, error);
     };
     
+    // Store with temporary key initially, will be updated when we get real MAC
+    sensorWebSockets.set(tempMacAddress, ws);
+    
   } catch (error) {
     console.error(`❌ Failed to create WebSocket connection to ${ip}:`, error);
     
-    // Retry connection after 15 seconds
+    // Retry connection after 20 seconds
     setTimeout(() => {
-      connectToSingleESP32(ip, macAddress, deviceName);
-    }, 15000);
+      connectToSingleESP32(ip, tempMacAddress, deviceName);
+    }, 20000);
   }
 }
 
