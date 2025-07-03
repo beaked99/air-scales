@@ -13,90 +13,365 @@ function initializeWebSocket() {
   updateConnectionStatus();
 }
 
-function simulateESP32Connections() {
-  // Simulate 3 ESP32 devices for demo
-  const demoDevices = [
-    { mac: 'AA:BB:CC:DD:EE:01', ip: '192.168.1.101', name: 'Front Axle' },
-    { mac: 'AA:BB:CC:DD:EE:02', ip: '192.168.1.102', name: 'Rear Axle' },
-    { mac: 'AA:BB:CC:DD:EE:03', ip: '192.168.1.103', name: 'Trailer' }
+function initializeWebSocket() {
+  // Check if we're in AP mode (connected to ESP32 directly)
+  if (isConnectedToESP32Network()) {
+    connectToESP32sInAPMode();
+  } else {
+    // Online mode - connect through your WiFi network
+    connectToESP32sOnline();
+  }
+  
+  // Start data sync to beaker.ca every minute
+  startDataSync();
+  
+  updateConnectionStatus();
+}
+
+function isConnectedToESP32Network() {
+  // Check if connected to ESP32 AP network
+  // This is a heuristic - you might need to adjust based on your ESP32 AP naming
+  const userAgent = navigator.userAgent;
+  const connection = navigator.connection;
+  
+  // In AP mode, we typically have limited connectivity
+  return !navigator.onLine || 
+         (connection && connection.effectiveType === 'slow-2g') ||
+         window.location.hostname === '192.168.4.1';
+}
+
+function connectToESP32sInAPMode() {
+  console.log('Connecting to ESP32s in AP mode...');
+  
+  // In AP mode, ESP32 is typically at 192.168.4.1
+  const esp32IP = '192.168.4.1';
+  connectToSingleESP32(esp32IP, 'AP_MODE_DEVICE');
+}
+
+function connectToESP32sOnline() {
+  console.log('Connecting to ESP32s in online mode...');
+  
+  // Your ESP32s on your WiFi network
+  // Replace these IPs with your actual ESP32 IP addresses
+  const esp32Devices = [
+    { mac: 'DEVICE_1_MAC', ip: '192.168.1.101', name: 'Front Axle' },
+    { mac: 'DEVICE_2_MAC', ip: '192.168.1.102', name: 'Rear Axle' }
   ];
   
-  demoDevices.forEach(device => {
-    simulateDeviceData(device);
+  esp32Devices.forEach(device => {
+    connectToSingleESP32(device.ip, device.mac, device.name);
   });
 }
 
-function simulateDeviceData(device) {
-  // Simulate WebSocket data reception
-  const interval = setInterval(() => {
-    const mockData = {
-      mac_address: device.mac,
-      main_air_pressure: (Math.random() * 20 + 100).toFixed(1), // 100-120 psi
-      atmospheric_pressure: (Math.random() * 10 + 101).toFixed(1), // 101-111 kPa
-      temperature: (Math.random() * 40 + 60).toFixed(1), // 60-100°F
-      elevation: Math.floor(Math.random() * 500), // 0-500 ft
-      gps_lat: (49.2827 + (Math.random() - 0.5) * 0.01).toFixed(6),
-      gps_lng: (-123.1207 + (Math.random() - 0.5) * 0.01).toFixed(6),
-      weight: (Math.random() * 200).toFixed(1), // 0-200 lbs
-      device_name: device.name
+function connectToSingleESP32(ip, macAddress, deviceName = 'ESP32 Device') {
+  console.log(`Attempting to connect to ESP32 at ${ip}`);
+  
+  try {
+    const ws = new WebSocket(`ws://${ip}/ws`);
+    
+    ws.onopen = () => {
+      console.log(`✅ Connected to ESP32 at ${ip}`);
+      
+      // Store connection info
+      sensorWebSockets.set(macAddress, ws);
+      
+      // Initialize device data
+      if (!sensorData.has(macAddress)) {
+        sensorData.set(macAddress, {
+          mac_address: macAddress,
+          device_name: deviceName,
+          ip_address: ip,
+          connected: true,
+          timestamp: new Date(),
+          weight: 0,
+          main_air_pressure: 0,
+          atmospheric_pressure: 0,
+          temperature: 0,
+          elevation: 0,
+          gps_lat: 0,
+          gps_lng: 0
+        });
+      }
+      
+      updateConnectionStatus();
+      updateSensorDataTable();
     };
     
-    // Update sensor data
-    sensorData.set(device.mac, {
-      ...mockData,
-      timestamp: new Date(),
-      connected: true
-    });
+    ws.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        console.log(`📡 Received data from ${ip}:`, data);
+        
+        // Store the real sensor data
+        sensorData.set(data.mac_address || macAddress, {
+          ...data,
+          device_name: deviceName,
+          ip_address: ip,
+          timestamp: new Date(),
+          connected: true
+        });
+        
+        updateSensorDataTable();
+        
+        // Cache data for offline sync
+        cacheDataForSync(data);
+        
+      } catch (error) {
+        console.error('❌ Error parsing sensor data from', ip, ':', error);
+      }
+    };
     
-    updateSensorDataTable();
-  }, 2000 + Math.random() * 3000); // Update every 2-5 seconds
-  
-  // Store interval for cleanup if needed
-  sensorWebSockets.set(device.mac, interval);
+    ws.onclose = (event) => {
+      console.log(`🔌 Disconnected from ESP32 at ${ip} (Code: ${event.code})`);
+      
+      if (sensorData.has(macAddress)) {
+        const data = sensorData.get(macAddress);
+        data.connected = false;
+        data.last_disconnect = new Date();
+        sensorData.set(macAddress, data);
+      }
+      
+      updateSensorDataTable();
+      updateConnectionStatus();
+      
+      // Attempt to reconnect after 10 seconds
+      setTimeout(() => {
+        console.log(`🔄 Attempting to reconnect to ${ip}...`);
+        connectToSingleESP32(ip, macAddress, deviceName);
+      }, 10000);
+    };
+    
+    ws.onerror = (error) => {
+      console.error(`❌ WebSocket error for ${ip}:`, error);
+    };
+    
+  } catch (error) {
+    console.error(`❌ Failed to create WebSocket connection to ${ip}:`, error);
+    
+    // Retry connection after 15 seconds
+    setTimeout(() => {
+      connectToSingleESP32(ip, macAddress, deviceName);
+    }, 15000);
+  }
 }
 
-function connectToESP32(ip, macAddress) {
-  // Real WebSocket connection to ESP32
-  const ws = new WebSocket(`ws://${ip}/ws`);
-  
-  ws.onopen = () => {
-    console.log(`Connected to ESP32 at ${ip}`);
-    updateConnectionStatus();
-  };
-  
-  ws.onmessage = (event) => {
-    try {
-      const data = JSON.parse(event.data);
-      sensorData.set(data.mac_address, {
-        ...data,
-        timestamp: new Date(),
-        connected: true
-      });
-      updateSensorDataTable();
-    } catch (error) {
-      console.error('Error parsing sensor data:', error);
-    }
-  };
-  
-  ws.onclose = () => {
-    console.log(`Disconnected from ESP32 at ${ip}`);
-    if (sensorData.has(macAddress)) {
-      const data = sensorData.get(macAddress);
-      data.connected = false;
-      sensorData.set(macAddress, data);
-    }
-    updateSensorDataTable();
-    updateConnectionStatus();
+async function cacheDataForSync(data) {
+  // Cache sensor data in IndexedDB for syncing to beaker.ca
+  try {
+    const request = indexedDB.open('air-scales-data', 1);
     
-    // Attempt to reconnect after 5 seconds
-    setTimeout(() => connectToESP32(ip, macAddress), 5000);
-  };
+    request.onupgradeneeded = () => {
+      const db = request.result;
+      if (!db.objectStoreNames.contains('sensor-data')) {
+        const store = db.createObjectStore('sensor-data', { keyPath: 'id' });
+        store.createIndex('timestamp', 'timestamp', { unique: false });
+        store.createIndex('synced', 'synced', { unique: false });
+      }
+    };
+    
+    request.onsuccess = () => {
+      const db = request.result;
+      const transaction = db.transaction(['sensor-data'], 'readwrite');
+      const store = transaction.objectStore('sensor-data');
+      
+      const dataToCache = {
+        ...data,
+        id: `${data.mac_address}_${Date.now()}_${Math.random()}`,
+        timestamp: new Date().toISOString(),
+        synced: false,
+        cached_at: new Date().toISOString()
+      };
+      
+      store.add(dataToCache);
+      console.log('💾 Cached sensor data for sync:', dataToCache.id);
+    };
+    
+  } catch (error) {
+    console.error('❌ Error caching sensor data:', error);
+  }
+}
+
+function startDataSync() {
+  // Sync data to beaker.ca every minute
+  setInterval(async () => {
+    if (navigator.onLine) {
+      await syncDataToBeaker();
+    } else {
+      console.log('📴 Offline - skipping data sync');
+    }
+  }, 60000); // 60 seconds
   
-  ws.onerror = (error) => {
-    console.error(`WebSocket error for ${ip}:`, error);
-  };
-  
-  sensorWebSockets.set(macAddress, ws);
+  // Also sync immediately if we come online
+  window.addEventListener('online', () => {
+    console.log('🌐 Back online - syncing cached data...');
+    syncDataToBeaker();
+  });
+}
+
+async function syncDataToBeaker() {
+  try {
+    console.log('🔄 Starting data sync to beaker.ca...');
+    
+    const cachedData = await getCachedSensorData();
+    const unsyncedData = cachedData.filter(item => !item.synced);
+    
+    if (unsyncedData.length === 0) {
+      console.log('✅ No unsynced data to upload');
+      return;
+    }
+    
+    console.log(`📤 Syncing ${unsyncedData.length} data points to beaker.ca...`);
+    
+    let successCount = 0;
+    let errorCount = 0;
+    
+    for (const dataPoint of unsyncedData) {
+      try {
+        // Prepare data exactly as your MicrodataController expects
+        const payload = {
+          mac_address: dataPoint.mac_address,
+          main_air_pressure: parseFloat(dataPoint.main_air_pressure),
+          atmospheric_pressure: parseFloat(dataPoint.atmospheric_pressure),
+          temperature: parseFloat(dataPoint.temperature),
+          elevation: parseInt(dataPoint.elevation),
+          gps_lat: parseFloat(dataPoint.gps_lat),
+          gps_lng: parseFloat(dataPoint.gps_lng),
+          weight: parseFloat(dataPoint.weight),
+          timestamp: dataPoint.timestamp
+        };
+        
+        console.log('📦 Sending payload:', payload);
+        
+        const response = await fetch('https://beaker.ca/api/microdata', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
+          },
+          body: JSON.stringify(payload)
+        });
+        
+        const responseData = await response.json();
+        
+        if (response.ok && responseData.success) {
+          await markDataAsSynced(dataPoint.id);
+          successCount++;
+          console.log(`✅ Synced data point: ${dataPoint.id} (${dataPoint.mac_address})`);
+        } else {
+          errorCount++;
+          console.error(`❌ Failed to sync data point ${dataPoint.id}:`, {
+            status: response.status,
+            statusText: response.statusText,
+            response: responseData
+          });
+          
+          // If it's a validation error (400), mark as failed so we don't keep retrying
+          if (response.status === 400) {
+            await markDataAsFailed(dataPoint.id, responseData.error || 'Validation error');
+          }
+        }
+        
+      } catch (error) {
+        errorCount++;
+        console.error(`❌ Network error syncing data point ${dataPoint.id}:`, error);
+        // Network errors will be retried on next sync
+      }
+      
+      // Small delay between requests to be nice to the server
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+    
+    // Update UI to show sync status
+    const syncIndicator = document.getElementById('sync-indicator');
+    if (syncIndicator) {
+      syncIndicator.style.display = 'inline';
+      
+      if (errorCount === 0) {
+        syncIndicator.textContent = `✓ Synced ${successCount}`;
+        syncIndicator.style.color = '#22c55e';
+      } else {
+        syncIndicator.textContent = `⚠ ${successCount} synced, ${errorCount} failed`;
+        syncIndicator.style.color = '#f59e0b';
+      }
+      
+      setTimeout(() => {
+        syncIndicator.style.display = 'none';
+      }, 5000);
+    }
+    
+    // Update offline data indicator
+    checkOfflineData();
+    
+  } catch (error) {
+    console.error('❌ Error in data sync process:', error);
+    
+    // Show sync error in UI
+    const syncIndicator = document.getElementById('sync-indicator');
+    if (syncIndicator) {
+      syncIndicator.style.display = 'inline';
+      syncIndicator.textContent = '❌ Sync failed';
+      syncIndicator.style.color = '#ef4444';
+      setTimeout(() => {
+        syncIndicator.style.display = 'none';
+      }, 5000);
+    }
+  }
+}
+
+async function markDataAsFailed(dataId, error) {
+  return new Promise((resolve) => {
+    const request = indexedDB.open('air-scales-data', 1);
+    
+    request.onsuccess = () => {
+      const db = request.result;
+      const transaction = db.transaction(['sensor-data'], 'readwrite');
+      const store = transaction.objectStore('sensor-data');
+      
+      const getRequest = store.get(dataId);
+      getRequest.onsuccess = () => {
+        const data = getRequest.result;
+        if (data) {
+          data.sync_failed = true;
+          data.sync_error = error;
+          data.failed_at = new Date().toISOString();
+          store.put(data);
+        }
+        resolve();
+      };
+    };
+    
+    request.onerror = () => {
+      resolve();
+    };
+  });
+}
+
+async function markDataAsSynced(dataId) {
+  return new Promise((resolve) => {
+    const request = indexedDB.open('air-scales-data', 1);
+    
+    request.onsuccess = () => {
+      const db = request.result;
+      const transaction = db.transaction(['sensor-data'], 'readwrite');
+      const store = transaction.objectStore('sensor-data');
+      
+      const getRequest = store.get(dataId);
+      getRequest.onsuccess = () => {
+        const data = getRequest.result;
+        if (data) {
+          data.synced = true;
+          data.synced_at = new Date().toISOString();
+          store.put(data);
+        }
+        resolve();
+      };
+    };
+    
+    request.onerror = () => {
+      resolve(); // Don't fail the sync if we can't mark as synced
+    };
+  });
 }
 
 function updateSensorDataTable() {
