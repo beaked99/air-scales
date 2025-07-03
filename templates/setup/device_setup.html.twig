@@ -1,0 +1,156 @@
+{# templates/setup/device_setup.html.twig #}
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Device Setup - Air Scales</title>
+    <link rel="stylesheet" href="{{ asset('css/setup.css') }}">
+</head>
+<body>
+    <div class="setup-container">
+        <h1>Air Scales Device Setup</h1>
+        
+        {% if exit_pwa %}
+        <div class="alert alert-info">
+            <p>You've exited PWA mode to configure your ESP32 device. This is necessary because PWAs cannot connect directly to Air Scales Access Point mode.</p>
+        </div>
+        {% endif %}
+        
+        <div class="setup-steps">
+            <div class="step active" id="step-1">
+                <h2>Step 1: Connect to Air Scales Device WiFi</h2>
+                <p>On your phone's WiFi settings, connect to the Air Scales network:</p>
+                <div class="wifi-info">
+                    <strong>Network Name:</strong> AirScales-XXXX<br>
+                    <strong>Password:</strong> airscales2025
+                </div>
+                <button onclick="nextStep()" class="btn btn-primary">Connected to ESP32</button>
+            </div>
+            
+            <div class="step" id="step-2">
+                <h2>Step 2: Configure WiFi</h2>
+                <form id="wifi-config-form">
+                    <div class="form-group">
+                        <label for="ssid">Your WiFi Network Name:</label>
+                        <input type="text" id="ssid" name="ssid" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="password">WiFi Password:</label>
+                        <input type="password" id="password" name="password" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="device_id">Device ID (printed on ESP32):</label>
+                        <input type="text" id="device_id" name="device_id" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Configure Device</button>
+                </form>
+            </div>
+            
+            <div class="step" id="step-3">
+                <h2>Step 3: QR Code Configuration</h2>
+                <p>Show this QR code to your ESP32 device:</p>
+                <div id="qr-code-container">
+                    <canvas id="qr-code"></canvas>
+                </div>
+                <button onclick="completeSetup()" class="btn btn-success">Setup Complete</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode/1.5.3/qrcode.min.js"></script>
+    <script>
+        let currentStep = 1;
+        
+        function nextStep() {
+            document.getElementById(`step-${currentStep}`).classList.remove('active');
+            currentStep++;
+            document.getElementById(`step-${currentStep}`).classList.add('active');
+        }
+        
+        document.getElementById('wifi-config-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const formData = new FormData(e.target);
+            const data = Object.fromEntries(formData);
+            
+            try {
+                // First, send config to ESP32 directly
+                const esp32Response = await fetch('http://192.168.4.1/config', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        ssid: data.ssid,
+                        password: data.password,
+                        device_id: data.device_id
+                    })
+                });
+                
+                if (esp32Response.ok) {
+                    // Then register device with beaker.ca
+                    const serverResponse = await fetch('/setup-device/configure', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify(data)
+                    });
+                    
+                    if (serverResponse.ok) {
+                        // Generate QR code for final configuration
+                        const qrResponse = await fetch(`/setup-device/qr-config?device_id=${data.device_id}&ssid=${data.ssid}`);
+                        const qrData = await qrResponse.json();
+                        
+                        // Generate QR code
+                        QRCode.toCanvas(document.getElementById('qr-code'), qrData.qr_data, {
+                            width: 256,
+                            height: 256
+                        });
+                        
+                        nextStep();
+                    } else {
+                        alert('Failed to register device with server');
+                    }
+                } else {
+                    alert('Failed to configure ESP32. Make sure you are connected to the ESP32 WiFi network.');
+                }
+            } catch (error) {
+                console.error('Setup error:', error);
+                alert('Setup failed. Please check your connection and try again.');
+            }
+        });
+        
+        function completeSetup() {
+            {% if return_to_pwa %}
+            // Return to PWA
+            window.location.href = '{{ return_to_pwa|default('/pwa/') }}';
+            {% else %}
+            // Go to main dashboard
+            window.location.href = '/dashboard';
+            {% endif %}
+        }
+        
+        // Auto-detect available WiFi networks
+        if ('navigator' in window && 'wifi' in navigator) {
+            navigator.wifi.getNetworks().then(networks => {
+                const ssidInput = document.getElementById('ssid');
+                const datalist = document.createElement('datalist');
+                datalist.id = 'wifi-networks';
+                
+                networks.forEach(network => {
+                    const option = document.createElement('option');
+                    option.value = network.ssid;
+                    datalist.appendChild(option);
+                });
+                
+                ssidInput.setAttribute('list', 'wifi-networks');
+                document.body.appendChild(datalist);
+            }).catch(() => {
+                // WiFi API not available, continue normally
+            });
+        }
+    </script>
+</body>
+</html>
