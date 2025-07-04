@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Air Scales</title>
+  <link rel="manifest" href="/pwa/manifest.webmanifest">
+  <link rel="stylesheet" href="/pwa/styles.css">
+  <link rel="icon" href="/pwa/icon-192.png">
+  <meta name="theme-color" content="#1f7a1f">
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/pwa/sw.js')
+        .then(reg => console.log('[PWA] Service Worker registered', reg))
+        .catch(err => console.error('[PWA] SW registration failed', err));
+    }
+  </script>
+</head>
+<body>
+  <h1>Air Scales</h1>
+  <div id="status">Waiting for device...</div>
+  <div id="data"></div>
+  <script type="module" src="/pwa/ws.js"></script>
+</body>
+</html>
