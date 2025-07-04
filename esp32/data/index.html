@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Air Scales Controller</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      background: #f8f8f8;
+      padding: 2rem;
+      text-align: center;
+    }
+    #status {
+      margin: 1rem 0;
+      font-weight: bold;
+    }
+    #data {
+      margin: 1rem 0;
+      padding: 1rem;
+      background: white;
+      border-radius: 5px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Air Scales</h1>
+  <div id="status">Waiting for Air Scales Controller...</div>
+  <div id="data">No data yet</div>
+  <br />
+  <a href="/wifi.html">Wi-Fi Setup</a>
+
+  <script>
+    let ws;
+
+    function connect() {
+      const wsUrl = 'ws://' + location.hostname + '/ws';
+      document.getElementById('debug-log').innerHTML += '[WS] Attempting to connect to: ' + wsUrl + '\n';
+      document.getElementById('status').textContent = 'Connecting...';
+      ws = new WebSocket(wsUrl);
+
+      ws.onopen = () => {
+        document.getElementById('status').textContent = 'Connected';
+        document.getElementById('debug-log').innerHTML += '[WS] Connected to WebSocket\n';
+      };
+
+      ws.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        document.getElementById('data').innerHTML = 'Weight: ' + data.weight + ' kg<br>Temp: ' + data.temperature + '°C';
+        document.getElementById('debug-log').innerHTML += '[WS] Received data: weight=' + data.weight + '\n';
+      };
+
+      ws.onclose = () => {
+        document.getElementById('status').textContent = 'Disconnected. Retrying...';
+        document.getElementById('debug-log').innerHTML += '[WS] WebSocket closed, retrying in 5s\n';
+        setTimeout(connect, 5000);
+      };
+
+      ws.onerror = (error) => {
+        document.getElementById('debug-log').innerHTML += '[WS ERROR] ' + error + '\n';
+        document.getElementById('status').textContent = 'WebSocket Error';
+      };
+    }
+
+    window.onload = () => {
+      document.getElementById('debug-log').innerHTML += '[DEBUG] JavaScript is running!\n';
+      connect();
+    };
+  </script>
+  
+  <!-- Debug Panel -->
+  <div id="debug" style="position: fixed; bottom: 0; left: 0; width: 100%; max-height: 30%; overflow: auto; background: #000; color: #0f0; font-family: monospace; font-size: 12px; padding: 0.5rem; z-index: 9999;">
+    <div style="text-align:right;">
+      <button onclick="document.getElementById('debug').style.display='none'" style="background:#222; color:#fff; border:none;">✕</button>
+    </div>
+    <pre id="debug-log">[DEBUG] Initialized debug panel...\n</pre>
+  </div>
+
+</body>
+</html>
