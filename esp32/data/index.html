@@ -1,80 +1,224 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Air Scales Controller</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Air Scales</title>
   <style>
     body {
       font-family: sans-serif;
-      background: #f8f8f8;
-      padding: 2rem;
+      background: #f0f0f0;
+      margin: 0;
+      padding: 1rem;
       text-align: center;
     }
-    #status {
-      margin: 1rem 0;
-      font-weight: bold;
+    .header {
+      background: #333;
+      color: white;
+      padding: 1rem;
+      margin: -1rem -1rem 1rem -1rem;
     }
-    #data {
+    .status {
+      font-size: 1.2em;
+      margin: 1rem 0;
+      padding: 0.5rem;
+      border-radius: 5px;
+    }
+    .connected { background: #d4edda; color: #155724; }
+    .disconnected { background: #f8d7da; color: #721c24; }
+    .data-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+      margin: 1rem 0;
+    }
+    .data-card {
+      background: white;
+      padding: 1rem;
+      border-radius: 5px;
+      border: 1px solid #ddd;
+    }
+    .data-value {
+      font-size: 2em;
+      font-weight: bold;
+      color: #333;
+    }
+    .data-label {
+      color: #666;
+      font-size: 0.9em;
+    }
+    .device-list {
+      background: white;
+      border: 1px solid #ddd;
+      border-radius: 5px;
       margin: 1rem 0;
       padding: 1rem;
-      background: white;
-      border-radius: 5px;
+    }
+    .device {
+      display: flex;
+      justify-content: space-between;
+      padding: 0.5rem;
+      border-bottom: 1px solid #eee;
+    }
+    .device:last-child { border-bottom: none; }
+    .device.master { background: #e7f3ff; }
+    .device.offline { color: #999; }
+    .debug {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      max-height: 200px;
+      overflow-y: auto;
+      background: #000;
+      color: #0f0;
+      font-family: monospace;
+      font-size: 10px;
+      padding: 0.5rem;
+      border-top: 2px solid #333;
     }
   </style>
 </head>
 <body>
-  <h1>Air Scales</h1>
-  <div id="status">Waiting for Air Scales Controller...</div>
-  <div id="data">No data yet</div>
-  <br />
-  <a href="/wifi.html">Wi-Fi Setup</a>
+  <div class="header">
+    <h1>🚛 Air Scales</h1>
+    <div id="master-info">Connecting...</div>
+  </div>
+
+  <div id="status" class="status disconnected">
+    Connecting to Air Scales...
+  </div>
+
+  <div class="data-grid">
+    <div class="data-card">
+      <div class="data-value" id="total-weight">--</div>
+      <div class="data-label">Total Weight (kg)</div>
+    </div>
+    <div class="data-card">
+      <div class="data-value" id="device-count">--</div>
+      <div class="data-label">Devices Online</div>
+    </div>
+  </div>
+
+  <div class="device-list">
+    <h3>Connected Devices</h3>
+    <div id="device-list">
+      <div class="device">No devices found</div>
+    </div>
+  </div>
+
+  <div class="debug">
+    <div style="text-align: right; margin-bottom: 5px;">
+      <button onclick="document.querySelector('.debug').style.display='none'" 
+              style="background: #333; color: #fff; border: none; padding: 2px 8px;">×</button>
+    </div>
+    <div id="debug-log">[DEBUG] Initializing...\n</div>
+  </div>
 
   <script>
     let ws;
+    let reconnectAttempts = 0;
+    const maxReconnectAttempts = 5;
+
+    function addDebugLog(message) {
+      const debugLog = document.getElementById('debug-log');
+      const timestamp = new Date().toLocaleTimeString();
+      debugLog.innerHTML += `[${timestamp}] ${message}\n`;
+      debugLog.scrollTop = debugLog.scrollHeight;
+    }
+
+    function updateStatus(message, isConnected) {
+      const statusEl = document.getElementById('status');
+      statusEl.textContent = message;
+      statusEl.className = `status ${isConnected ? 'connected' : 'disconnected'}`;
+    }
 
     function connect() {
-      const wsUrl = 'ws://' + location.hostname + '/ws';
-      document.getElementById('debug-log').innerHTML += '[WS] Attempting to connect to: ' + wsUrl + '\n';
-      document.getElementById('status').textContent = 'Connecting...';
+      const wsUrl = `ws://${location.hostname}/ws`;
+      addDebugLog(`Connecting to: ${wsUrl}`);
+      
       ws = new WebSocket(wsUrl);
 
       ws.onopen = () => {
-        document.getElementById('status').textContent = 'Connected';
-        document.getElementById('debug-log').innerHTML += '[WS] Connected to WebSocket\n';
+        addDebugLog('WebSocket connected successfully');
+        updateStatus('Connected to Air Scales', true);
+        reconnectAttempts = 0;
       };
 
       ws.onmessage = (event) => {
-        const data = JSON.parse(event.data);
-        document.getElementById('data').innerHTML = 'Weight: ' + data.weight + ' kg<br>Temp: ' + data.temperature + '°C';
-        document.getElementById('debug-log').innerHTML += '[WS] Received data: weight=' + data.weight + '\n';
+        try {
+          const data = JSON.parse(event.data);
+          addDebugLog(`Data received: ${data.device_count} devices, ${data.total_weight} kg`);
+          updateDisplay(data);
+        } catch (e) {
+          addDebugLog(`Error parsing data: ${e.message}`);
+        }
       };
 
       ws.onclose = () => {
-        document.getElementById('status').textContent = 'Disconnected. Retrying...';
-        document.getElementById('debug-log').innerHTML += '[WS] WebSocket closed, retrying in 5s\n';
-        setTimeout(connect, 5000);
+        addDebugLog('WebSocket connection closed');
+        updateStatus('Disconnected - Reconnecting...', false);
+        
+        if (reconnectAttempts < maxReconnectAttempts) {
+          reconnectAttempts++;
+          setTimeout(connect, 2000 * reconnectAttempts);
+        } else {
+          updateStatus('Connection failed - Refresh page', false);
+        }
       };
 
       ws.onerror = (error) => {
-        document.getElementById('debug-log').innerHTML += '[WS ERROR] ' + error + '\n';
-        document.getElementById('status').textContent = 'WebSocket Error';
+        addDebugLog(`WebSocket error: ${error}`);
+        updateStatus('Connection error', false);
       };
     }
 
+    function updateDisplay(data) {
+      // Update master info
+      document.getElementById('master-info').textContent = 
+        `Master: ${data.master_mac} | ${data.device_count} devices`;
+
+      // Update summary cards
+      document.getElementById('total-weight').textContent = 
+        data.total_weight ? data.total_weight.toFixed(1) : '--';
+      document.getElementById('device-count').textContent = 
+        data.device_count ? data.device_count : '--';
+
+      // Update device list
+      const deviceListEl = document.getElementById('device-list');
+      if (data.devices && data.devices.length > 0) {
+        deviceListEl.innerHTML = '';
+        
+        data.devices.forEach(device => {
+          const deviceEl = document.createElement('div');
+          deviceEl.className = `device ${device.role}${device.online ? '' : ' offline'}`;
+          
+          const deviceInfo = document.createElement('div');
+          deviceInfo.innerHTML = `
+            <strong>${device.role.toUpperCase()}</strong><br>
+            <small>${device.mac_address}</small>
+          `;
+          
+          const deviceData = document.createElement('div');
+          deviceData.innerHTML = `
+            ${device.weight.toFixed(1)} kg<br>
+            <small>${device.temperature.toFixed(1)}°C</small>
+          `;
+          
+          deviceEl.appendChild(deviceInfo);
+          deviceEl.appendChild(deviceData);
+          deviceListEl.appendChild(deviceEl);
+        });
+      } else {
+        deviceListEl.innerHTML = '<div class="device">No devices found</div>';
+      }
+    }
+
+    // Start connection when page loads
     window.onload = () => {
-      document.getElementById('debug-log').innerHTML += '[DEBUG] JavaScript is running!\n';
+      addDebugLog('Page loaded, starting connection...');
       connect();
     };
   </script>
-  
-  <!-- Debug Panel -->
-  <div id="debug" style="position: fixed; bottom: 0; left: 0; width: 100%; max-height: 30%; overflow: auto; background: #000; color: #0f0; font-family: monospace; font-size: 12px; padding: 0.5rem; z-index: 9999;">
-    <div style="text-align:right;">
-      <button onclick="document.getElementById('debug').style.display='none'" style="background:#222; color:#fff; border:none;">✕</button>
-    </div>
-    <pre id="debug-log">[DEBUG] Initialized debug panel...\n</pre>
-  </div>
-
 </body>
 </html>

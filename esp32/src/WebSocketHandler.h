@@ -6,10 +6,13 @@
 #include <AsyncTCP.h>
 #include <ESPAsyncWebServer.h>
 #include <ArduinoJson.h>
+#include "DataStructures.h"
 
 extern AsyncWebSocket ws;
 
+// Function declarations
 void setupWebSocket(AsyncWebServer& server);
-void broadcastSensorData();
+void broadcastAggregatedData();
+bool hasPhoneConnected();
 
 #endif // WEBSOCKETHANDLER_H
