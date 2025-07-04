@@ -1,9 +1,9 @@
 {
-  "name": "Air Scales",
+  "name": "Air Scales App",
   "short_name": "AirScales",
-  "start_url": "/pwa/index.html",
+  "start_url": "/app/",
   "display": "standalone",
-  "background_color": "#1f7a1f",
+  "background_color": "#ffffff",
   "theme_color": "#1f7a1f",
   "orientation": "portrait",
   "icons": [
