@@ -11,11 +11,14 @@
 
 // Function declarations
 void initializeESPNow();
+void addLinkedDevicesAsPeers();
+bool parseMacAddress(const char* macStr, uint8_t* macBytes);
 void broadcastOwnSensorData();
 void onDataReceived(const uint8_t *mac, const uint8_t *incomingData, int len);
 void cleanupOfflineDevices();
 int getTotalOnlineDevices();
 float getTotalWeight();
+void refreshPeersFromLinkedDevices();
 
 // External variable declarations (defined in .cpp)
 extern sensor_data_t nearbyDevices[MAX_NEARBY_DEVICES];

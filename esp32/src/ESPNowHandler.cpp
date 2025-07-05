@@ -1,14 +1,8 @@
 #include "ESPNowHandler.h"
+#include "DeviceManager.h"
 
 #define MAX_SLAVE_DEVICES 10
 #define SLAVE_TIMEOUT_MS 15000  // 15 seconds timeout
-
-// Hardcoded known peers (revert to working version)
-uint8_t knownPeers[][6] = {
-  {0xEC, 0xDA, 0x3B, 0x5C, 0x19, 0x84}, // Device 1 MAC
-  {0xEC, 0xDA, 0x3B, 0x5C, 0x1A, 0x1C}  // Device 2 MAC
-};
-int numKnownPeers = 2;
 
 // Storage for nearby device data
 sensor_data_t nearbyDevices[MAX_SLAVE_DEVICES];
@@ -33,37 +27,77 @@ void initializeESPNow() {
     return;
   }
   
+  // Register callback for ALL data (sensor data + announcements)
   esp_err_t callbackResult = esp_now_register_recv_cb(onDataReceived);
   Serial.printf("[ESP-NOW] 📞 Callback registration result: %d\n", callbackResult);
   
-  // Add peers using WiFi's ACTUAL channel
-  String myMac = WiFi.macAddress();
-  myMac.toLowerCase(); // Ensure consistent case
+  // Add broadcast peer for announcements
+  esp_now_peer_info_t broadcastPeer;
+  memset(&broadcastPeer, 0, sizeof(broadcastPeer));
+  uint8_t broadcastAddr[6] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
+  memcpy(broadcastPeer.peer_addr, broadcastAddr, 6);
+  broadcastPeer.channel = actualChannel;
+  broadcastPeer.encrypt = false;
   
-  for (int i = 0; i < numKnownPeers; i++) {
-    char peerMacStr[18];
-    snprintf(peerMacStr, sizeof(peerMacStr), "%02x:%02x:%02x:%02x:%02x:%02x",
-             knownPeers[i][0], knownPeers[i][1], knownPeers[i][2],
-             knownPeers[i][3], knownPeers[i][4], knownPeers[i][5]);
-    
-    // Skip self
-    if (myMac.equals(String(peerMacStr))) {
-      Serial.printf("[ESP-NOW] ⏭️  Skipping self: %s\n", peerMacStr);
-      continue;
-    }
-    
-    esp_now_peer_info_t peerInfo;
-    memcpy(peerInfo.peer_addr, knownPeers[i], 6);
-    peerInfo.channel = actualChannel;  // Use WiFi's actual channel
-    peerInfo.encrypt = false;
-    
-    esp_err_t addResult = esp_now_add_peer(&peerInfo);
-    Serial.printf("[ESP-NOW] 🤝 Added peer %s (channel %d): result %d\n", 
-                  peerMacStr, actualChannel, addResult);
-  }
+  esp_err_t broadcastResult = esp_now_add_peer(&broadcastPeer);
+  Serial.printf("[ESP-NOW] 📢 Broadcast peer added: result %d\n", broadcastResult);
+  
+  // Add linked devices as peers
+  addLinkedDevicesAsPeers();
   
   Serial.println("[ESP-NOW] ✅ ESP-NOW initialized successfully");
   Serial.printf("[ESP-NOW] 📡 Device MAC: %s\n", WiFi.macAddress().c_str());
+}
+
+void addLinkedDevicesAsPeers() {
+  Serial.println("[ESP-NOW] 🔗 Adding linked devices as peers...");
+  
+  int actualChannel = WiFi.channel();
+  String myMac = WiFi.macAddress();
+  myMac.toLowerCase();
+  
+  for (int i = 0; i < getLinkedDeviceCount(); i++) {
+    String deviceMac = linkedDevices[i];
+    deviceMac.toLowerCase();
+    
+    // Skip self
+    if (myMac.equals(deviceMac)) {
+      Serial.printf("[ESP-NOW] ⏭️  Skipping self: %s\n", deviceMac.c_str());
+      continue;
+    }
+    
+    // Convert string MAC to byte array
+    uint8_t peerMac[6];
+    if (parseMacAddress(deviceMac.c_str(), peerMac)) {
+      esp_now_peer_info_t peerInfo;
+      memcpy(peerInfo.peer_addr, peerMac, 6);
+      peerInfo.channel = actualChannel;
+      peerInfo.encrypt = false;
+      
+      esp_err_t addResult = esp_now_add_peer(&peerInfo);
+      Serial.printf("[ESP-NOW] 🤝 Added linked device %s (channel %d): result %d\n", 
+                    deviceMac.c_str(), actualChannel, addResult);
+    } else {
+      Serial.printf("[ESP-NOW] ❌ Invalid MAC address format: %s\n", deviceMac.c_str());
+    }
+  }
+  
+  Serial.printf("[ESP-NOW] ✅ Added %d linked devices as peers\n", getLinkedDeviceCount());
+}
+
+bool parseMacAddress(const char* macStr, uint8_t* macBytes) {
+  int values[6];
+  int result = sscanf(macStr, "%x:%x:%x:%x:%x:%x", 
+                      &values[0], &values[1], &values[2], 
+                      &values[3], &values[4], &values[5]);
+  
+  if (result == 6) {
+    for (int i = 0; i < 6; i++) {
+      macBytes[i] = (uint8_t) values[i];
+    }
+    return true;
+  }
+  return false;
 }
 
 void onDataReceived(const uint8_t *mac, const uint8_t *incomingData, int len) {
@@ -72,10 +106,30 @@ void onDataReceived(const uint8_t *mac, const uint8_t *incomingData, int len) {
   snprintf(macStr, sizeof(macStr), "%02x:%02x:%02x:%02x:%02x:%02x",
            mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
   
-  Serial.printf("[ESP-NOW] 📥 Data received from: %s (length: %d bytes)\n", macStr, len);
+  // Check if this is an announcement packet
+  if (len == sizeof(announcement_packet_t)) {
+    onAnnouncementReceived(mac, incomingData, len);
+    return;
+  }
   
+  // Check if this is a pairing packet
+  if (len == sizeof(pairing_packet_t)) {
+    onPairingPacketReceived(mac, incomingData, len);
+    return;
+  }
+  
+  // Check if this is sensor data
   if (len != sizeof(sensor_data_t)) {
-    Serial.printf("[ESP-NOW] ❌ Invalid data size: %d (expected %d)\n", len, sizeof(sensor_data_t));
+    Serial.printf("[ESP-NOW] ❌ Unknown data size: %d (expected %d, %d, or %d)\n", 
+                  len, sizeof(sensor_data_t), sizeof(announcement_packet_t), sizeof(pairing_packet_t));
+    return;
+  }
+  
+  Serial.printf("[ESP-NOW] 📥 Sensor data received from: %s (length: %d bytes)\n", macStr, len);
+  
+  // Only process sensor data from linked devices
+  if (!isDeviceLinked(macStr)) {
+    Serial.printf("[ESP-NOW] ⚠️  Ignoring sensor data from unlinked device: %s\n", macStr);
     return;
   }
   
@@ -97,7 +151,7 @@ void onDataReceived(const uint8_t *mac, const uint8_t *incomingData, int len) {
     if (nearbyDeviceCount < MAX_SLAVE_DEVICES) {
       deviceIndex = nearbyDeviceCount;
       nearbyDeviceCount++;
-      Serial.printf("[ESP-NOW] 🆕 New device registered: %s (total: %d)\n", macStr, nearbyDeviceCount);
+      Serial.printf("[ESP-NOW] 🆕 New linked device registered: %s (total: %d)\n", macStr, nearbyDeviceCount);
     } else {
       Serial.println("[ESP-NOW] ⚠️  Maximum device limit reached, ignoring new device");
       return;
@@ -127,40 +181,45 @@ void broadcastOwnSensorData() {
   ownData.timestamp = millis();
   ownData.is_online = true;
   
-  // Send to all known peers except self
+  // Send to all linked devices
   String myMac = WiFi.macAddress();
-  myMac.toLowerCase(); // Ensure consistent case
+  myMac.toLowerCase();
   
-  for (int i = 0; i < numKnownPeers; i++) {
-    char peerMacStr[18];
-    snprintf(peerMacStr, sizeof(peerMacStr), "%02x:%02x:%02x:%02x:%02x:%02x",
-             knownPeers[i][0], knownPeers[i][1], knownPeers[i][2],
-             knownPeers[i][3], knownPeers[i][4], knownPeers[i][5]);
+  for (int i = 0; i < getLinkedDeviceCount(); i++) {
+    String deviceMac = linkedDevices[i];
+    deviceMac.toLowerCase();
     
-    // Skip self - proper case handling
-    if (myMac.equals(String(peerMacStr))) {
-      Serial.printf("[ESP-NOW] ⏭️  Skipping send to self: %s\n", peerMacStr);
+    // Skip self
+    if (myMac.equals(deviceMac)) {
+      Serial.printf("[ESP-NOW] ⏭️  Skipping send to self: %s\n", deviceMac.c_str());
       continue;
     }
     
-    // WORKING TECHNIQUE: Remove and re-add peer before sending
-    esp_now_del_peer(knownPeers[i]);
+    // Convert string MAC to byte array
+    uint8_t peerMac[6];
+    if (!parseMacAddress(deviceMac.c_str(), peerMac)) {
+      Serial.printf("[ESP-NOW] ❌ Invalid MAC format: %s\n", deviceMac.c_str());
+      continue;
+    }
+    
+    // Remove and re-add peer before sending (working technique)
+    esp_now_del_peer(peerMac);
     
     esp_now_peer_info_t peerInfo;
-    memcpy(peerInfo.peer_addr, knownPeers[i], 6);
-    peerInfo.channel = WiFi.channel(); // Use current WiFi channel
+    memcpy(peerInfo.peer_addr, peerMac, 6);
+    peerInfo.channel = WiFi.channel();
     peerInfo.encrypt = false;
     
     esp_err_t addResult = esp_now_add_peer(&peerInfo);
-    Serial.printf("[ESP-NOW] 🔄 Re-added peer %s: result %d\n", peerMacStr, addResult);
+    Serial.printf("[ESP-NOW] 🔄 Re-added peer %s: result %d\n", deviceMac.c_str(), addResult);
     
-    Serial.printf("[ESP-NOW] 🎯 Attempting send to: %s\n", peerMacStr);
-    esp_err_t result = esp_now_send(knownPeers[i], (uint8_t*)&ownData, sizeof(ownData));
+    Serial.printf("[ESP-NOW] 🎯 Attempting send to: %s\n", deviceMac.c_str());
+    esp_err_t result = esp_now_send(peerMac, (uint8_t*)&ownData, sizeof(ownData));
     
     if (result == ESP_OK) {
-      Serial.printf("[ESP-NOW] 📤 SUCCESS! Sent to %s - Weight: %.1f kg\n", peerMacStr, ownData.weight);
+      Serial.printf("[ESP-NOW] 📤 SUCCESS! Sent to %s - Weight: %.1f kg\n", deviceMac.c_str(), ownData.weight);
     } else {
-      Serial.printf("[ESP-NOW] ❌ Send to %s failed, error: %d\n", peerMacStr, result);
+      Serial.printf("[ESP-NOW] ❌ Send to %s failed, error: %d\n", deviceMac.c_str(), result);
     }
   }
 }
@@ -202,4 +261,36 @@ float getTotalWeight() {
   }
   
   return totalWeight;
+}
+
+void refreshPeersFromLinkedDevices() {
+  Serial.println("[ESP-NOW] 🔄 Refreshing peers from linked devices...");
+  
+  // Clear all existing peers except broadcast
+  esp_now_peer_num_t peerNum;
+  esp_now_get_peer_num(&peerNum);
+  
+  // Get all current peers and remove them (except broadcast)
+  esp_now_peer_info_t peerInfo;
+  esp_now_peer_info_t *peer = &peerInfo;
+  
+  for (int i = 0; i < peerNum.total_num; i++) {
+    if (esp_now_fetch_peer(true, peer) == ESP_OK) {
+      // Don't remove broadcast peer (FF:FF:FF:FF:FF:FF)
+      bool isBroadcast = true;
+      for (int j = 0; j < 6; j++) {
+        if (peer->peer_addr[j] != 0xFF) {
+          isBroadcast = false;
+          break;
+        }
+      }
+      
+      if (!isBroadcast) {
+        esp_now_del_peer(peer->peer_addr);
+      }
+    }
+  }
+  
+  // Re-add all linked devices
+  addLinkedDevicesAsPeers();
 }

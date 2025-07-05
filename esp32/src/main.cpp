@@ -4,9 +4,11 @@
 #include <WiFi.h>
 #include <ESPAsyncWebServer.h>
 #include <SPIFFS.h>
+#include <ArduinoJson.h>
 #include "DataStructures.h"
 #include "ESPNowHandler.h"
 #include "WebSocketHandler.h"
+#include "DeviceManager.h"
 
 #define WIFI_RESET_PIN 0
 
@@ -36,6 +38,9 @@ void initializeSystem() {
     file = root.openNextFile();
   }
   
+  // Initialize Device Manager
+  initializeDeviceManager();
+  
   // Setup WiFi Access Point FIRST
   String apName = "AirScales-" + WiFi.macAddress();
   Serial.printf("[WiFi] 📶 Creating AP: %s\n", apName.c_str());
@@ -60,6 +65,10 @@ void initializeSystem() {
     request->send(SPIFFS, "/index.html", "text/html");
   });
   
+  server.on("/device", HTTP_GET, [](AsyncWebServerRequest *request){
+    request->send(SPIFFS, "/device.html", "text/html");
+  });
+  
   server.on("/test", HTTP_GET, [](AsyncWebServerRequest *request){
     request->send(200, "text/plain", "Air Scales ESP32 is working!");
   });
@@ -72,8 +81,81 @@ void initializeSystem() {
     response += "Phone Connected: " + String(hasPhoneConnected() ? "YES" : "NO") + "\n";
     response += "ESP-NOW Devices: " + String(getTotalOnlineDevices()) + "\n";
     response += "Total Weight: " + String(getTotalWeight()) + " kg\n";
+    response += "Linked Devices: " + String(getLinkedDeviceCount()) + "\n";
+    response += "Discovered Devices: " + String(getDiscoveredDeviceCount()) + "\n";
+    response += "Discovery Mode: " + String(discoveryMode ? "ON" : "OFF") + "\n";
     response += "Uptime: " + String(millis() / 1000) + " seconds\n";
     request->send(200, "text/plain", response);
+  });
+  
+  // Device Management API Routes
+  server.on("/api/scan-devices", HTTP_POST, [](AsyncWebServerRequest *request){
+    startDeviceDiscovery();
+    StaticJsonDocument<200> doc;
+    doc["success"] = true;
+    doc["message"] = "Device scan started";
+    
+    String response;
+    serializeJson(doc, response);
+    request->send(200, "application/json", response);
+  });
+  
+  server.on("/api/discovered-devices", HTTP_GET, [](AsyncWebServerRequest *request){
+    String response = getDiscoveredDevicesJson();
+    request->send(200, "application/json", response);
+  });
+  
+  server.on("/api/linked-devices", HTTP_GET, [](AsyncWebServerRequest *request){
+    String response = getLinkedDevicesJson();
+    request->send(200, "application/json", response);
+  });
+  
+  server.on("/api/link-device", HTTP_POST, [](AsyncWebServerRequest *request){}, NULL,
+    [](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total){
+      StaticJsonDocument<200> doc;
+      deserializeJson(doc, (char*)data);
+      
+      String macAddress = doc["mac_address"];
+      StaticJsonDocument<200> response;
+      
+      if (addLinkedDevice(macAddress.c_str())) {
+        response["success"] = true;
+        response["message"] = "Device linked successfully";
+        
+        // Refresh ESP-NOW peers
+        refreshPeersFromLinkedDevices();
+      } else {
+        response["success"] = false;
+        response["error"] = "Failed to link device";
+      }
+      
+      String responseStr;
+      serializeJson(response, responseStr);
+      request->send(200, "application/json", responseStr);
+  });
+  
+  server.on("/api/unlink-device", HTTP_POST, [](AsyncWebServerRequest *request){}, NULL,
+    [](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total){
+      StaticJsonDocument<200> doc;
+      deserializeJson(doc, (char*)data);
+      
+      String macAddress = doc["mac_address"];
+      StaticJsonDocument<200> response;
+      
+      if (removeLinkedDevice(macAddress.c_str())) {
+        response["success"] = true;
+        response["message"] = "Device unlinked successfully";
+        
+        // Refresh ESP-NOW peers
+        refreshPeersFromLinkedDevices();
+      } else {
+        response["success"] = false;
+        response["error"] = "Failed to unlink device";
+      }
+      
+      String responseStr;
+      serializeJson(response, responseStr);
+      request->send(200, "application/json", responseStr);
   });
   
   server.serveStatic("/", SPIFFS, "/");
@@ -112,6 +194,7 @@ void initializeSystem() {
   Serial.println("✅ SYSTEM INITIALIZATION COMPLETE");
   Serial.println("✅ ================================");
   Serial.printf("📡 WiFi Channel: %d\n", WiFi.channel());
+  Serial.printf("🔗 Linked Devices: %d\n", getLinkedDeviceCount());
   Serial.println("🔍 Listening for other Air Scales devices...");
   Serial.println("📱 Ready for phone connection!");
   Serial.println("");
@@ -129,6 +212,13 @@ void loop() {
   static unsigned long lastESPNowBroadcast = 0;
   static unsigned long lastWebSocketBroadcast = 0;
   static unsigned long lastStatusReport = 0;
+  static unsigned long lastAnnouncement = 0;
+  
+  // Broadcast announcements every 2 seconds for device discovery
+  if (millis() - lastAnnouncement > 2000) {
+    lastAnnouncement = millis();
+    broadcastAnnouncement();
+  }
   
   // Broadcast own sensor data via ESP-NOW every 3 seconds
   if (millis() - lastESPNowBroadcast > 3000) {
@@ -155,6 +245,9 @@ void loop() {
     Serial.printf("📶 WiFi Clients: %d\n", WiFi.softAPgetStationNum());
     Serial.printf("📱 Phone Connected: %s\n", hasPhoneConnected() ? "YES" : "NO");
     Serial.printf("🔗 ESP-NOW Devices: %d\n", getTotalOnlineDevices());
+    Serial.printf("📋 Linked Devices: %d\n", getLinkedDeviceCount());
+    Serial.printf("🔍 Discovered Devices: %d\n", getDiscoveredDeviceCount());
+    Serial.printf("🎯 Discovery Mode: %s\n", discoveryMode ? "ON" : "OFF");
     Serial.printf("⚖️  Total Weight: %.1f kg\n", getTotalWeight());
     Serial.printf("🧠 Free Heap: %d bytes\n", ESP.getFreeHeap());
     
