@@ -4,6 +4,12 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Air Scales</title>
+  
+  <!-- PWA Manifest -->
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#007bff">
+  <link rel="icon" href="/icons/favicon.ico">
+  
   <style>
     body {
       font-family: sans-serif;
@@ -26,6 +32,9 @@
     }
     .connected { background: #d4edda; color: #155724; }
     .disconnected { background: #f8d7da; color: #721c24; }
+    .connecting { background: #fff3cd; color: #856404; }
+    .connected-ble { background: #cce5ff; color: #004085; }
+    .connected-wifi { background: #d1ecf1; color: #0c5460; }
     .data-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -63,6 +72,45 @@
     .device:last-child { border-bottom: none; }
     .device.master { background: #e7f3ff; }
     .device.offline { color: #999; }
+    .connection-controls {
+      background: white;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+      margin: 1rem 0;
+      padding: 1rem;
+    }
+    .connection-buttons {
+      display: flex;
+      gap: 0.5rem;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+    .btn {
+      padding: 0.5rem 1rem;
+      border: none;
+      border-radius: 3px;
+      cursor: pointer;
+      font-size: 0.9rem;
+    }
+    .btn-primary { background: #007bff; color: white; }
+    .btn-success { background: #28a745; color: white; }
+    .btn-info { background: #17a2b8; color: white; }
+    .nav-links {
+      margin: 1rem 0;
+    }
+    .nav-links a {
+      margin: 0 1rem;
+      color: #007bff;
+      text-decoration: none;
+    }
+    .pwa-install {
+      background: #28a745;
+      color: white;
+      padding: 1rem;
+      margin: 1rem 0;
+      border-radius: 5px;
+      display: none;
+    }
     .debug {
       position: fixed;
       bottom: 0;
@@ -84,9 +132,32 @@
     <h1>🚛 Air Scales</h1>
     <div id="master-info">Connecting...</div>
   </div>
-  <a href="/device">Device Management</a>
-  <div id="status" class="status disconnected">
-    Connecting to Air Scales...
+
+  <div class="nav-links">
+    <a href="/device">Device Management</a>
+    <a href="/debug">Debug Info</a>
+  </div>
+
+  <!-- PWA Install Banner -->
+  <div id="pwa-install-banner" class="pwa-install">
+    <h3>📱 Install Air Scales App</h3>
+    <p>Add to your home screen for quick access!</p>
+    <button id="install-button" class="btn btn-success">Install App</button>
+    <button onclick="dismissInstallBanner()" class="btn" style="background: #6c757d; color: white;">Later</button>
+  </div>
+
+  <!-- Connection Controls -->
+  <div class="connection-controls">
+    <h3>Connection Mode</h3>
+    <div id="connection-status" class="status disconnected">
+      Initializing connection...
+    </div>
+    <div class="connection-buttons">
+      <button id="connect-auto" class="btn btn-primary" onclick="connectAuto()">🤖 Smart Connect</button>
+      <button id="connect-ble" class="btn btn-info" onclick="connectBLE()">🔵 Bluetooth</button>
+      <button id="connect-wifi" class="btn btn-primary" onclick="connectWiFi()">📶 WiFi</button>
+    </div>
+    <small>Connection: <span id="connection-type-indicator">❓</span></small>
   </div>
 
   <div class="data-grid">
@@ -112,13 +183,111 @@
       <button onclick="document.querySelector('.debug').style.display='none'" 
               style="background: #333; color: #fff; border: none; padding: 2px 8px;">×</button>
     </div>
-    <div id="debug-log">[DEBUG] Initializing...\n</div>
+    <div id="debug-log">[DEBUG] Initializing PWA...\n</div>
   </div>
 
   <script>
-    let ws;
-    let reconnectAttempts = 0;
-    const maxReconnectAttempts = 5;
+    let connectionManager;
+    let deferredPrompt; // For PWA install
+
+    // PWA Install Logic
+    window.addEventListener('beforeinstallprompt', (e) => {
+      console.log('📱 PWA install prompt available');
+      addDebugLog('PWA install prompt intercepted');
+      e.preventDefault();
+      deferredPrompt = e;
+      showInstallBanner();
+    });
+
+    document.getElementById('install-button').addEventListener('click', async () => {
+      console.log('📱 Install button clicked');
+      addDebugLog('Install button clicked');
+      
+      if (deferredPrompt) {
+        console.log('📱 Showing install prompt');
+        addDebugLog('Showing install prompt...');
+        
+        try {
+          deferredPrompt.prompt();
+          const { outcome } = await deferredPrompt.userChoice;
+          console.log(`📱 PWA install outcome: ${outcome}`);
+          addDebugLog(`PWA install outcome: ${outcome}`);
+          
+          if (outcome === 'accepted') {
+            addDebugLog('✅ User accepted the install');
+          } else {
+            addDebugLog('❌ User dismissed the install');
+          }
+          
+          deferredPrompt = null;
+          hideInstallBanner();
+        } catch (error) {
+          console.error('Install error:', error);
+          addDebugLog(`❌ Install error: ${error.message}`);
+        }
+      } else {
+        console.log('❌ No deferred prompt available');
+        addDebugLog('ERROR: No deferred prompt available');
+        addDebugLog('This usually means HTTPS is required or PWA criteria not met');
+        
+        // Show manual install instructions
+        alert('To install:\n1. Chrome Menu (⋮)\n2. "Add to Home screen"\n\nNote: Some browsers require HTTPS for app installation.');
+      }
+    });
+
+    function showInstallBanner() {
+      const banner = document.getElementById('pwa-install-banner');
+      banner.style.display = 'block';
+      addDebugLog('PWA install banner shown');
+      console.log('📱 Install banner displayed');
+    }
+
+    function hideInstallBanner() {
+      document.getElementById('pwa-install-banner').style.display = 'none';
+    }
+
+    function dismissInstallBanner() {
+      hideInstallBanner();
+      localStorage.setItem('pwa-install-dismissed', Date.now());
+    }
+
+    // Service Worker Registration (with fallback)
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js')
+          .then(registration => {
+            console.log('✅ Service Worker registered successfully');
+            console.log('Registration scope:', registration.scope);
+            addDebugLog('✅ Service Worker registered successfully');
+            addDebugLog(`Registration scope: ${registration.scope}`);
+            
+            // Check if it's installing, waiting, or active
+            if (registration.installing) {
+              addDebugLog('Service Worker: Installing...');
+            } else if (registration.waiting) {
+              addDebugLog('Service Worker: Waiting...');
+            } else if (registration.active) {
+              addDebugLog('Service Worker: Active and running');
+            }
+          })
+          .catch(error => {
+            console.error('❌ Service Worker registration failed:', error);
+            addDebugLog(`❌ Service Worker registration failed: ${error.message}`);
+            addDebugLog('PWA will work without offline support');
+          });
+      });
+    } else {
+      console.log('❌ Service Worker not supported in this browser');
+      addDebugLog('❌ Service Worker not supported in this browser');
+      addDebugLog('User Agent: ' + navigator.userAgent);
+      addDebugLog('PWA install may still work with manifest only');
+      
+      // Show install banner anyway - manifest-only PWA
+      setTimeout(() => {
+        showInstallBanner();
+        addDebugLog('Showing install banner (manifest-only mode)');
+      }, 2000);
+    }
 
     function addDebugLog(message) {
       const debugLog = document.getElementById('debug-log');
@@ -127,50 +296,17 @@
       debugLog.scrollTop = debugLog.scrollHeight;
     }
 
-    function updateStatus(message, isConnected) {
-      const statusEl = document.getElementById('status');
+    function updateStatus(message, isConnected, type = '') {
+      const statusEl = document.getElementById('connection-status');
       statusEl.textContent = message;
-      statusEl.className = `status ${isConnected ? 'connected' : 'disconnected'}`;
-    }
-
-    function connect() {
-      const wsUrl = `ws://${location.hostname}/ws`;
-      addDebugLog(`Connecting to: ${wsUrl}`);
       
-      ws = new WebSocket(wsUrl);
-
-      ws.onopen = () => {
-        addDebugLog('WebSocket connected successfully');
-        updateStatus('Connected to Air Scales', true);
-        reconnectAttempts = 0;
-      };
-
-      ws.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          addDebugLog(`Data received: ${data.device_count} devices, ${data.total_weight} kg`);
-          updateDisplay(data);
-        } catch (e) {
-          addDebugLog(`Error parsing data: ${e.message}`);
-        }
-      };
-
-      ws.onclose = () => {
-        addDebugLog('WebSocket connection closed');
-        updateStatus('Disconnected - Reconnecting...', false);
-        
-        if (reconnectAttempts < maxReconnectAttempts) {
-          reconnectAttempts++;
-          setTimeout(connect, 2000 * reconnectAttempts);
-        } else {
-          updateStatus('Connection failed - Refresh page', false);
-        }
-      };
-
-      ws.onerror = (error) => {
-        addDebugLog(`WebSocket error: ${error}`);
-        updateStatus('Connection error', false);
-      };
+      let className = 'status ';
+      if (type) {
+        className += type;
+      } else {
+        className += isConnected ? 'connected' : 'disconnected';
+      }
+      statusEl.className = className;
     }
 
     function updateDisplay(data) {
@@ -183,6 +319,14 @@
         data.total_weight ? data.total_weight.toFixed(1) : '--';
       document.getElementById('device-count').textContent = 
         data.device_count ? data.device_count : '--';
+
+      // Update connection type indicator
+      const typeEl = document.getElementById('connection-type-indicator');
+      if (data.connection_type === 'wifi') {
+        typeEl.textContent = '📶 WiFi';
+      } else if (data.connection_type === 'ble') {
+        typeEl.textContent = '🔵 BLE';
+      }
 
       // Update device list
       const deviceListEl = document.getElementById('device-list');
@@ -212,13 +356,79 @@
       } else {
         deviceListEl.innerHTML = '<div class="device">No devices found</div>';
       }
+
+      addDebugLog(`Data updated: ${data.device_count} devices, ${data.total_weight}kg via ${data.connection_type}`);
     }
 
-    // Start connection when page loads
-    window.onload = () => {
-      addDebugLog('Page loaded, starting connection...');
-      connect();
-    };
+    // Connection Methods (placeholder for now)
+    async function connectAuto() {
+      addDebugLog('Auto connect requested');
+      updateStatus('Auto-connecting...', false, 'connecting');
+      // Will be implemented with SmartConnectionManager
+    }
+
+    async function connectBLE() {
+      addDebugLog('BLE connect requested');
+      updateStatus('Connecting via Bluetooth...', false, 'connecting');
+      // Will be implemented with SmartConnectionManager
+    }
+
+    async function connectWiFi() {
+      addDebugLog('WiFi connect requested');
+      updateStatus('Connecting via WiFi...', false, 'connecting');
+      // Fallback to existing WebSocket connection
+      connectWebSocket();
+    }
+
+    // Existing WebSocket connection (fallback)
+    function connectWebSocket() {
+      // Determine if we're on HTTPS or HTTP
+      const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const wsUrl = `${protocol}//${location.hostname}/ws`;
+      addDebugLog(`Connecting to: ${wsUrl}`);
+      
+      const ws = new WebSocket(wsUrl);
+
+      ws.onopen = () => {
+        addDebugLog('WebSocket connected successfully');
+        updateStatus('Connected via WiFi', true, 'connected-wifi');
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          data.connection_type = 'wifi';
+          addDebugLog(`WebSocket data received: ${data.device_count} devices`);
+          updateDisplay(data);
+        } catch (e) {
+          addDebugLog(`Error parsing WebSocket data: ${e.message}`);
+        }
+      };
+
+      ws.onclose = () => {
+        addDebugLog('WebSocket connection closed');
+        updateStatus('Disconnected - Reconnecting...', false);
+      };
+
+      ws.onerror = (error) => {
+        addDebugLog(`WebSocket error: ${error}`);
+        updateStatus('Connection error', false);
+      };
+    }
+
+    // Initialize
+    window.addEventListener('load', () => {
+      addDebugLog('PWA loaded, attempting auto-connection...');
+      
+      // Check if install was previously dismissed
+      const dismissed = localStorage.getItem('pwa-install-dismissed');
+      if (!dismissed || (Date.now() - dismissed > 7 * 24 * 60 * 60 * 1000)) { // Show again after 7 days
+        // Install banner will show automatically if PWA is installable
+      }
+      
+      // Start with WiFi connection for now
+      setTimeout(connectWiFi, 1000);
+    });
   </script>
 </body>
 </html>

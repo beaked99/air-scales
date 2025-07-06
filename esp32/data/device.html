@@ -119,9 +119,29 @@
     </div>
   </div>
 
+  <script src="/js/smart-connection.js"></script>
   <script>
+    let connectionManager;
     let scanTimer;
     let scanTimeRemaining;
+
+    // Initialize connection manager when page loads
+    window.addEventListener('load', async () => {
+      connectionManager = new SmartConnectionManager();
+      
+      connectionManager.setStatusCallback((message, type) => {
+        showStatus(message, type);
+      });
+      
+      // Try to connect
+      const connected = await connectionManager.connect();
+      if (connected) {
+        console.log('✅ Connected to Air Scales');
+      }
+      
+      loadLinkedDevices();
+      loadDiscoveredDevices();
+    });
 
     function showStatus(message, type = 'success') {
       const statusEl = document.getElementById('status');
@@ -156,22 +176,39 @@
         }
       }, 1000);
       
-      // Request scan from ESP32
-      fetch('/api/scan-devices', { method: 'POST' })
-        .then(response => response.json())
-        .then(data => {
+      // Use connection manager for scan request
+      if (connectionManager && connectionManager.isConnected()) {
+        connectionManager.sendCommand({
+          endpoint: 'scan-devices',
+          method: 'POST'
+        }).then(data => {
           if (data.success) {
-            // Poll for results every 2 seconds during scan
             pollScanResults();
           } else {
             showStatus('Failed to start device scan', 'error');
             finishScan();
           }
-        })
-        .catch(error => {
+        }).catch(error => {
           showStatus('Error starting scan: ' + error.message, 'error');
           finishScan();
         });
+      } else {
+        // Fallback to direct fetch if connection manager not available
+        fetch('/api/scan-devices', { method: 'POST' })
+          .then(response => response.json())
+          .then(data => {
+            if (data.success) {
+              pollScanResults();
+            } else {
+              showStatus('Failed to start device scan', 'error');
+              finishScan();
+            }
+          })
+          .catch(error => {
+            showStatus('Error starting scan: ' + error.message, 'error');
+            finishScan();
+          });
+      }
     }
 
     function pollScanResults() {

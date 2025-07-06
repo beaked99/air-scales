@@ -1,0 +1,29 @@
+{
+  "name": "Air Scales Dashboard",
+  "short_name": "AirScales",
+  "description": "Truck scale monitoring system",
+  "start_url": "/?pwa=1",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#333333",
+  "theme_color": "#007bff",
+  "prefer_related_applications": false,
+  "categories": ["utilities", "productivity"],
+  "lang": "en",
+  "dir": "ltr",
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png", 
+      "purpose": "any"
+    }
+  ]
+}
