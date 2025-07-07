@@ -1,190 +1,234 @@
-// Air Scales - HTTPS Implementation
-#include <Arduino.h>
 #include <WiFi.h>
-#include <WebServer.h>
-#include <WiFiClientSecure.h>
+#include <HTTPSServer.hpp>
+#include <SSLCert.hpp>
+#include <HTTPRequest.hpp>
+#include <HTTPResponse.hpp>
 #include <SPIFFS.h>
-#include <ArduinoJson.h>
-#include "DataStructures.h"
-#include "ESPNowHandler.h"
-#include "WebSocketHandler.h"
-#include "DeviceManager.h"
-#include "BLEHandler.h"
+#include <FS.h>
+#include "server_cert_der.h"
+#include "server_key_der.h"
 
-#define WIFI_RESET_PIN 0
+using namespace httpsserver;
 
-WebServer server(443);  // HTTPS server
-bool systemInitialized = false;
+SSLCert cert(
+  server_cert_der, server_cert_der_len,
+  server_key_der,  server_key_der_len
+);
 
-// Self-signed certificate and key embedded
-const char* server_cert = R"(-----BEGIN CERTIFICATE-----
-MIICpDCCAYwCCQC+K7Vx9qJj3TANBgkqhkiG9w0BAQsFADAUMRIwEAYDVQQDDAkx
-OTIuMTY4LjQuMTAeFw0yNTAxMDEwMDAwMDBaFw0yNjAxMDEwMDAwMDBaMBQxEjAQ
-BgNVBAMMCTE5Mi4xNjguNC4xMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKC
-AQEAzQWcZo3VZ1s5K3n1YgKYv8X7i4n2m9Lx6e3b8c4v5f6g7h8j9k0l1m2n3o4p
-5q6r7s8t9u0v1w2x3y4z5a6b7c8d9e0f1g2h3i4j5k6l7m8n9o0p1q2r3s4t5u6v
-7w8x9y0z1a2b3c4d5e6f7g8h9i0j1k2l3m4n5o6p7q8r9s0t1u2v3w4x5y6z7a8b
-9c0d1e2f3g4h5i6j7k8l9m0n1o2p3q4r5s6t7u8v9w0x1y2z3a4b5c6d7e8f9g0h
-1i2j3k4l5m6n7o8p9q0r1s2t3u4v5w6x7y8z9a0b1c2d3e4f5g6h7i8j9k0l1m2n
-3o4p5q6r7s8t9u0v1w2x3y4z5a6b7c8d9e0f1g2h3i4j5k6l7m8n9o0p1q2r3s4t
-5QIDAQAB
------END CERTIFICATE-----)";
+HTTPSServer secureServer = HTTPSServer(&cert, 443);
 
-const char* server_key = R"(-----BEGIN PRIVATE KEY-----
-MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQDNBZxmjdVnWzkr
-efViApi/xfuLifab0vHp7dvxzi/l/qDuHyP2TSXWbafejinmrqvuzy327S/XDbHf
-LjPlrpvtzx315qfs/l5m6n7o8p5q6r7s8t9u0v1w2x3y4z5a6b7c8d9e0f1g2h3i
-4j5k6l7m8n9o0p1q2r3s4t5u6v7w8x9y0z1a2b3c4d5e6f7g8h9i0j1k2l3m4n5o
-6p7q8r9s0t1u2v3w4x5y6z7a8b9c0d1e2f3g4h5i6j7k8l9m0n1o2p3q4r5s6t7u
-8v9w0x1y2z3a4b5c6d7e8f9g0h1i2j3k4l5m6n7o8p9q0r1s2t3u4v5w6x7y8z9a
-0b1c2d3e4f5g6h7i8j9k0l1m2n3o4p5q6r7s8t9u0v1w2x3y4z5a6b7c8d9e0f1g
-2h3i4j5k6l7m8n9o0p1q2r3s4tAgMBAAECggEBAL8J5n4c8I9k3Y6Z7z2K5L6W
-3M1H8g9P2J3k5n6o7p8q9r0s1t2u3v4w5x6y7z8a9b0c1d2e3f4g5h6i7j8k9l0m
-1n2o3p4q5r6s7t8u9v0w1x2y3z4a5b6c7d8e9f0g1h2i3j4k5l6m7n8o9p0q1r2s
-3t4u5v6w7x8y9z0a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4y
-5z6a7b8c9d0e1f2g3h4i5j6k7l8m9n0o1p2q3r4s5t6u7v8w9x0y1z2a3b4c5d6e
-7f8g9h0i1j2k3l4m5n6o7p8q9r0s1t2u3v4w5x6y7z8a9b0c1d2e3f4g5h6i7j8k
-9l0m1n2o3p4q5r6s7t8u9v0w1x2y3z4a5b6c7d8e9f0g1h2i3j4k5l6m7n8o9p0q
-1r2s3t4u5v6w7x8y9z0a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w
-3x4y5z6a7b8c9d0e1f2g3h4i5j6k7l8m9n0o1p2q3r4s5t6u7v8w9x0y1z2a3b4c
-5d6e7f8g9h0i1j2k3l4m5n6o7p8q9r0s1t2u3v4w5x6y7z8a9b0c1d2e3f4g5h6i
-7j8k9l0m1n2o3p4q5r6s7t8u9v0w1x2y3z4a5b6c7d8e9f0g1h2i3j4k5l6m7n8o
-9p0q1r2s3t4u5v6w7x8y9z0a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u
-1v2w3x4y5z6a7b8c9d0e1f2g3h4i5j6k7l8m9n0o1p2q3r4s5t6u7v8w9x0y1z2a
-ECggEAZoGzMqzLn5y4w3v2u1t0s9r8q7p6o5n4m3l2k1j0i9h8g7f6e5d4c3b2a1
------END PRIVATE KEY-----)";
+void handleApiTest(HTTPRequest * req, HTTPResponse * res) {
+  res->setHeader("Content-Type", "text/plain");
+  res->print("Hello from AirScales HTTPS API! Secure connection established.");
+}
 
-void initializeSystem() {
-  Serial.println("");
-  Serial.println("🚀 ================================");
-  Serial.println("🚀 AIR SCALES ESP32 STARTING UP");
-  Serial.println("🚀 ================================");
-  Serial.printf("🔧 Device MAC: %s\n", WiFi.macAddress().c_str());
-  
-  // Mount SPIFFS for web files
-  Serial.println("[SYSTEM] 📁 Mounting SPIFFS...");
-  if (!SPIFFS.begin(true)) {
-    Serial.println("[SYSTEM] ❌ SPIFFS mount failed!");
-    return;
-  }
-  Serial.println("[SYSTEM] ✅ SPIFFS mounted successfully");
-  
-  // Initialize Device Manager
-  initializeDeviceManager();
-  
-  // Setup WiFi Access Point
-  String apName = "AirScales-" + WiFi.macAddress();
-  Serial.printf("[WiFi] 📶 Creating AP: %s\n", apName.c_str());
-  
-  WiFi.mode(WIFI_AP);
-  WiFi.softAP(apName.c_str(), "", 1);
-  delay(2000);
-  
-  Serial.printf("[WiFi] ✅ AP started on channel: %d\n", WiFi.channel());
-  Serial.printf("[WiFi] 🌐 IP Address: %s\n", WiFi.softAPIP().toString().c_str());
-  
-  // Setup HTTPS server routes
-  Serial.println("[WebServer] 🔒 Setting up HTTPS server...");
-  
-  server.on("/", HTTP_GET, [](){
-    File file = SPIFFS.open("/index.html", "r");
-    if (file) {
-      server.streamFile(file, "text/html");
-      file.close();
-    } else {
-      server.send(404, "text/plain", "File not found");
-    }
-  });
-  
-  server.on("/manifest.json", HTTP_GET, [](){
-    File file = SPIFFS.open("/manifest.json", "r");
-    if (file) {
-      server.streamFile(file, "application/json");
-      file.close();
-    } else {
-      server.send(404, "text/plain", "File not found");
-    }
-  });
-  
-  server.on("/sw.js", HTTP_GET, [](){
-    File file = SPIFFS.open("/sw.js", "r");
-    if (file) {
-      server.streamFile(file, "application/javascript");
-      file.close();
-    } else {
-      server.send(404, "text/plain", "File not found");
-    }
-  });
-  
-  server.on("/icons/icon-192.png", HTTP_GET, [](){
-    File file = SPIFFS.open("/icons/icon-192.png", "r");
-    if (file) {
-      server.streamFile(file, "image/png");
-      file.close();
-    } else {
-      server.send(404, "text/plain", "File not found");
-    }
-  });
-  
-  server.on("/test", HTTP_GET, [](){
-    server.send(200, "text/plain", "Air Scales HTTPS is working!");
-  });
-  
-  server.on("/debug", HTTP_GET, [](){
-    String response = "Device MAC: " + WiFi.macAddress() + "\n";
-    response += "HTTPS: ENABLED\n";
-    response += "AP IP: " + WiFi.softAPIP().toString() + "\n";
-    response += "Uptime: " + String(millis() / 1000) + " seconds\n";
-    server.send(200, "text/plain", response);
-  });
-  
-  // Initialize ESP-NOW
-  Serial.println("[SYSTEM] 🔗 Initializing ESP-NOW...");
-  initializeESPNow();
-  
-  // Initialize BLE
-  Serial.println("[SYSTEM] 🔵 Initializing BLE...");
-  initializeBLE();
-  
-  // Start HTTPS server
-  server.beginSecure(server_cert, server_key, "");
-  Serial.println("[WebServer] ✅ HTTPS server started on port 443");
-  
-  systemInitialized = true;
-  Serial.println("");
-  Serial.println("✅ ================================");
-  Serial.println("✅ SYSTEM INITIALIZATION COMPLETE");
-  Serial.println("✅ ================================");
-  Serial.println("🔒 HTTPS: https://192.168.4.1");
-  Serial.println("🔵 Ready for BLE connection!");
-  Serial.println("📱 PWA should install on mobile!");
-  Serial.println("");
+void handleApiDevice(HTTPRequest * req, HTTPResponse * res) {
+  String macAddress = WiFi.macAddress();
+  macAddress.replace(":", "");
+  String deviceName = "AirScales-" + macAddress;
+
+  String jsonResponse = "{";
+  jsonResponse += "\"name\":\"" + deviceName + "\",";
+  jsonResponse += "\"mac\":\"" + WiFi.macAddress() + "\",";
+  jsonResponse += "\"ip\":\"" + WiFi.softAPIP().toString() + "\",";
+  jsonResponse += "\"uptime\":" + String(millis() / 1000);
+  jsonResponse += "}";
+
+  res->setHeader("Content-Type", "application/json");
+  res->print(jsonResponse);
+}
+
+void handle404(HTTPRequest * req, HTTPResponse * res) {
+  req->discardRequestBody();
+  res->setStatusCode(404);
+  res->setStatusText("Not Found");
+  res->setHeader("Content-Type", "text/html");
+  res->print("<!DOCTYPE html><html><head><title>Not Found</title></head>");
+  res->print("<body><h1>404 Not Found</h1><p>The requested resource was not found.</p></body></html>");
 }
 
 void setup() {
   Serial.begin(115200);
-  pinMode(WIFI_RESET_PIN, INPUT_PULLUP);
   delay(1000);
-  initializeSystem();
+
+  String macAddress = WiFi.macAddress();
+  macAddress.replace(":", "");
+  String apName = "AirScales-" + macAddress;
+
+  Serial.println("========================================");
+  Serial.println("       AirScales HTTPS PWA Server      ");
+  Serial.println("========================================");
+
+  Serial.println("Creating Access Point...");
+  Serial.print("AP Name: ");
+  Serial.println(apName);
+
+  WiFi.softAP(apName.c_str());
+
+  Serial.println("Access Point created successfully!");
+  Serial.print("AP IP address: ");
+  Serial.println(WiFi.softAPIP());
+  Serial.print("AP MAC address: ");
+  Serial.println(WiFi.softAPmacAddress());
+
+  if (!SPIFFS.begin()) {
+    Serial.println("SPIFFS mount failed");
+    return;
+  }
+
+  ResourceNode * staticApp = new ResourceNode("/app/", "GET", [](HTTPRequest *req, HTTPResponse *res) {
+    String path = String(req->getRequestString().c_str());
+    if (path == "/app/") path = "/app/index.html";
+
+    File file = SPIFFS.open(path, "r");
+    if (!file) {
+      res->setStatusCode(404);
+      res->print("File not found");
+      return;
+    }
+
+    if (path.endsWith(".html")) res->setHeader("Content-Type", "text/html");
+    else if (path.endsWith(".css")) res->setHeader("Content-Type", "text/css");
+    else if (path.endsWith(".js")) res->setHeader("Content-Type", "application/javascript");
+    else if (path.endsWith(".json")) res->setHeader("Content-Type", "application/manifest+json");
+    else if (path.endsWith(".ico")) res->setHeader("Content-Type", "image/x-icon");
+
+    while (file.available()) {
+      res->write(file.read());
+    }
+    file.close();
+  });
+  
+  ResourceNode * nodeApiTest = new ResourceNode("/api/test", "GET", &handleApiTest);
+  ResourceNode * nodeApiDevice = new ResourceNode("/api/device", "GET", &handleApiDevice);
+  ResourceNode * node404 = new ResourceNode("", "GET", &handle404);
+
+  secureServer.registerNode(staticApp);
+
+  // Serve sw.js directly from /app/sw.js
+  ResourceNode * nodeServiceWorker = new ResourceNode("/app/sw.js", "GET", [](HTTPRequest *req, HTTPResponse *res) {
+    File file = SPIFFS.open("/app/sw.js", "r");
+    if (!file) {
+      res->setStatusCode(404);
+      res->print("Service Worker not found");
+      return;
+    }
+    res->setHeader("Content-Type", "application/javascript");
+    while (file.available()) {
+      res->write(file.read());
+    }
+    file.close();
+  });
+  secureServer.registerNode(nodeServiceWorker);
+
+  // Serve manifest.json from /app/manifest.json
+  ResourceNode * nodeManifest = new ResourceNode("/app/manifest.json", "GET", [](HTTPRequest *req, HTTPResponse *res) {
+    File file = SPIFFS.open("/app/manifest.json", "r");
+    if (!file) {
+      res->setStatusCode(404);
+      res->print("Manifest not found");
+      return;
+    }
+    res->setHeader("Content-Type", "application/manifest+json");
+    while (file.available()) {
+      res->write(file.read());
+    }
+    file.close();
+  });
+  secureServer.registerNode(nodeManifest);
+
+  // Serve icon-192.png
+  ResourceNode * nodeIcon192 = new ResourceNode("/app/icon-192.png", "GET", [](HTTPRequest *req, HTTPResponse *res) {
+    File file = SPIFFS.open("/app/icon-192.png", "r");
+    if (!file) {
+      res->setStatusCode(404);
+      res->print("Icon 192 not found");
+      return;
+    }
+    res->setHeader("Content-Type", "image/png");
+    while (file.available()) {
+      res->write(file.read());
+    }
+    file.close();
+  });
+  secureServer.registerNode(nodeIcon192);
+
+  // Serve icon-512.png
+  ResourceNode * nodeIcon512 = new ResourceNode("/app/icon-512.png", "GET", [](HTTPRequest *req, HTTPResponse *res) {
+    File file = SPIFFS.open("/app/icon-512.png", "r");
+    if (!file) {
+      res->setStatusCode(404);
+      res->print("Icon 512 not found");
+      return;
+    }
+    res->setHeader("Content-Type", "image/png");
+    while (file.available()) {
+      res->write(file.read());
+    }
+    file.close();
+  });
+  secureServer.registerNode(nodeIcon512);
+
+  // Serve favicon.ico
+  ResourceNode * nodeFavicon = new ResourceNode("/app/favicon.ico", "GET", [](HTTPRequest *req, HTTPResponse *res) {
+    File file = SPIFFS.open("/app/favicon.ico", "r");
+    if (!file) {
+      res->setStatusCode(404);
+      res->print("Favicon not found");
+      return;
+    }
+    res->setHeader("Content-Type", "image/x-icon");
+    while (file.available()) {
+      res->write(file.read());
+    }
+    file.close();
+  });
+  secureServer.registerNode(nodeFavicon);
+
+  // Serve style.css
+  ResourceNode * nodeStyle = new ResourceNode("/app/style.css", "GET", [](HTTPRequest *req, HTTPResponse *res) {
+    File file = SPIFFS.open("/app/style.css", "r");
+    if (!file) {
+      res->setStatusCode(404);
+      res->print("Style not found");
+      return;
+    }
+    res->setHeader("Content-Type", "text/css");
+    while (file.available()) {
+      res->write(file.read());
+    }
+    file.close();
+  });
+  secureServer.registerNode(nodeStyle);
+
+  ResourceNode * staticAppRedirect = new ResourceNode("/app", "GET", [](HTTPRequest *req, HTTPResponse *res) {
+    res->setStatusCode(302);
+    res->setHeader("Location", "/app/");
+    res->print("Redirecting to /app/");
+  });
+  secureServer.registerNode(staticAppRedirect);
+  secureServer.registerNode(nodeApiTest);
+  secureServer.registerNode(nodeApiDevice);
+  secureServer.setDefaultNode(node404);
+
+  Serial.println("Starting HTTPS server...");
+  secureServer.start();
+
+  if (secureServer.isRunning()) {
+    Serial.println("HTTPS server started successfully!");
+    Serial.println("========================================");
+    Serial.println("To connect:");
+    Serial.println("1. Connect to WiFi: " + apName);
+    Serial.println("2. Visit: https://" + WiFi.softAPIP().toString() + "/app/");
+    Serial.println("3. Accept security warning (self-signed cert)");
+    Serial.println("4. Install PWA when prompted");
+    Serial.println("========================================");
+  } else {
+    Serial.println("HTTPS server failed to start!");
+  }
 }
 
 void loop() {
-  server.handleClient();
-  
-  static unsigned long lastBroadcast = 0;
-  if (millis() - lastBroadcast > 2000) {
-    lastBroadcast = millis();
-    broadcastAnnouncement();
-    broadcastOwnSensorData();
-    if (hasBLEClients()) {
-      broadcastToBLE();
-    }
-  }
-  
-  static unsigned long lastStatus = 0;
-  if (millis() - lastStatus > 30000) {
-    lastStatus = millis();
-    Serial.printf("[STATUS] 📊 Uptime: %lu sec, BLE clients: %d, ESP-NOW devices: %d\n", 
-                  millis()/1000, getBLEClientCount(), getTotalOnlineDevices());
-  }
+  secureServer.poll();
+  delay(10);
 }

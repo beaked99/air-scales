@@ -6,31 +6,16 @@
     <meta name="theme-color" content="#1f7a1f" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
-    <link rel="manifest" href="/pwa/manifest.webmanifest" />
-    <link rel="icon" href="/pwa/icon-192.png" />
-    <link rel="apple-touch-icon" href="/pwa/icon-192.png" />
+    <link rel="manifest" href="/app/manifest.webmanifest" />
+    <link rel="icon" href="/app/icon-192.png" />
+    <link rel="apple-touch-icon" href="/app/icon-192.png" />
+    <link rel="stylesheet" href="/app/style.css" />
+    <link rel="icon" href="/app/favicon.ico" type="image/x-icon" />
+
     <title>Air Scales App</title>
-    <style>
-      body {
-        font-family: sans-serif;
-        margin: 0;
-        padding: 1rem;
-        background: #f8f8f8;
-        text-align: center;
-      }
-      #status {
-        margin: 1rem 0;
-        font-weight: bold;
-      }
-      #chart {
-        width: 100%;
-        max-width: 600px;
-        margin: 2rem auto;
-      }
-    </style>
   </head>
   <body>
-    <img src="/pwa/icon-192.png" alt="Air Scales Logo" width="100" />
+    <img src="/app/icon-192.png" alt="Air Scales Logo" width="100" />
     <h1>Air Scales</h1>
     <div id="status">Waiting for Air Scales Controller...</div>
     <canvas id="chart" height="300"></canvas>
@@ -38,7 +23,7 @@
     <script>
       if ('serviceWorker' in navigator) {
         navigator.serviceWorker
-          .register('/pwa/sw.js')
+          .register('/app/sw.js')
           .then(() => console.log('[PWA] Service worker registered'))
           .catch(console.error);
       }

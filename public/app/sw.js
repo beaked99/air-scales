@@ -6,8 +6,8 @@ const FILES_TO_CACHE = [
   '/app/index.html',
   '/app/sw.js',
   '/app/manifest.webmanifest',
-  '/pwa/icon-192.png',
-  'https://cdn.jsdelivr.net/npm/chart.js'
+  '/app/icon-192.png',
+  '/app/favicon.ico'
 ];
 
 self.addEventListener('install', event => {

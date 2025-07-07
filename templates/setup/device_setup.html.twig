@@ -123,9 +123,9 @@
         });
         
         function completeSetup() {
-            {% if return_to_pwa %}
+            {% if return_to_app %}
             // Return to PWA
-            window.location.href = '{{ return_to_pwa|default('/pwa/') }}';
+            window.location.href = '{{ return_to_app|default('/app/') }}';
             {% else %}
             // Go to main dashboard
             window.location.href = '/dashboard';
