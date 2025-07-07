@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>AirScales</title>
+  <link rel="manifest" href="/app/manifest.json" />
+  <link rel="stylesheet" href="/app/style.css" />
+  <link rel="icon" href="/app/favicon.ico" type="image/x-icon" />
+</head>
+<body>
+  <div class="container">
+    <h1>Welcome to AirScales</h1>
+    <p id="status">Connecting...</p>
+    <div id="deviceInfo"></div>
+    <button onclick="fetchInfo()">Refresh Info</button>
+  </div>
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/app/sw.js', { scope: '/app/' })
+        .then(() => {
+          document.getElementById('status').textContent = 'PWA Ready';
+        })
+        .catch(() => {
+          document.getElementById('status').textContent = 'PWA Failed';
+        });
+    }
+
+    function fetchInfo() {
+      fetch('/api/device')
+        .then(r => r.json())
+        .then(data => {
+          document.getElementById('deviceInfo').innerHTML =
+            `<ul>
+              <li><b>Name:</b> ${data.name}</li>
+              <li><b>MAC:</b> ${data.mac}</li>
+              <li><b>IP:</b> ${data.ip}</li>
+              <li><b>Uptime:</b> ${data.uptime}s</li>
+            </ul>`;
+        });
+    }
+
+    window.onload = fetchInfo;
+  </script>
+</body>
+</html>
