@@ -1,12 +1,13 @@
 {
   "id": "/dashboard",
-  "name": "Air Scales 0.01",
+  "name": "Air Scales",
   "short_name": "AirScales",
   "start_url": "/dashboard/",
   "display": "standalone",
   "background_color": "#212830",
   "theme_color": "#212830",
   "orientation": "portrait",
+  "version": "0.01",
   "icons": [
     {
       "src": "/app/icon-192.png",
