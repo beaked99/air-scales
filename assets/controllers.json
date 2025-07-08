@@ -2,7 +2,8 @@
   "controllers": {
     "landing": {
       "enabled": true,
-      "fetch": "eager"
+      "fetch": "eager",
+      "path": "./landing_controller.js"
     }
   },
   "entrypoints": []
