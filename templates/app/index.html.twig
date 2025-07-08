@@ -4,32 +4,45 @@
 {% block title %}Air Scales{% endblock %}
 
 {% block body %}
-<main data-controller="landing">
+<main data-controller="landing" 
+      data-landing-dashboard-url-value="{{ path('dashboard') }}">
+    
     <section id="hero">
         <h1>Track air pressure and weight in real time from your truck or trailer.</h1>
         <p>Install the app. Monitor. Sync. Drive smarter.</p>
 
         {% if app.user %}
-            <p>Welcome back, {{ app.user.email }}.
-                <a href="{{ path('dashboard') }}">Go to Dashboard</a>
-            </p>
+            <p>Welcome back, {{ app.user.email }}.</p>
+            <button data-action="click->landing#goToDashboard" 
+                    class="btn-primary">
+                Go to Dashboard
+            </button>
         {% else %}
             <nav>
-                <a href="{{ path('app_register') }}">Create Account</a> |
-                <a href="{{ path('app_login') }}">Sign In</a>
+                <button data-action="click->landing#registerUser" 
+                        class="btn-primary">
+                    Create Account
+                </button>
+                <button data-action="click->landing#loginUser" 
+                        class="btn-secondary">
+                    Sign In
+                </button>
             </nav>
         {% endif %}
 
         <div id="installPrompt" hidden>
-            <button id="installApp">Install App</button>
+            <button id="installApp" class="btn-success">
+                📱 Install App
+            </button>
         </div>
 
-        <div id="browserWarning" hidden style="color: red;"></div>
+        <div id="browserWarning" hidden style="color: red;">
+            <!-- Browser warning messages appear here -->
+        </div>
     </section>
 
     <section id="dashboardPreview">
         <h2>Live Dashboard Preview</h2>
-        <!-- Dashboard preview here -->
         <p>[Placeholder for charts, gauges, real-time sensor display]</p>
     </section>
 
