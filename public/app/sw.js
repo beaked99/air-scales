@@ -4,14 +4,12 @@ const CACHE_NAME = 'air-scales-cache-v0.05';
 
 const FILES_TO_CACHE = [
   '/app/',
-  '/app/index.html',
+  '/app/index.off.html',
   '/app/sw.js',
   '/app/manifest.webmanifest',
   '/app/icon-192.png',
   '/app/icon-512.png',
-  '/app/favicon.ico',
-  '/homepage/index.html',
-  '/dashboard/index.html'
+  '/app/favicon.ico'
 ];
 
 // Install
@@ -67,14 +65,14 @@ self.addEventListener('fetch', event => {
           return response;
         }).catch(() => {
           if (event.request.mode === 'navigate') {
-            const pathname = url.pathname;
-            if (pathname.startsWith('/dashboard')) {
-              return caches.match('/dashboard/index.html');
-            } else if (pathname.startsWith('/homepage')) {
-              return caches.match('/homepage/index.html');
-            } else {
-              return caches.match('/app/index.html');
-            }
+            //const pathname = url.pathname;
+            //if (pathname.startsWith('/dashboard')) {
+            //  return caches.match('/dashboard/index.html');
+            //} else if (pathname.startsWith('/homepage')) {
+            //  return caches.match('/homepage/index.html');
+            //} else {
+              return caches.match('/app/index.off.html');
+            //}
           }
         });
       })
@@ -86,14 +84,14 @@ self.addEventListener('fetch', event => {
         caches.match(event.request).then(response => {
           if (response) return response;
           if (event.request.mode === 'navigate') {
-            const pathname = url.pathname;
-            if (pathname.startsWith('/dashboard')) {
-              return caches.match('/dashboard/index.html');
-            } else if (pathname.startsWith('/homepage')) {
-              return caches.match('/homepage/index.html');
-            } else {
+            //const pathname = url.pathname;
+            //if (pathname.startsWith('/dashboard')) {
+            //  return caches.match('/dashboard/index.html');
+            //} else if (pathname.startsWith('/homepage')) {
+            //  return caches.match('/homepage/index.html');
+            //} else {
               return caches.match('/app/index.html');
-            }
+            //}
           }
         })
       )
