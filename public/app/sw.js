@@ -1,13 +1,12 @@
 // public/app/sw.js
 
 // 📦 Versioned cache name — bump this when you change what's cached
-const CACHE_NAME = 'air-scales-cache-v0.05'; // Bump version to force update
+const CACHE_NAME = 'air-scales-cache-v0.04'; // Bump version to force update
 
 // 📋 Files to cache for offline usage
 const FILES_TO_CACHE = [
   '/app/',
   '/app/index.html',
-  '/app/index.offline.html',  // Add offline version
   '/app/sw.js',
   '/app/manifest.webmanifest',
   '/app/icon-192.png',
@@ -49,33 +48,11 @@ self.addEventListener('activate', event => {
 self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
   
-  // Check if this is a request to your main app route
-  const isAppRoute = url.pathname === '/app/' || url.pathname === '/app';
+  // Check if this is a request to your app files
   const isAppFile = url.pathname.startsWith('/app/') || FILES_TO_CACHE.includes(url.pathname);
   
-  if (isAppRoute) {
-    // 🎯 SPECIAL HANDLING for main app route - online/offline detection
-    event.respondWith(
-      fetch(event.request)
-        .then(response => {
-          console.log('[Service Worker] Online - serving Symfony template');
-          return response; // ✅ Online? Serve Symfony's dynamic template
-        })
-        .catch(() => {
-          // ❌ Offline? Serve static offline page
-          console.log('[Service Worker] Offline - serving static offline page');
-          return caches.match('/app/index.offline.html')
-            .then(response => {
-              if (response) {
-                return response;
-              }
-              // Fallback to regular index if offline page not available
-              return caches.match('/app/index.html');
-            });
-        })
-    );
-  } else if (isAppFile) {
-    // 🧠 CACHE-FIRST for other app files (CSS, JS, images)
+  if (isAppFile) {
+    // 🧠 CACHE-FIRST for app files (HTML, CSS, JS, images)
     event.respondWith(
       caches.match(event.request).then(response => {
         if (response) {
@@ -98,9 +75,9 @@ self.addEventListener('fetch', event => {
           
           return response;
         }).catch(() => {
-          // If it's a navigation request and we can't fetch, serve the offline page
+          // If it's a navigation request and we can't fetch, serve the main page
           if (event.request.mode === 'navigate') {
-            return caches.match('/app/index.offline.html') || caches.match('/app/index.html');
+            return caches.match('/app/index.html');
           }
         });
       })
@@ -121,7 +98,7 @@ self.addEventListener('fetch', event => {
             
             // 👇 Fallback to offline page for navigations
             if (event.request.mode === 'navigate') {
-              return caches.match('/app/index.offline.html') || caches.match('/app/index.html');
+              return caches.match('/app/index.html');
             }
           });
         })
