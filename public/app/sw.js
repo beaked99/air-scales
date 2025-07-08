@@ -1,9 +1,7 @@
 // public/app/sw.js
 
-// 📦 Versioned cache name — bump this when you change what's cached
-const CACHE_NAME = 'air-scales-cache-v0.04'; // Bump version to force update
+const CACHE_NAME = 'air-scales-cache-v0.04';
 
-// 📋 Files to cache for offline usage
 const FILES_TO_CACHE = [
   '/app/',
   '/app/index.html',
@@ -11,10 +9,12 @@ const FILES_TO_CACHE = [
   '/app/manifest.webmanifest',
   '/app/icon-192.png',
   '/app/icon-512.png',
-  '/app/favicon.ico'
+  '/app/favicon.ico',
+  '/homepage/index.html',
+  '/dashboard/index.html'
 ];
 
-// 🔥 Install event: pre-cache all essential files
+// Install
 self.addEventListener('install', event => {
   console.log('[Service Worker] Install');
   event.waitUntil(
@@ -23,16 +23,16 @@ self.addEventListener('install', event => {
       return cache.addAll(FILES_TO_CACHE);
     })
   );
-  self.skipWaiting(); // 👈 Activate this SW immediately
+  self.skipWaiting();
 });
 
-// 🔄 Activate event: delete any old caches
+// Activate
 self.addEventListener('activate', event => {
   console.log('[Service Worker] Activate');
   event.waitUntil(
-    caches.keys().then(keyList =>
+    caches.keys().then(keys =>
       Promise.all(
-        keyList.map(key => {
+        keys.map(key => {
           if (key !== CACHE_NAME) {
             console.log('[Service Worker] Removing old cache:', key);
             return caches.delete(key);
@@ -41,67 +41,62 @@ self.addEventListener('activate', event => {
       )
     )
   );
-  self.clients.claim(); // 👈 Start controlling all clients immediately
+  self.clients.claim();
 });
 
-// 🌐 Fetch handler: CACHE-FIRST strategy for app files, network-first for API calls
+// Fetch
 self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
-  
-  // Check if this is a request to your app files
   const isAppFile = url.pathname.startsWith('/app/') || FILES_TO_CACHE.includes(url.pathname);
-  
+
   if (isAppFile) {
-    // 🧠 CACHE-FIRST for app files (HTML, CSS, JS, images)
     event.respondWith(
       caches.match(event.request).then(response => {
         if (response) {
-          console.log('[Service Worker] Serving from cache:', event.request.url);
-          return response; // ✅ Return cached version immediately
+          console.log('[SW] Cache hit:', url.pathname);
+          return response;
         }
-        
-        // Not in cache, try to fetch and cache it
+
         return fetch(event.request).then(response => {
-          // Don't cache non-successful responses
-          if (!response || response.status !== 200) { //|| response.type !== 'basic') {
+          if (!response || response.status !== 200) {
             return response;
           }
-          
-          // Clone the response before caching
-          const responseToCache = response.clone();
-          caches.open(CACHE_NAME).then(cache => {
-            cache.put(event.request, responseToCache);
-          });
-          
+
+          const cloned = response.clone();
+          caches.open(CACHE_NAME).then(cache => cache.put(event.request, cloned));
           return response;
         }).catch(() => {
-          // If it's a navigation request and we can't fetch, serve the main page
           if (event.request.mode === 'navigate') {
-            return caches.match('/app/index.html');
+            const pathname = url.pathname;
+            if (pathname.startsWith('/dashboard')) {
+              return caches.match('/dashboard/index.html');
+            } else if (pathname.startsWith('/homepage')) {
+              return caches.match('/homepage/index.html');
+            } else {
+              return caches.match('/app/index.html');
+            }
           }
         });
       })
     );
   } else {
-    // 🌐 NETWORK-FIRST for API calls and external resources
+    // NETWORK-FIRST fallback
     event.respondWith(
-      fetch(event.request)
-        .then(response => {
-          return response; // ✅ Online? Just return fresh response
-        })
-        .catch(() => {
-          // ❌ Offline? Try the cache as fallback
-          return caches.match(event.request).then(response => {
-            if (response) {
-              return response; // 🧠 Serve from cache if available
-            }
-            
-            // 👇 Fallback to offline page for navigations
-            if (event.request.mode === 'navigate') {
+      fetch(event.request).catch(() =>
+        caches.match(event.request).then(response => {
+          if (response) return response;
+          if (event.request.mode === 'navigate') {
+            const pathname = url.pathname;
+            if (pathname.startsWith('/dashboard')) {
+              return caches.match('/dashboard/index.html');
+            } else if (pathname.startsWith('/homepage')) {
+              return caches.match('/homepage/index.html');
+            } else {
               return caches.match('/app/index.html');
             }
-          });
+          }
         })
+      )
     );
   }
 });
