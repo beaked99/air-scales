@@ -1,9 +1,9 @@
 // public/app/sw.js
 
 // 📦 Versioned cache name — bump this when you change what's cached
-const CACHE_NAME = 'air-scales-cache-v0.03';
+const CACHE_NAME = 'air-scales-cache-v0.04'; // Bump version to force update
 
-// 📁 Files to cache for offline usage
+// 📋 Files to cache for offline usage
 const FILES_TO_CACHE = [
   '/app/',
   '/app/index.html',
@@ -14,8 +14,7 @@ const FILES_TO_CACHE = [
   '/app/favicon.ico'
 ];
 
-
-// 📥 Install event: pre-cache all essential files
+// 🔥 Install event: pre-cache all essential files
 self.addEventListener('install', event => {
   console.log('[Service Worker] Install');
   event.waitUntil(
@@ -45,25 +44,64 @@ self.addEventListener('activate', event => {
   self.clients.claim(); // 👈 Start controlling all clients immediately
 });
 
-// 🌐 Fetch handler: use cache-first strategy with offline fallback
+// 🌐 Fetch handler: CACHE-FIRST strategy for app files, network-first for API calls
 self.addEventListener('fetch', event => {
-  event.respondWith(
-    fetch(event.request)
-      .then(response => {
-        return response; // ✅ Online? Just return fresh response
-      })
-      .catch(() => {
-        // ❌ Offline? Try the cache
-        return caches.match(event.request).then(response => {
-          if (response) {
-            return response; // 🧠 Serve from cache if available
+  const url = new URL(event.request.url);
+  
+  // Check if this is a request to your app files
+  const isAppFile = url.pathname.startsWith('/app/') || FILES_TO_CACHE.includes(url.pathname);
+  
+  if (isAppFile) {
+    // 🧠 CACHE-FIRST for app files (HTML, CSS, JS, images)
+    event.respondWith(
+      caches.match(event.request).then(response => {
+        if (response) {
+          console.log('[Service Worker] Serving from cache:', event.request.url);
+          return response; // ✅ Return cached version immediately
+        }
+        
+        // Not in cache, try to fetch and cache it
+        return fetch(event.request).then(response => {
+          // Don't cache non-successful responses
+          if (!response || response.status !== 200) { //|| response.type !== 'basic') {
+            return response;
           }
-
-          // 👇 Fallback to offline page for navigations
+          
+          // Clone the response before caching
+          const responseToCache = response.clone();
+          caches.open(CACHE_NAME).then(cache => {
+            cache.put(event.request, responseToCache);
+          });
+          
+          return response;
+        }).catch(() => {
+          // If it's a navigation request and we can't fetch, serve the main page
           if (event.request.mode === 'navigate') {
             return caches.match('/app/index.html');
           }
         });
       })
-  );
+    );
+  } else {
+    // 🌐 NETWORK-FIRST for API calls and external resources
+    event.respondWith(
+      fetch(event.request)
+        .then(response => {
+          return response; // ✅ Online? Just return fresh response
+        })
+        .catch(() => {
+          // ❌ Offline? Try the cache as fallback
+          return caches.match(event.request).then(response => {
+            if (response) {
+              return response; // 🧠 Serve from cache if available
+            }
+            
+            // 👇 Fallback to offline page for navigations
+            if (event.request.mode === 'navigate') {
+              return caches.match('/app/index.html');
+            }
+          });
+        })
+    );
+  }
 });
