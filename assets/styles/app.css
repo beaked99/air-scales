@@ -23,3 +23,49 @@ body {
   color: red;
   border-color: red;
 }
+
+/* Quick button styles until you get Tailwind set up */
+.btn-primary {
+    background: #ff6b35;
+    color: black;
+    padding: 12px 24px;
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.btn-primary:hover {
+    background: #ff8c42;
+}
+
+.btn-secondary {
+    background: #374151;
+    color: white;
+    padding: 12px 24px;
+    border: 1px solid #6b7280;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.btn-secondary:hover {
+    background: #4b5563;
+}
+
+.btn-success {
+    background: #10b981;
+    color: white;
+    padding: 12px 24px;
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.btn-success:hover {
+    background: #059669;
+}
