@@ -9,6 +9,10 @@
                 "enabled": false,
                 "fetch": "eager"
             }
+        },
+        "landing": {
+            "enabled": true,
+            "fetch": "eager"
         }
     },
     "entrypoints": []

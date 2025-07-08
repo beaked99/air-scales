@@ -1,7 +1,17 @@
 // public/app/sw.js
 
-// 📦 Versioned cache name — bump this when you change what's cached
-const CACHE_NAME = 'air-scales-cache-v0.06'; // Bump version to force update
+let CACHE_NAME = 'air-scales-cache-unknown'; // fallback default
+
+// Fetch version.json and update CACHE_NAME
+fetch('/app/version.json')
+  .then(response => response.json())
+  .then(data => {
+    CACHE_NAME = `Air-Scales-V-${data.version}`;
+    console.log('[sw] Using dynamic cache name:', CACHE_NAME);
+  })
+  .catch(err => {
+    console.warn('[sw] Failed to fetch version.json, using fallback cache name.', err);
+  });
 
 // 📋 Files to cache for offline usage
 const FILES_TO_CACHE = [

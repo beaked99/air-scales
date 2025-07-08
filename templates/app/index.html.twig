@@ -1,223 +1,44 @@
+{# templates/app/index.html.twig #}
 {% extends 'base.html.twig' %}
 
 {% block title %}Air Scales{% endblock %}
 
-{% block stylesheets %}
-    <link rel="manifest" href="/app/manifest.webmanifest">
-    <link rel="icon" type="image/x-icon" href="/app/favicon.ico">
-    <meta name="theme-color" content="#212830">
-    <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            margin: 0;
-            padding: 20px;
-            background-color: #212830;
-            color: white;
-        }
-        .container {
-            max-width: 400px;
-            margin: 0 auto;
-            text-align: center;
-        }
-        .status {
-            background: #065f46;
-            padding: 10px;
-            border-radius: 8px;
-            margin: 20px 0;
-        }
-        .online-features {
-            background: #2a3441;
-            padding: 20px;
-            border-radius: 8px;
-            margin: 20px 0;
-        }
-        .measurements {
-            background: #1f2937;
-            padding: 15px;
-            border-radius: 6px;
-            margin: 10px 0;
-        }
-        .device-list {
-            background: #1e3a8a;
-            padding: 20px;
-            border-radius: 8px;
-            margin: 20px 0;
-        }
-        button {
-            background: #4f46e5;
-            color: white;
-            border: none;
-            padding: 12px 24px;
-            border-radius: 6px;
-            cursor: pointer;
-            margin: 10px;
-        }
-        button:hover {
-            background: #3730a3;
-        }
-        .measurement-item {
-            background: #374151;
-            padding: 10px;
-            margin: 5px 0;
-            border-radius: 4px;
-            display: flex;
-            justify-content: space-between;
-        }
-        .device-item {
-            background: #1e40af;
-            padding: 10px;
-            margin: 5px 0;
-            border-radius: 4px;
-            display: flex;
-            justify-content: space-between;
-        }
-    </style>
-{% endblock %}
-
 {% block body %}
-    <div class="container">
-        <h1>🌬️ Air Scales</h1>
-        
-        <div class="status" id="network-status">
-            🌐 Online - Connected to beaker.ca
-        </div>
-        
-        <div class="online-features">
-            <h3>Online Features Available:</h3>
-            <ul style="text-align: left;">
-                <li>Real-time data sync</li>
-                <li>Cloud storage backup</li>
-                <li>Historical data analysis</li>
-                <li>Remote ESP32 management</li>
-            </ul>
-        </div>
-        
-        <div class="measurements">
-            <h3>📊 Recent Measurements</h3>
-            {% for measurement in recentMeasurements %}
-                <div class="measurement-item">
-                    <span>{{ measurement.weight }}g</span>
-                    <span>{{ measurement.timestamp|date('H:i') }}</span>
-                </div>
-            {% else %}
-                <p>No recent measurements</p>
-            {% endfor %}
-        </div>
-        
-        <div class="device-list">
-            <h3>📡 ESP32 Devices</h3>
-            {% for device in esp32Devices %}
-                <div class="device-item">
-                    <div>
-                        <strong>{{ device.name }}</strong><br>
-                        <small>{{ device.id }}</small>
-                    </div>
-                    <div>
-                        <small>Last seen: {{ device.lastSeen|date('H:i') }}</small>
-                    </div>
-                </div>
-            {% else %}
-                <p>No ESP32 devices registered</p>
-            {% endfor %}
-        </div>
-        
-        <div class="measurements">
-            <h4>Sync Status:</h4>
-            <p>Last sync: {{ syncStatus.lastSync|date('Y-m-d H:i') }}</p>
-            <p>Status: {{ syncStatus.status|title }}</p>
-            {% if syncStatus.pendingItems > 0 %}
-                <p>Pending items: {{ syncStatus.pendingItems }}</p>
-            {% endif %}
-        </div>
-        
-        <button onclick="refreshData()">Refresh Data</button>
-        <button onclick="forceSyncESP32()">Sync ESP32 Devices</button>
-    </div>
-{% endblock %}
+<main data-controller="landing">
+    <section id="hero">
+        <h1>Track air pressure and weight in real time from your truck or trailer.</h1>
+        <p>Install the app. Monitor. Sync. Drive smarter.</p>
 
-{% block javascripts %}
-    <script>
-        // Register service worker
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('/app/sw.js')
-                .then(registration => {
-                    console.log('SW registered:', registration);
-                })
-                .catch(error => {
-                    console.log('SW registration failed:', error);
-                });
-        }
+        {% if app.user %}
+            <p>Welcome back, {{ app.user.email }}.
+                <a href="{{ path('dashboard') }}">Go to Dashboard</a>
+            </p>
+        {% else %}
+            <nav>
+                <a href="{{ path('app_register') }}">Create Account</a> |
+                <a href="{{ path('app_login') }}">Sign In</a>
+            </nav>
+        {% endif %}
 
-        // Online-specific functionality
-        class OnlineApp {
-            constructor() {
-                this.init();
-            }
-            
-            init() {
-                this.setupNetworkMonitoring();
-                this.setupPeriodicSync();
-            }
-            
-            setupNetworkMonitoring() {
-                window.addEventListener('offline', () => {
-                    document.getElementById('network-status').innerHTML = '📱 Connection lost - switching to offline mode';
-                    document.getElementById('network-status').style.backgroundColor = '#7f1d1d';
-                });
-                
-                window.addEventListener('online', () => {
-                    document.getElementById('network-status').innerHTML = '🌐 Online - Connected to beaker.ca';
-                    document.getElementById('network-status').style.backgroundColor = '#065f46';
-                });
-            }
-            
-            setupPeriodicSync() {
-                // Sync with ESP32 devices every 30 seconds
-                setInterval(() => this.syncESP32Data(), 30000);
-            }
-            
-            async syncESP32Data() {
-                try {
-                    const response = await fetch('/app/api/sync-esp32', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' }
-                    });
-                    
-                    if (response.ok) {
-                        console.log('ESP32 data synced successfully');
-                    }
-                } catch (error) {
-                    console.log('ESP32 sync failed:', error);
-                }
-            }
-        }
-        
-        // Functions for buttons
-        function refreshData() {
-            window.location.reload();
-        }
-        
-        async function forceSyncESP32() {
-            try {
-                const response = await fetch('/app/api/force-sync-esp32', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' }
-                });
-                
-                if (response.ok) {
-                    alert('ESP32 sync initiated');
-                    refreshData();
-                } else {
-                    alert('Sync failed');
-                }
-            } catch (error) {
-                alert('Sync failed: ' + error.message);
-            }
-        }
-        
-        // Initialize online app
-        document.addEventListener('DOMContentLoaded', () => {
-            window.onlineApp = new OnlineApp();
-        });
-    </script>
+        <div id="installPrompt" hidden>
+            <button id="installApp">Install App</button>
+        </div>
+
+        <div id="browserWarning" hidden style="color: red;"></div>
+    </section>
+
+    <section id="dashboardPreview">
+        <h2>Live Dashboard Preview</h2>
+        <!-- Dashboard preview here -->
+        <p>[Placeholder for charts, gauges, real-time sensor display]</p>
+    </section>
+
+    <footer>
+        <hr>
+        <small>
+            Version: {{ app_version|default('dev') }} |
+            Build: {{ build_date|default('now'|date('Y-m-d')) }}
+        </small>
+    </footer>
+</main>
 {% endblock %}
