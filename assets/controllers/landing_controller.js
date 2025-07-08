@@ -1,5 +1,7 @@
 // assets/controllers/landing_controller.js
-export default class {
+import { Controller } from "@hotwired/stimulus"
+
+export default class extends Controller {
     connect() {
         const installBtn = document.getElementById('installApp');
         const promptContainer = document.getElementById('installPrompt');
