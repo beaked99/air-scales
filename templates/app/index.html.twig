@@ -35,14 +35,42 @@
     <div id="status">Waiting for Air Scales Controller...</div>
     <canvas id="chart" height="300"></canvas>
 
-    <script>
-      if ('serviceWorker' in navigator) {
-        navigator.serviceWorker
-          .register('/app/sw.js')
-          .then(() => console.log('[PWA] Service worker registered'))
-          .catch(console.error);
-      }
-    </script>
+<script>
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker
+      .register('/app/sw.js')
+      .then(() => console.log('[PWA] Service worker registered'))
+      .catch(console.error);
+  }
+
+  // 🔌 Redirect to ESP32 fallback if offline
+  function tryESP32Fallback() {
+    // Try to reach the ESP32 directly
+    fetch('http://192.168.4.1/app/index.html', { method: 'HEAD', mode: 'no-cors' })
+      .then(() => {
+        console.log('[PWA] ESP32 found at 192.168.4.1 — redirecting');
+        window.location.href = 'http://192.168.4.1/app/';
+      })
+      .catch(err => {
+        console.warn('[PWA] ESP32 not reachable:', err);
+      });
+  }
+
+  // Run once on page load if offline
+  window.addEventListener('load', () => {
+    if (!navigator.onLine) {
+      console.log('[PWA] Offline — trying ESP32...');
+      tryESP32Fallback();
+    }
+  });
+
+  // Also trigger when network goes down
+  window.addEventListener('offline', () => {
+    console.log('[PWA] Browser went offline — trying ESP32...');
+    tryESP32Fallback();
+  });
+</script>
+
 
     <script>
       let ws;
