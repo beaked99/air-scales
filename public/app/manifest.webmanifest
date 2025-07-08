@@ -1,8 +1,8 @@
 {
-  "id": "/dashboard",
+  "id": "/app",
   "name": "Air Scales",
   "short_name": "AirScales",
-  "start_url": "/dashboard/",
+  "start_url": "/app/",
   "display": "standalone",
   "background_color": "#212830",
   "theme_color": "#212830",

@@ -1,7 +1,7 @@
 // public/app/sw.js
 
 // 📦 Versioned cache name — bump this when you change what's cached
-const CACHE_NAME = 'air-scales-cache-v0.02';
+const CACHE_NAME = 'air-scales-cache-v0.03';
 
 // 📁 Files to cache for offline usage
 const FILES_TO_CACHE = [
