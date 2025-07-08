@@ -1,10 +1,17 @@
 {
-  "controllers": {
-    "landing": {
-      "enabled": true,
-      "fetch": "eager",
-      "path": "./landing_controller.js"
-    }
-  },
-  "entrypoints": []
+    "controllers": {
+        "./csrf_protection_controller": {
+            "enabled": true,
+            "fetch": "eager"
+        },
+        "./hello_controller": {
+            "enabled": true,
+            "fetch": "eager"
+        },
+        "./landing_controller": {
+            "enabled": true,
+            "fetch": "eager"
+        }
+    },
+    "entrypoints": []
 }
