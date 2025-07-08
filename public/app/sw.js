@@ -1,17 +1,28 @@
 // public/app/sw.js
 
-let CACHE_NAME = 'air-scales-cache-unknown'; // fallback default
+// public/app/sw.js
+let CACHE_NAME = 'air-scales-cache-v0.07'; // Set default version
 
-// Fetch version.json and update CACHE_NAME
-fetch('/app/version.json')
-  .then(response => response.json())
-  .then(data => {
-    CACHE_NAME = `Air-Scales-V-${data.version}`;
-    console.log('[sw] Using dynamic cache name:', CACHE_NAME);
-  })
-  .catch(err => {
-    console.warn('[sw] Failed to fetch version.json, using fallback cache name.', err);
-  });
+// Only fetch version if we're not in the service worker install phase
+if (typeof importScripts === 'function') {
+    // We're in service worker context, fetch version
+    fetch('/app/version.json')
+        .then(response => {
+            if (response.ok) {
+                return response.json();
+            }
+            throw new Error('Version fetch failed');
+        })
+        .then(data => {
+            CACHE_NAME = `air-scales-cache-v${data.version}`;
+            console.log('[SW] Using dynamic cache name:', CACHE_NAME);
+        })
+        .catch(err => {
+            console.warn('[SW] Failed to fetch version.json, using default cache name.', err);
+        });
+}
+
+// Rest of your service worker code...
 
 // 📋 Files to cache for offline usage
 const FILES_TO_CACHE = [
