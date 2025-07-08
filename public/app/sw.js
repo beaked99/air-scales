@@ -1,6 +1,6 @@
 // public/app/sw.js
 
-const CACHE_NAME = 'air-scales-cache-v0.04';
+const CACHE_NAME = 'air-scales-cache-v0.05';
 
 const FILES_TO_CACHE = [
   '/app/',
