@@ -1,12 +1,12 @@
 {
-  "id": "/app/index.html",
+  "id": "/app",
   "name": "Air Scales",
   "short_name": "AirScales",
-  "description": "Progressive Web App for AirScales device",
-  "start_url": "/app/index.html",
+  "start_url": "/app/",
   "display": "standalone",
-  "background_color": "#000000",
-  "theme_color": "#0A84FF",
+  "background_color": "#212830",
+  "theme_color": "#212830",
+  "orientation": "portrait",
   "icons": [
     {
       "src": "/app/icon-192.png",
@@ -17,7 +17,7 @@
       "src": "/app/icon-512.png",
       "sizes": "512x512",
       "type": "image/png"
-    },
+    }, 
     {
       "src": "/app/favicon.ico",
       "sizes": "32x32",
