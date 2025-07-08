@@ -1,12 +1,11 @@
 // public/app/sw.js
 
 // 📦 Versioned cache name — bump this when you change what's cached
-const CACHE_NAME = 'air-scales-cache-v0.04'; // Bump version to force update
+const CACHE_NAME = 'air-scales-cache-v0.06'; // Bump version to force update
 
 // 📋 Files to cache for offline usage
 const FILES_TO_CACHE = [
-  '/app/',
-  '/app/index.html',
+  '/app/index.offline.html',  // Only cache the offline version
   '/app/sw.js',
   '/app/manifest.webmanifest',
   '/app/icon-192.png',
@@ -16,11 +15,14 @@ const FILES_TO_CACHE = [
 
 // 🔥 Install event: pre-cache all essential files
 self.addEventListener('install', event => {
-  console.log('[Service Worker] Install');
+  console.log('[Service Worker] Install v0.06');
   event.waitUntil(
     caches.open(CACHE_NAME).then(cache => {
       console.log('[Service Worker] Pre-caching offline resources');
-      return cache.addAll(FILES_TO_CACHE);
+      return cache.addAll(FILES_TO_CACHE).catch(error => {
+        console.error('[Service Worker] Failed to cache files:', error);
+        throw error;
+      });
     })
   );
   self.skipWaiting(); // 👈 Activate this SW immediately
@@ -48,11 +50,60 @@ self.addEventListener('activate', event => {
 self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
   
-  // Check if this is a request to your app files
-  const isAppFile = url.pathname.startsWith('/app/') || FILES_TO_CACHE.includes(url.pathname);
+  // Check if this is a request to your main app route
+  const isAppRoute = url.pathname === '/app/' || url.pathname === '/app';
+  const isStaticAppFile = url.pathname.startsWith('/app/') && 
+    (url.pathname.endsWith('.offline.html') ||
+     url.pathname.endsWith('.js') || 
+     url.pathname.endsWith('.css') || 
+     url.pathname.endsWith('.png') || 
+     url.pathname.endsWith('.ico') || 
+     url.pathname.endsWith('.webmanifest'));
   
-  if (isAppFile) {
-    // 🧠 CACHE-FIRST for app files (HTML, CSS, JS, images)
+  if (isAppRoute) {
+    // 🎯 ALWAYS NETWORK-FIRST for main app route - NEVER cache this
+    console.log('[Service Worker] Handling app route:', event.request.url);
+    event.respondWith(
+      fetch(event.request, { cache: 'no-store' }) // Force fresh request
+        .then(response => {
+          console.log('[Service Worker] Online - serving Symfony template, status:', response.status);
+          if (!response.ok) {
+            console.error('[Service Worker] Bad response from server:', response.status, response.statusText);
+          }
+          // DO NOT CACHE the main app route response
+          return response;
+        })
+        .catch(error => {
+          // ❌ Offline? Serve static offline page
+          console.error('[Service Worker] Network error for app route:', error);
+          console.log('[Service Worker] Offline - serving static offline page');
+          return caches.match('/app/index.offline.html')
+            .then(response => {
+              if (response) {
+                console.log('[Service Worker] Serving offline page from cache');
+                return response;
+              }
+              console.error('[Service Worker] No offline page found in cache!');
+              // If offline page not cached, create a basic fallback
+              return new Response(`
+                <!DOCTYPE html>
+                <html><head><title>Offline</title></head>
+                <body>
+                <h1>You're offline</h1>
+                <p>Connect to internet to use the app</p>
+                <script>
+                  console.log('Fallback offline page served');
+                  setTimeout(() => window.location.reload(), 5000);
+                </script>
+                </body></html>
+              `, {
+                headers: { 'Content-Type': 'text/html' }
+              });
+            });
+        })
+    );
+  } else if (isStaticAppFile) {
+    // 🧠 CACHE-FIRST for static app files (CSS, JS, images)
     event.respondWith(
       caches.match(event.request).then(response => {
         if (response) {
@@ -63,7 +114,7 @@ self.addEventListener('fetch', event => {
         // Not in cache, try to fetch and cache it
         return fetch(event.request).then(response => {
           // Don't cache non-successful responses
-          if (!response || response.status !== 200) {
+          if (!response || response.status !== 200 || response.type !== 'basic') {
             return response;
           }
           
@@ -75,9 +126,9 @@ self.addEventListener('fetch', event => {
           
           return response;
         }).catch(() => {
-          // If it's a navigation request and we can't fetch, serve the main page
+          // If it's a navigation request and we can't fetch, serve the offline page
           if (event.request.mode === 'navigate') {
-            return caches.match('/app/index.html');
+            return caches.match('/app/index.offline.html');
           }
         });
       })
@@ -98,7 +149,7 @@ self.addEventListener('fetch', event => {
             
             // 👇 Fallback to offline page for navigations
             if (event.request.mode === 'navigate') {
-              return caches.match('/app/index.html');
+              return caches.match('/app/index.offline.html');
             }
           });
         })
