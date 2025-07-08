@@ -1,6 +1,6 @@
 {
   "controllers": {
-    "landing": {
+    "landing_controller": {
       "enabled": true,
       "fetch": "eager",
       "path": "./landing_controller.js"
