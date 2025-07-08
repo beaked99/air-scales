@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Air Scales - Offline Mode</title>
+    <link rel="manifest" href="/app/manifest.webmanifest">
+    <link rel="icon" type="image/x-icon" href="/app/favicon.ico">
+    <meta name="theme-color" content="#212830">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #212830;
+            color: white;
+        }
+        .container {
+            max-width: 400px;
+            margin: 0 auto;
+            text-align: center;
+        }
+        .status {
+            background: #333;
+            padding: 10px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        .offline-features {
+            background: #2a3441;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        .esp32-section {
+            background: #1e3a8a;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        button {
+            background: #4f46e5;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            margin: 10px;
+        }
+        button:hover {
+            background: #3730a3;
+        }
+        .data-display {
+            background: #1f2937;
+            padding: 15px;
+            border-radius: 6px;
+            margin: 10px 0;
+            font-family: monospace;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🌬️ Air Scales</h1>
+        
+        <div class="status" id="network-status">
+            📱 Offline Mode - No Internet Connection
+        </div>
+        
+        <div class="offline-features">
+            <h3>Available Offline Features:</h3>
+            <ul style="text-align: left;">
+                <li>View cached ESP32 data</li>
+                <li>Connect to local ESP32 devices</li>
+                <li>Basic measurements and logging</li>
+                <li>Data will sync when back online</li>
+            </ul>
+        </div>
+        
+        <div class="esp32-section">
+            <h3>📡 ESP32 Connection</h3>
+            <p>Connect to your ESP32 device's WiFi network (usually "AirScales_XXXX") to access local features.</p>
+            <button onclick="checkESP32Connection()">Check ESP32 Connection</button>
+            <div id="esp32-status" class="data-display" style="display: none;"></div>
+        </div>
+        
+        <div class="data-display" id="cached-data">
+            <h4>Cached Data:</h4>
+            <p>Loading cached measurements...</p>
+        </div>
+        
+        <button onclick="syncWhenOnline()">Sync When Online</button>
+        <button onclick="clearCache()">Clear Cache</button>
+    </div>
+
+    <script>
+        // Offline-specific functionality
+        class OfflineApp {
+            constructor() {
+                this.init();
+            }
+            
+            init() {
+                this.loadCachedData();
+                this.setupPeriodicChecks();
+            }
+            
+            loadCachedData() {
+                // Load any cached data from localStorage or IndexedDB
+                const cachedData = localStorage.getItem('airScalesData');
+                const displayEl = document.getElementById('cached-data');
+                
+                if (cachedData) {
+                    const data = JSON.parse(cachedData);
+                    displayEl.innerHTML = `
+                        <h4>Cached Data:</h4>
+                        <p>Last measurement: ${data.lastMeasurement || 'N/A'}</p>
+                        <p>Total readings: ${data.totalReadings || 0}</p>
+                        <p>Last sync: ${data.lastSync || 'Never'}</p>
+                    `;
+                } else {
+                    displayEl.innerHTML = '<h4>No cached data available</h4>';
+                }
+            }
+            
+            setupPeriodicChecks() {
+                // Check for network every 30 seconds
+                setInterval(() => this.checkConnectivity(), 30000);
+            }
+            
+            async checkConnectivity() {
+                try {
+                    const response = await fetch('/app/manifest.webmanifest', { 
+                        cache: 'no-store',
+                        method: 'HEAD'
+                    });
+                    
+                    if (response.ok) {
+                        // We're back online! Reload to get the dynamic version
+                        window.location.reload();
+                    }
+                } catch (error) {
+                    // Still offline
+                    console.log('Still offline');
+                }
+            }
+        }
+        
+        // ESP32 connection functions
+        async function checkESP32Connection() {
+            const statusEl = document.getElementById('esp32-status');
+            statusEl.style.display = 'block';
+            statusEl.innerHTML = 'Checking ESP32 connection...';
+            
+            try {
+                const response = await fetch('http://192.168.4.1/status', { 
+                    method: 'HEAD',
+                    mode: 'no-cors'
+                });
+                
+                statusEl.innerHTML = '✅ ESP32 Connected! You can now access local features.';
+                statusEl.style.backgroundColor = '#065f46';
+                
+                // Enable ESP32 features
+                initESP32Features();
+            } catch (error) {
+                statusEl.innerHTML = '❌ ESP32 not found. Make sure you\'re connected to the ESP32 WiFi network.';
+                statusEl.style.backgroundColor = '#7f1d1d';
+            }
+        }
+        
+        function initESP32Features() {
+            // Add ESP32-specific functionality here
+            console.log('ESP32 features enabled');
+        }
+        
+        function syncWhenOnline() {
+            // Mark data for sync when connection is restored
+            localStorage.setItem('pendingSync', 'true');
+            alert('Data marked for sync when connection is restored');
+        }
+        
+        function clearCache() {
+            if (confirm('Clear all cached data?')) {
+                localStorage.clear();
+                caches.keys().then(names => {
+                    names.forEach(name => caches.delete(name));
+                });
+                alert('Cache cleared');
+                location.reload();
+            }
+        }
+        
+        // Initialize offline app
+        document.addEventListener('DOMContentLoaded', () => {
+            window.offlineApp = new OfflineApp();
+        });
+    </script>
+</body>
+</html>
