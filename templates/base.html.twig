@@ -13,13 +13,34 @@
         <link rel="icon" href="/app/icon-192.png">
 
 
-        <script>
-          if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('/app/sw.js')
-              .then(reg => console.log('Service Worker registered', reg))
-              .catch(err => console.error('Service Worker registration failed:', err));
+<script>
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/app/sw.js').then(reg => {
+      console.log('Service Worker registered', reg);
+
+      reg.onupdatefound = () => {
+        const newWorker = reg.installing;
+        console.log('New service worker found…');
+
+        newWorker.onstatechange = () => {
+          if (newWorker.state === 'installed') {
+            if (navigator.serviceWorker.controller) {
+              // 🚨 A new version of the app is available
+              console.log('New version available. Reloading...');
+              window.location.reload(); // 🔁 Force refresh to load new files
+            } else {
+              // First install — nothing to do
+              console.log('App is ready for offline use.');
+            }
           }
-        </script>
+        };
+      };
+    }).catch(err => {
+      console.error('Service Worker registration failed:', err);
+    });
+  }
+</script>
+
 
 
         {% block stylesheets %}{% endblock %}
