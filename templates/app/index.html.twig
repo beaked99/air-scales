@@ -3,6 +3,16 @@
 
 {% block title %}Air Scales{% endblock %}
 
+{% block stylesheets %}
+  {{ parent() }}
+  <link rel="manifest" href="/app/manifest.webmanifest">
+  <link rel="icon" href="/app/icon-192.png">
+  <link rel="apple-touch-icon" href="/app/icon-192.png">
+  <meta name="theme-color" content="#1f7a1f">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+{% endblock %}
+
 {% block body %}
 <main data-controller="landing" 
       data-landing-dashboard-url-value="{{ path('app_dashboard') }}">
@@ -47,9 +57,9 @@
     </section>
 
     <div class="bg-red-600 text-white p-6 rounded-xl shadow-lg mt-4">
-  <h2 class="text-2xl font-bold">Tailwind is working 🎉</h2>
-  <p class="mt-2 text-sm">If you see this styled correctly, we're good to go.</p>
-</div>
+      <h2 class="text-2xl font-bold">Tailwind is working 🎉</h2>
+      <p class="mt-2 text-sm">If you see this styled correctly, we're good to go.</p>
+    </div>
 
     <footer>
         <hr>
