@@ -1,10 +1,13 @@
-import './bootstrap.js';
-/*
- * Welcome to your app's main JavaScript file!
- *
- * This file will be included onto the page via the importmap() Twig function,
- * which should already be in your base.html.twig.
- */
+// Import main CSS (Tailwind + Flowbite)
 import './styles/app.css';
 
-console.log('This log comes from assets/app.js - welcome to AssetMapper! 🎉');
+// Import Flowbite (optional, if you want its JS features like modals, tooltips, etc.)
+import 'flowbite';
+
+// Optional: import Stimulus if you're using it
+import './bootstrap.js';
+
+if (window.location.pathname.startsWith('/app')) {
+  import('./app/register-sw.js');
+}
+console.log('Tailwind + Flowbite loaded via Encore ✅');
