@@ -4,13 +4,13 @@
 {% block title %}Air Scales{% endblock %}
 
 {% block stylesheets %}
-  {{ parent() }}
   <link rel="manifest" href="/app/manifest.webmanifest">
   <link rel="icon" href="/app/icon-192.png">
   <link rel="apple-touch-icon" href="/app/icon-192.png">
   <meta name="theme-color" content="#1f7a1f">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
+  {{ parent() }}
 {% endblock %}
 
 {% block body %}
