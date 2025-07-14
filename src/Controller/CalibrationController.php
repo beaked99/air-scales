@@ -35,12 +35,12 @@ class CalibrationController extends AbstractController
             throw $this->createAccessDeniedException('You do not have access to this device.');
         }
         
-        // Get latest sensor data for pre-filling
+        // Get latest sensor data for pre-filling - FIXED: Order by ID instead of timestamp
         $latestData = $em->getRepository(\App\Entity\MicroData::class)
             ->createQueryBuilder('m')
             ->where('m.device = :device')
             ->setParameter('device', $device)
-            ->orderBy('m.timestamp', 'DESC')
+            ->orderBy('m.id', 'DESC')  // ← CHANGED FROM timestamp TO id
             ->setMaxResults(1)
             ->getQuery()
             ->getOneOrNullResult();
@@ -143,12 +143,12 @@ class CalibrationController extends AbstractController
             return new JsonResponse(['error' => 'Access denied'], 403);
         }
         
-        // Get latest data
+        // Get latest data - FIXED: Order by ID instead of timestamp
         $latestData = $em->getRepository(\App\Entity\MicroData::class)
             ->createQueryBuilder('m')
             ->where('m.device = :device')
             ->setParameter('device', $device)
-            ->orderBy('m.timestamp', 'DESC')
+            ->orderBy('m.id', 'DESC')  // ← CHANGED FROM timestamp TO id
             ->setMaxResults(1)
             ->getQuery()
             ->getOneOrNullResult();
@@ -168,7 +168,8 @@ class CalibrationController extends AbstractController
             'gps_lat' => $latestData->getGpsLat(),
             'gps_lng' => $latestData->getGpsLng(),
             'weight' => $latestData->getWeight(),
-            'vehicle' => $device->getVehicle() ? $device->getVehicle()->__toString() : null
+            'vehicle' => $device->getVehicle() ? $device->getVehicle()->__toString() : null,
+            'micro_data_id' => $latestData->getId() // Add for debugging
         ]);
     }
     
@@ -199,12 +200,12 @@ class CalibrationController extends AbstractController
         $liveData = [];
         
         foreach ($devices as $device) {
-            // Get latest sensor data for each device
+            // Get latest sensor data for each device - FIXED: Order by ID instead of timestamp
             $latestData = $em->getRepository(\App\Entity\MicroData::class)
                 ->createQueryBuilder('m')
                 ->where('m.device = :device')
                 ->setParameter('device', $device)
-                ->orderBy('m.timestamp', 'DESC')
+                ->orderBy('m.id', 'DESC')  // ← CHANGED FROM timestamp TO id
                 ->setMaxResults(1)
                 ->getQuery()
                 ->getOneOrNullResult();
@@ -220,7 +221,8 @@ class CalibrationController extends AbstractController
                     'timestamp' => $latestData->getTimestamp()->format('Y-m-d H:i:s'),
                     'vehicle' => $device->getVehicle() ? $device->getVehicle()->__toString() : null,
                     'status' => 'online', // Could be enhanced with real status logic
-                    'last_seen' => $this->formatTimeDifference($latestData->getTimestamp())
+                    'last_seen' => $this->formatTimeDifference($latestData->getTimestamp()),
+                    'micro_data_id' => $latestData->getId() // Add for debugging
                 ];
             }
         }
