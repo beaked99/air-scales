@@ -1,0 +1,185 @@
+{# templates/calibration/history.html.twig #}
+{% extends 'base.html.twig' %}
+
+{% block title %}Calibration History{% endblock %}
+
+{% block body %}
+<div class="min-h-screen bg-gray-900 text-gray-100 p-6">
+  <h1 class="text-2xl font-bold text-green-400 mb-6">
+    Calibration History: {{ device.serialNumber ?: 'Device #' ~ device.id }}
+  </h1>
+
+  <!-- Device Info -->
+  <div class="bg-gray-800 rounded-lg p-6 mb-8">
+    <h2 class="text-xl font-semibold text-white mb-4">Device Information</h2>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+      <div>
+        <span class="text-gray-400">Serial Number:</span>
+        <span class="text-gray-100 ml-2">{{ device.serialNumber ?: 'N/A' }}</span>
+      </div>
+      <div>
+        <span class="text-gray-400">MAC Address:</span>
+        <span class="text-gray-100 ml-2 font-mono">{{ device.macAddress ?: 'N/A' }}</span>
+      </div>
+      <div>
+        <span class="text-gray-400">Vehicle:</span>
+        <span class="text-gray-100 ml-2">{{ device.vehicle ?: 'Unassigned' }}</span>
+      </div>
+      <div>
+        <span class="text-gray-400">Total Calibrations:</span>
+        <span class="text-gray-100 ml-2">{{ calibrations|length }} point(s)</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Regression Model Info -->
+  <div class="bg-gray-800 rounded-lg p-6 mb-8">
+    <div class="flex justify-between items-center mb-4">
+      <h2 class="text-xl font-semibold text-white">Current Regression Model</h2>
+      {% if calibrations|length >= 2 %}
+        <button id="force-regression" class="bg-yellow-600 hover:bg-yellow-700 text-white px-3 py-1 rounded text-sm">
+          Recalculate Model
+        </button>
+      {% endif %}
+    </div>
+    
+    {% if regressionCoeffs.intercept %}
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
+        <div>
+          <span class="text-gray-400">Intercept:</span>
+          <span class="text-green-400 ml-2 font-mono">{{ regressionCoeffs.intercept|number_format(4) }}</span>
+        </div>
+        <div>
+          <span class="text-gray-400">Air Pressure Coeff:</span>
+          <span class="text-green-400 ml-2 font-mono">{{ regressionCoeffs.airPressure|number_format(4) }}</span>
+        </div>
+        <div>
+          <span class="text-gray-400">Ambient Pressure Coeff:</span>
+          <span class="text-green-400 ml-2 font-mono">{{ regressionCoeffs.ambientPressure|number_format(4) }}</span>
+        </div>
+        <div>
+          <span class="text-gray-400">Temperature Coeff:</span>
+          <span class="text-green-400 ml-2 font-mono">{{ regressionCoeffs.airTemp|number_format(4) }}</span>
+        </div>
+        <div>
+          <span class="text-gray-400">R-Squared:</span>
+          <span class="text-blue-400 ml-2 font-mono">{{ regressionCoeffs.rSquared|number_format(4) }}</span>
+        </div>
+        <div>
+          <span class="text-gray-400">RMSE:</span>
+          <span class="text-blue-400 ml-2 font-mono">{{ regressionCoeffs.rmse|number_format(2) }} lbs</span>
+        </div>
+      </div>
+      
+      <div class="mt-4 p-3 bg-gray-700 rounded">
+        <p class="text-gray-300 text-sm">
+          <strong>Model Equation:</strong> 
+          Weight = {{ regressionCoeffs.intercept|number_format(2) }} + 
+          ({{ regressionCoeffs.airPressure|number_format(4) }} × Air Pressure) + 
+          ({{ regressionCoeffs.ambientPressure|number_format(4) }} × Ambient Pressure) + 
+          ({{ regressionCoeffs.airTemp|number_format(4) }} × Temperature)
+        </p>
+      </div>
+    {% else %}
+      <div class="text-center py-8">
+        <p class="text-gray-400 mb-4">No regression model available.</p>
+        <p class="text-gray-500 text-sm">Add at least 2 calibration points to generate a model.</p>
+      </div>
+    {% endif %}
+  </div>
+
+  <!-- Calibration Data -->
+  <div class="bg-gray-800 rounded-lg mb-8">
+    <div class="p-6 border-b border-gray-700">
+      <h2 class="text-xl font-semibold text-white">Calibration Data Points</h2>
+    </div>
+    
+    {% if calibrations|length > 0 %}
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead class="bg-gray-700">
+            <tr>
+              <th class="p-3 text-left text-gray-200">Date</th>
+              <th class="p-3 text-right text-gray-200">Scale Weight</th>
+              <th class="p-3 text-right text-gray-200">Air Pressure</th>
+              <th class="p-3 text-right text-gray-200">Ambient Pressure</th>
+              <th class="p-3 text-right text-gray-200">Temperature</th>
+              <th class="p-3 text-right text-gray-200">Elevation</th>
+              <th class="p-3 text-left text-gray-200">Comment</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-700">
+            {% for calibration in calibrations %}
+              <tr>
+                <td class="p-3 text-gray-100">{{ calibration.createdAt|date('M j, Y g:i A') }}</td>
+                <td class="p-3 text-right text-green-400 font-bold">{{ calibration.scaleWeight|number_format(1) }} lbs</td>
+                <td class="p-3 text-right text-gray-300">{{ calibration.airPressure|number_format(1) }} psi</td>
+                <td class="p-3 text-right text-gray-300">{{ calibration.ambientAirPressure|number_format(1) }} psi</td>
+                <td class="p-3 text-right text-gray-300">{{ calibration.airTemperature|number_format(1) }}°F</td>
+                <td class="p-3 text-right text-gray-300">{{ calibration.elevation|number_format(0) }} ft</td>
+                <td class="p-3 text-gray-400">{{ calibration.comment ?: '—' }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="p-6 text-center">
+        <p class="text-gray-400 mb-4">No calibration data available.</p>
+        <a href="{{ path('device_calibration', { id: device.id }) }}" 
+           class="bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded">
+          Add First Calibration Point
+        </a>
+      </div>
+    {% endif %}
+  </div>
+
+  <!-- Navigation -->
+  <div class="text-center space-x-4">
+    <a href="{{ path('device_calibration', { id: device.id }) }}" 
+       class="bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded">
+      Add Calibration Point
+    </a>
+    <a href="{{ path('app_dashboard') }}" 
+       class="text-blue-400 hover:text-blue-200">
+      ← Back to Dashboard
+    </a>
+  </div>
+</div>
+
+<script>
+document.getElementById('force-regression')?.addEventListener('click', function() {
+  if (!confirm('Recalculate the regression model with current data?')) {
+    return;
+  }
+  
+  const button = this;
+  button.disabled = true;
+  button.textContent = 'Calculating...';
+  
+  fetch('{{ path('api_force_regression', { id: device.id }) }}', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    }
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.status === 'success') {
+      alert('Regression model updated successfully!');
+      location.reload();
+    } else {
+      alert('Error: ' + data.message);
+    }
+  })
+  .catch(error => {
+    console.error('Error:', error);
+    alert('Failed to update regression model.');
+  })
+  .finally(() => {
+    button.disabled = false;
+    button.textContent = 'Recalculate Model';
+  });
+});
+</script>
+{% endblock %}

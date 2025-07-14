@@ -84,6 +84,10 @@
                   Configure
                 </a>
               {% endif %}
+              <a href="{{ path('device_calibration', { id: device.id }) }}" 
+                 class="text-sm text-purple-400 hover:text-purple-200 font-medium px-3 py-1 bg-purple-900 rounded">
+                Calibrate
+              </a>
               {% set userHasAccess = false %}
               {% for access in accessRecords %}
                 {% if access.device.id == device.id %}
@@ -137,6 +141,9 @@
                 {% endif %}
                 {% if vehicle.createdBy != app.user %}
                   | Owner: {{ vehicle.createdBy.fullName }}
+                {% endif %}
+                {% if vehicle.devices|length > 0 %}
+                  | <a href="{{ path('device_calibration_history', { id: vehicle.devices[0].id }) }}" class="text-purple-400 hover:text-purple-200">View Calibrations</a>
                 {% endif %}
               </div>
             </div>

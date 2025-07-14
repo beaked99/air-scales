@@ -92,11 +92,17 @@
                 <td class="p-3 text-gray-300">{{ device.soldTo ? device.soldTo.fullName : 'Unassigned' }}</td>
                 <td class="p-3">
                   {# <a href="{{ path('device_detail', { id: device.id }) }}" class="text-blue-400 hover:text-blue-200 mr-2">View</a> #}
-                  <form method="post" action="{{ path('device_unassign', { id: device.id }) }}" style="display: inline;">
-                    <input type="hidden" name="_token" value="{{ csrf_token('unassign' ~ device.id) }}">
-                    <button type="submit" onclick="return confirm('Unassign this device from the vehicle?');" 
-                            class="text-red-400 hover:text-red-200 text-sm">Unassign</button>
-                  </form>
+                  <div class="flex space-x-2">
+                    <a href="{{ path('device_calibration', { id: device.id }) }}" 
+                       class="text-purple-400 hover:text-purple-200 text-sm px-2 py-1 bg-purple-900 rounded">
+                      Calibrate
+                    </a>
+                    <form method="post" action="{{ path('device_unassign', { id: device.id }) }}" style="display: inline;">
+                      <input type="hidden" name="_token" value="{{ csrf_token('unassign' ~ device.id) }}">
+                      <button type="submit" onclick="return confirm('Unassign this device from the vehicle?');" 
+                              class="text-red-400 hover:text-red-200 text-sm px-2 py-1 bg-red-900 rounded">Unassign</button>
+                    </form>
+                  </div>
                 </td>
               </tr>
             {% endfor %}

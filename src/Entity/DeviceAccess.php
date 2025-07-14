@@ -6,6 +6,8 @@ use App\Repository\DeviceAccessRepository;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity(repositoryClass: DeviceAccessRepository::class)]
+#[ORM\Table(name: 'device_access')]
+#[ORM\UniqueConstraint(name: 'user_device_unique', columns: ['user_id', 'device_id'])]
 class DeviceAccess
 {
     #[ORM\Id]
@@ -30,15 +32,10 @@ class DeviceAccess
     #[ORM\Column(type: 'boolean')]
     private bool $isActive = true;
 
-    public function isActive(): bool
+    public function __construct()
     {
-        return $this->isActive;
-    }
-
-    public function setIsActive(bool $isActive): self
-    {
-        $this->isActive = $isActive;
-        return $this;
+        $this->firstSeenAt = new \DateTimeImmutable();
+        $this->lastConnectedAt = new \DateTime();
     }
 
     public function getId(): ?int
@@ -54,7 +51,6 @@ class DeviceAccess
     public function setUser(?User $user): static
     {
         $this->user = $user;
-
         return $this;
     }
 
@@ -66,7 +62,6 @@ class DeviceAccess
     public function setDevice(?Device $device): static
     {
         $this->device = $device;
-
         return $this;
     }
 
@@ -78,7 +73,6 @@ class DeviceAccess
     public function setFirstSeenAt(?\DateTimeImmutable $firstSeenAt): static
     {
         $this->firstSeenAt = $firstSeenAt;
-
         return $this;
     }
 
@@ -90,9 +84,44 @@ class DeviceAccess
     public function setLastConnectedAt(?\DateTimeInterface $lastConnectedAt): static
     {
         $this->lastConnectedAt = $lastConnectedAt;
-
         return $this;
     }
+
+    public function isActive(): bool
+    {
+        return $this->isActive;
+    }
+
+    public function setIsActive(bool $isActive): self
+    {
+        $this->isActive = $isActive;
+        return $this;
+    }
+
+    // Alias method for backwards compatibility with new controller
+    public function getLastAccessedAt(): ?\DateTimeInterface
+    {
+        return $this->lastConnectedAt;
+    }
+
+    public function setLastAccessedAt(?\DateTimeInterface $lastAccessedAt): static
+    {
+        $this->lastConnectedAt = $lastAccessedAt;
+        return $this;
+    }
+
+    // Alias method for backwards compatibility with new controller  
+    public function getCreatedAt(): ?\DateTimeImmutable
+    {
+        return $this->firstSeenAt;
+    }
+
+    public function setCreatedAt(?\DateTimeImmutable $createdAt): static
+    {
+        $this->firstSeenAt = $createdAt;
+        return $this;
+    }
+
     public function __toString(): string
     {
         return sprintf("Device #%d <-> User %s", $this->device?->getId(), $this->user?->getEmail());
