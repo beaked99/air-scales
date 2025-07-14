@@ -42,7 +42,7 @@ class LiveDataController extends AbstractController
                     'timestamp' => $latestData->getTimestamp()->format('Y-m-d H:i:s'),
                     'vehicle' => $device->getVehicle() ? $device->getVehicle()->__toString() : null,
                     'status' => 'online',
-                    'last_seen' => $latestData->getTimestamp()->diff(new \DateTime())->format('%i minutes ago')
+                    'last_seen' => $this->formatTimeDifference($latestData->getTimestamp())
                 ];
             }
         }
@@ -53,5 +53,21 @@ class LiveDataController extends AbstractController
             'device_count' => count($liveData),
             'last_updated' => (new \DateTime())->format('Y-m-d H:i:s')
         ]);
+    }
+    
+    private function formatTimeDifference(\DateTimeInterface $timestamp): string
+    {
+        $now = new \DateTime();
+        $diff = $now->diff($timestamp);
+        
+        if ($diff->days > 0) {
+            return $diff->days . ' day' . ($diff->days > 1 ? 's' : '') . ' ago';
+        } elseif ($diff->h > 0) {
+            return $diff->h . ' hour' . ($diff->h > 1 ? 's' : '') . ' ago';
+        } elseif ($diff->i > 0) {
+            return $diff->i . ' minute' . ($diff->i > 1 ? 's' : '') . ' ago';
+        } else {
+            return 'just now';
+        }
     }
 }
