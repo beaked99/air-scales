@@ -189,11 +189,12 @@ class MicroDataController extends AbstractController
     #[Route('/api/microdata/{mac}/latest', name: 'api_microdata_latest', methods: ['GET'])]
     public function latestAmbient(string $mac, EntityManagerInterface $em): JsonResponse
     {
+        // Order by ID instead of timestamp to avoid corrupted timestamp issues
         $latest = $em->getRepository(MicroData::class)
             ->createQueryBuilder('m')
             ->where('m.macAddress = :mac')
             ->setParameter('mac', $mac)
-            ->orderBy('m.timestamp', 'DESC')
+            ->orderBy('m.id', 'DESC')  // ← Changed from timestamp to ID
             ->setMaxResults(1)
             ->getQuery()
             ->getOneOrNullResult();
@@ -206,7 +207,8 @@ class MicroDataController extends AbstractController
             'ambient' => $latest->getAtmosphericPressure(),
             'temperature' => $latest->getTemperature(),
             'weight' => $latest->getWeight(),
-            'timestamp' => $latest->getTimestamp()->format('Y-m-d H:i:s')
+            'timestamp' => $latest->getTimestamp()->format('Y-m-d H:i:s'),
+            'micro_data_id' => $latest->getId() // Add this for debugging
         ]);
     }
 
