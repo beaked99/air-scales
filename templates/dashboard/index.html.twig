@@ -140,7 +140,7 @@
                   | Last seen: {{ vehicle.lastSeen|date('M j, Y g:i A') }}
                 {% endif %}
                 {% if vehicle.createdBy != app.user %}
-                  | Owner: {{ vehicle.createdBy.fullName }}
+                  | Owner: {{ vehicle.createdBy ? vehicle.createdBy.fullName : 'Unknown' }}
                 {% endif %}
                 {% if vehicle.devices|length > 0 %}
                   | <a href="{{ path('device_calibration_history', { id: vehicle.devices[0].id }) }}" class="text-purple-400 hover:text-purple-200">View Calibrations</a>
@@ -369,17 +369,97 @@ document.addEventListener('DOMContentLoaded', () => {
   detectModeAndConnect();
   updateStatus();
   initVehicleSorting();
+  startLiveDataPolling(); // New: Start polling for live data
   
   // Listen for network changes
   window.addEventListener('online', () => {
     isOnline = true;
     detectModeAndConnect();
+    startLiveDataPolling(); // Restart polling when back online
   });
   
   window.addEventListener('offline', () => {
     isOnline = false;
     updateStatus();
+    stopLiveDataPolling(); // Stop polling when offline
   });
 });
+
+// Live data polling variables
+let liveDataInterval = null;
+
+function startLiveDataPolling() {
+  // Clear any existing interval
+  stopLiveDataPolling();
+  
+  // Start polling every 30 seconds
+  liveDataInterval = setInterval(fetchLiveData, 30000);
+  
+  // Fetch immediately on start
+  fetchLiveData();
+}
+
+function stopLiveDataPolling() {
+  if (liveDataInterval) {
+    clearInterval(liveDataInterval);
+    liveDataInterval = null;
+  }
+}
+
+function fetchLiveData() {
+  fetch('/calibration/api/devices/live-data')
+    .then(response => {
+      if (!response.ok) {
+        throw new Error('Failed to fetch live data');
+      }
+      return response.json();
+    })
+    .then(data => {
+      updateLiveTable(data);
+      updateStatus('connected'); // Show we're getting live data
+    })
+    .catch(error => {
+      console.error('Error fetching live data:', error);
+      updateStatus('offline');
+    });
+}
+
+function updateLiveTable(data) {
+  const tbody = document.getElementById('sensor-data');
+  const totalWeight = document.getElementById('total-weight');
+  const deviceCount = document.getElementById('device-count');
+  
+  if (!data.devices || data.devices.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="5" class="p-6 text-center text-gray-400">📡 No devices with recent data...</td></tr>';
+    totalWeight.textContent = '0.0 lbs';
+    deviceCount.textContent = '0';
+    return;
+  }
+  
+  let html = '';
+  
+  data.devices.forEach(device => {
+    const weight = parseFloat(device.weight) || 0;
+    const status = device.last_seen.includes('0 minutes') ? '● Online' : `● ${device.last_seen}`;
+    const statusColor = device.last_seen.includes('0 minutes') ? '#22c55e' : '#f59e0b';
+    
+    html += `
+      <tr style="border-bottom: 1px solid #374151;">
+        <td style="padding: 15px; color: #e2e8f0;">
+          ${device.device_name}
+          ${device.vehicle ? '<br><span style="font-size: 12px; color: #9ca3af;">' + device.vehicle + '</span>' : ''}
+        </td>
+        <td style="padding: 15px; text-align: right; color: #f1f5f9; font-weight: bold;">${weight.toFixed(1)}</td>
+        <td style="padding: 15px; text-align: right; color: #e2e8f0;">${device.main_air_pressure}</td>
+        <td style="padding: 15px; text-align: right; color: #e2e8f0;">${device.temperature}</td>
+        <td style="padding: 15px; color: ${statusColor};">${status}</td>
+      </tr>
+    `;
+  });
+  
+  tbody.innerHTML = html;
+  totalWeight.textContent = `${data.total_weight.toFixed(1)} lbs`;
+  deviceCount.textContent = data.device_count;
+}
 </script>
 {% endblock %}

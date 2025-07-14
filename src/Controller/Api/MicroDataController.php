@@ -3,13 +3,13 @@
 namespace App\Controller\Api;
 
 use App\Entity\MicroData;
+use App\Entity\Device;
 use App\Repository\DeviceRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\Annotation\Route;
-
 use Psr\Log\LoggerInterface;
 
 class MicroDataController extends AbstractController
@@ -30,7 +30,8 @@ class MicroDataController extends AbstractController
         $requiredFields = [
             'mac_address', 'main_air_pressure', 'atmospheric_pressure',
             'temperature', 'elevation', 'gps_lat', 'gps_lng',
-            'weight', 'timestamp'
+            'timestamp'
+            // Removed 'weight' from required fields - can be calculated
         ];
         foreach ($requiredFields as $field) {
             if (!isset($data[$field])) {
@@ -41,8 +42,10 @@ class MicroDataController extends AbstractController
         // 🔐 Auto-provision the device if it's missing
         $device = $deviceRepo->findOneBy(['macAddress' => $data['mac_address']]);
         if (!$device) {
-            $device = new \App\Entity\Device();
+            $device = new Device();
             $device->setMacAddress($data['mac_address']);
+            $device->setDeviceType($data['device_type'] ?? 'ESP32');
+            $device->setSerialNumber($data['serial_number'] ?? null);
             $em->persist($device);
             $em->flush(); 
         }
@@ -57,15 +60,31 @@ class MicroDataController extends AbstractController
         $micro->setElevation($data['elevation']);
         $micro->setGpsLat($data['gps_lat']);
         $micro->setGpsLng($data['gps_lng']);
-        $micro->setWeight($data['weight']);
         $micro->setTimestamp(new \DateTimeImmutable($data['timestamp']));
 
+        // Calculate weight using regression if available (NEW)
+        $weight = $this->calculateWeight($device, $micro, $data['weight'] ?? null);
+        $micro->setWeight($weight);
+
         $em->persist($micro);
+        
+        // Update device and vehicle timestamps if the methods exist
+        if (method_exists($device, 'setLastSeen')) {
+            $device->setLastSeen(new \DateTimeImmutable());
+        }
+        
+        if ($device->getVehicle() && method_exists($device->getVehicle(), 'setLastSeen')) {
+            $device->getVehicle()->setLastSeen(new \DateTimeImmutable());
+        }
+        
         $em->flush();
 
-        return new JsonResponse(['success' => true]);
+        return new JsonResponse([
+            'success' => true,
+            'calculated_weight' => $weight,
+            'device_id' => $device->getId()
+        ]);
     }
-
 
     #[Route('/api/microdata/{mac}/latest', name: 'api_microdata_latest', methods: ['GET'])]
     public function latestAmbient(string $mac, EntityManagerInterface $em): JsonResponse
@@ -85,7 +104,34 @@ class MicroDataController extends AbstractController
 
         return new JsonResponse([
             'ambient' => $latest->getAtmosphericPressure(),
-            'temperature' => $latest->getTemperature()
+            'temperature' => $latest->getTemperature(),
+            'weight' => $latest->getWeight(),
+            'timestamp' => $latest->getTimestamp()->format('Y-m-d H:i:s')
         ]);
+    }
+
+    private function calculateWeight(Device $device, MicroData $microData, ?float $providedWeight = null): float
+    {
+        // If weight is provided in the data, use it (backwards compatibility)
+        if ($providedWeight !== null) {
+            return $providedWeight;
+        }
+
+        $intercept = $device->getRegressionIntercept();
+        $airPressureCoeff = $device->getRegressionAirPressureCoeff();
+        $ambientPressureCoeff = $device->getRegressionAmbientPressureCoeff();
+        $airTempCoeff = $device->getRegressionAirTempCoeff();
+        
+        // If no calibration data, return 0
+        if (!$intercept && !$airPressureCoeff && !$ambientPressureCoeff && !$airTempCoeff) {
+            return 0.0;
+        }
+        
+        $weight = $intercept + 
+                  ($microData->getMainAirPressure() * $airPressureCoeff) +
+                  ($microData->getAtmosphericPressure() * $ambientPressureCoeff) +
+                  ($microData->getTemperature() * $airTempCoeff);
+        
+        return max(0, $weight); // Don't allow negative weights
     }
 }

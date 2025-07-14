@@ -166,11 +166,13 @@ class ESP32ApiController extends AbstractController
         
         $em->persist($microData);
         
-        // Update device last seen
-        $device->setLastSeen(new \DateTimeImmutable());
+        // Update device and vehicle timestamps if the methods exist
+        if (method_exists($device, 'setLastSeen')) {
+            $device->setLastSeen(new \DateTimeImmutable());
+        }
         
         // Update vehicle last seen if assigned
-        if ($device->getVehicle()) {
+        if ($device->getVehicle() && method_exists($device->getVehicle(), 'setLastSeen')) {
             $device->getVehicle()->setLastSeen(new \DateTimeImmutable());
         }
         

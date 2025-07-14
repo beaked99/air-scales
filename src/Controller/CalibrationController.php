@@ -172,7 +172,68 @@ class CalibrationController extends AbstractController
         ]);
     }
     
-    #[Route('/api/device/{id}/force-regression', name: 'api_force_regression', methods: ['POST'])]
+    #[Route('/api/devices/live-data', name: 'api_devices_live_data', methods: ['GET'])]
+    #[IsGranted('ROLE_USER')]
+    public function getAllDevicesLiveData(EntityManagerInterface $em): JsonResponse
+    {
+        $user = $this->getUser();
+        
+        // Get all devices user has access to
+        $devices = [];
+        
+        // Devices user purchased
+        $purchasedDevices = $em->getRepository(Device::class)->findBy(['soldTo' => $user]);
+        foreach ($purchasedDevices as $device) {
+            $devices[$device->getId()] = $device;
+        }
+        
+        // Devices user connected to via ESP32
+        $accessRecords = $em->getRepository(\App\Entity\DeviceAccess::class)->findBy([
+            'user' => $user,
+            'isActive' => true
+        ]);
+        foreach ($accessRecords as $access) {
+            $devices[$access->getDevice()->getId()] = $access->getDevice();
+        }
+        
+        $liveData = [];
+        
+        foreach ($devices as $device) {
+            // Get latest sensor data for each device
+            $latestData = $em->getRepository(\App\Entity\MicroData::class)
+                ->createQueryBuilder('m')
+                ->where('m.device = :device')
+                ->setParameter('device', $device)
+                ->orderBy('m.timestamp', 'DESC')
+                ->setMaxResults(1)
+                ->getQuery()
+                ->getOneOrNullResult();
+            
+            if ($latestData) {
+                $liveData[] = [
+                    'device_id' => $device->getId(),
+                    'device_name' => $device->getSerialNumber() ?: ('Device #' . $device->getId()),
+                    'mac_address' => $device->getMacAddress(),
+                    'weight' => $latestData->getWeight(),
+                    'main_air_pressure' => $latestData->getMainAirPressure(),
+                    'temperature' => $latestData->getTemperature(),
+                    'timestamp' => $latestData->getTimestamp()->format('Y-m-d H:i:s'),
+                    'vehicle' => $device->getVehicle() ? $device->getVehicle()->__toString() : null,
+                    'status' => 'online', // Could be enhanced with real status logic
+                    'last_seen' => $latestData->getTimestamp()->diff(new \DateTime())->format('%i minutes ago')
+                ];
+            }
+        }
+        
+        return new JsonResponse([
+            'devices' => $liveData,
+            'total_weight' => array_sum(array_column($liveData, 'weight')),
+            'device_count' => count($liveData),
+            'last_updated' => (new \DateTime())->format('Y-m-d H:i:s')
+        ]);
+    }
+    
+    #[Route('/api/force-regression/{id}', name: 'api_force_regression', methods: ['POST'])]
     #[IsGranted('ROLE_USER')]
     public function forceRegression(Device $device, EntityManagerInterface $em, DeviceCalibrationRegressor $regressor): JsonResponse
     {
