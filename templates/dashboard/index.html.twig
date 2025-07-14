@@ -4,59 +4,63 @@
 {% block title %}Dashboard{% endblock %}
 
 {% block body %}
-<div style="padding: 20px; background: #0f172a; color: #e2e8f0; min-height: 100vh;">
-  <h1 style="color: #22c55e; margin-bottom: 20px;">Air Scales Dashboard</h1>
-  
+<div class="min-h-screen bg-gray-900 text-gray-100 p-6">
+  <h1 class="text-2xl font-bold text-green-400 mb-6">Air Scales Dashboard</h1>
+
   <!-- Status Bar -->
-  <div id="status-bar" style="background: #374151; padding: 10px; border-radius: 6px; margin-bottom: 20px;">
+  <div id="status-bar" class="bg-gray-700 p-3 rounded mb-6">
     <span id="status-text">Loading...</span>
   </div>
-  
+
   <!-- Live Sensor Data -->
-  <div style="background: #1e293b; border-radius: 8px; overflow: hidden;">
-    <table id="sensor-table" style="width: 100%; border-collapse: collapse;">
-      <thead style="background: #374151;">
+  <div class="bg-gray-800 rounded-lg overflow-hidden mb-8">
+    <table id="sensor-table" class="w-full text-sm">
+      <thead class="bg-gray-700">
         <tr>
-          <th style="padding: 15px; color: #f1f5f9;">Device</th>
-          <th style="padding: 15px; color: #f1f5f9; text-align: right;">Weight (lbs)</th>
-          <th style="padding: 15px; color: #f1f5f9; text-align: right;">Pressure (psi)</th>
-          <th style="padding: 15px; color: #f1f5f9; text-align: right;">Temp (°F)</th>
-          <th style="padding: 15px; color: #f1f5f9;">Status</th>
+          <th class="p-3 text-left text-gray-200">Device</th>
+          <th class="p-3 text-right text-gray-200">Weight (lbs)</th>
+          <th class="p-3 text-right text-gray-200">Pressure (psi)</th>
+          <th class="p-3 text-right text-gray-200">Temp (°F)</th>
+          <th class="p-3 text-left text-gray-200">Status</th>
         </tr>
       </thead>
       <tbody id="sensor-data">
         <tr>
-          <td colspan="5" style="padding: 40px; text-align: center; color: #94a3b8;">
-            📡 Connecting to devices...
-          </td>
+          <td colspan="5" class="p-6 text-center text-gray-400">📡 Connecting to devices...</td>
         </tr>
       </tbody>
-      <tfoot style="background: #334155;">
+      <tfoot class="bg-gray-700">
         <tr>
-          <td style="padding: 15px; font-weight: bold; color: #f1f5f9;">TOTAL</td>
-          <td id="total-weight" style="padding: 15px; text-align: right; font-weight: bold; color: #22c55e;">0.0 lbs</td>
-          <td colspan="3" style="padding: 15px; color: #94a3b8;">
+          <td class="p-3 font-bold text-gray-100">TOTAL</td>
+          <td id="total-weight" class="p-3 text-right font-bold text-green-400">0.0 lbs</td>
+          <td colspan="3" class="p-3 text-gray-400">
             <span id="device-count">0</span> devices
           </td>
         </tr>
       </tfoot>
     </table>
   </div>
-  
-  <!-- Vehicle List (only show if online) -->
-  <div id="vehicle-section" style="margin-top: 30px;">
-    <h2 style="color: #f8fafc;">Vehicles</h2>
+
+  <!-- Vehicle List -->
+  <div id="vehicle-section">
+    <h2 class="text-xl font-semibold text-white mb-4">Vehicles</h2>
     {% if vehicles is not empty %}
-      <div style="background: #1e293b; border-radius: 8px; padding: 20px;">
+      <div class="bg-gray-800 rounded-lg divide-y divide-gray-700">
         {% for vehicle in vehicles %}
-          <div style="padding: 10px; border-bottom: 1px solid #374151; display: flex; justify-content: space-between;">
-            <span style="color: #e2e8f0;">{{ vehicle.year }} {{ vehicle.make }} {{ vehicle.model }}</span>
-            <span style="color: #94a3b8;">{{ vehicle.nickname ?: 'No nickname' }}</span>
+          <div class="flex items-center justify-between p-4">
+            <div>
+              <span class="text-gray-100 font-medium">{{ vehicle.year }} {{ vehicle.make }} {{ vehicle.model }}</span>
+              <span class="text-sm text-gray-400 ml-2">({{ vehicle.nickname ?: 'No nickname' }})</span>
+            </div>
+            <a href="{{ path('device_vehicle_edit', { id: vehicle.id }) }}"
+               class="text-sm text-blue-400 hover:text-blue-200 font-medium">
+              Edit
+            </a>
           </div>
         {% endfor %}
       </div>
     {% else %}
-      <p style="color: #94a3b8;">No vehicles configured.</p>
+      <p class="text-gray-400">No vehicles configured.</p>
     {% endif %}
   </div>
 </div>
