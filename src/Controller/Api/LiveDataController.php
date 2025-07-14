@@ -58,14 +58,22 @@ class LiveDataController extends AbstractController
     private function formatTimeDifference(\DateTimeInterface $timestamp): string
     {
         $now = new \DateTime();
-        $diff = $now->diff($timestamp);
+        $secondsDiff = $now->getTimestamp() - $timestamp->getTimestamp();
         
-        if ($diff->days > 0) {
-            return $diff->days . ' day' . ($diff->days > 1 ? 's' : '') . ' ago';
-        } elseif ($diff->h > 0) {
-            return $diff->h . ' hour' . ($diff->h > 1 ? 's' : '') . ' ago';
-        } elseif ($diff->i > 0) {
-            return $diff->i . ' minute' . ($diff->i > 1 ? 's' : '') . ' ago';
+        if ($secondsDiff < 0) {
+            return 'in the future';
+        }
+        
+        $days = floor($secondsDiff / 86400);
+        $hours = floor(($secondsDiff % 86400) / 3600);
+        $minutes = floor(($secondsDiff % 3600) / 60);
+        
+        if ($days > 0) {
+            return $days . ' day' . ($days > 1 ? 's' : '') . ' ago';
+        } elseif ($hours > 0) {
+            return $hours . ' hour' . ($hours > 1 ? 's' : '') . ' ago';
+        } elseif ($minutes > 0) {
+            return $minutes . ' minute' . ($minutes > 1 ? 's' : '') . ' ago';
         } else {
             return 'just now';
         }

@@ -220,7 +220,7 @@ class CalibrationController extends AbstractController
                     'timestamp' => $latestData->getTimestamp()->format('Y-m-d H:i:s'),
                     'vehicle' => $device->getVehicle() ? $device->getVehicle()->__toString() : null,
                     'status' => 'online', // Could be enhanced with real status logic
-                    'last_seen' => $latestData->getTimestamp()->diff(new \DateTime())->format('%i minutes ago')
+                    'last_seen' => $this->formatTimeDifference($latestData->getTimestamp())
                 ];
             }
         }
@@ -265,5 +265,29 @@ class CalibrationController extends AbstractController
             'status' => 'error',
             'message' => 'Not enough calibration data for regression analysis (minimum 2 points required)'
         ], 400);
+    }
+    
+    private function formatTimeDifference(\DateTimeInterface $timestamp): string
+    {
+        $now = new \DateTime();
+        $secondsDiff = $now->getTimestamp() - $timestamp->getTimestamp();
+        
+        if ($secondsDiff < 0) {
+            return 'in the future';
+        }
+        
+        $days = floor($secondsDiff / 86400);
+        $hours = floor(($secondsDiff % 86400) / 3600);
+        $minutes = floor(($secondsDiff % 3600) / 60);
+        
+        if ($days > 0) {
+            return $days . ' day' . ($days > 1 ? 's' : '') . ' ago';
+        } elseif ($hours > 0) {
+            return $hours . ' hour' . ($hours > 1 ? 's' : '') . ' ago';
+        } elseif ($minutes > 0) {
+            return $minutes . ' minute' . ($minutes > 1 ? 's' : '') . ' ago';
+        } else {
+            return 'just now';
+        }
     }
 }
