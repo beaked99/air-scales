@@ -104,4 +104,54 @@ class DeviceConfigController extends AbstractController
 
         return $this->redirectToRoute('app_dashboard');
     }
+
+    #[Route('/dashboard/device/{id}/unassign', name: 'device_unassign', methods: ['POST'])]
+    #[IsGranted('ROLE_USER')]
+    public function unassignDevice(Device $device, Request $request, EntityManagerInterface $em): Response
+    {
+        $user = $this->getUser();
+        
+        // Check if user owns the vehicle this device is assigned to
+        if (!$device->getVehicle() || $device->getVehicle()->getCreatedBy() !== $user) {
+            throw $this->createAccessDeniedException('You can only unassign devices from your own vehicles.');
+        }
+
+        if ($this->isCsrfTokenValid('unassign'.$device->getId(), $request->request->get('_token'))) {
+            $device->setVehicle(null);
+            $em->flush();
+            $this->addFlash('success', 'Device unassigned successfully.');
+        }
+
+        return $this->redirectToRoute('device_vehicle_edit', ['id' => $request->headers->get('referer') ? $device->getVehicle()->getId() : null]) 
+            ?: $this->redirectToRoute('app_dashboard');
+    }
+
+    #[Route('/dashboard/vehicle/{vehicle_id}/assign-device', name: 'device_assign_to_vehicle', methods: ['POST'])]
+    #[IsGranted('ROLE_USER')]
+    public function assignDeviceToVehicle(int $vehicle_id, Request $request, EntityManagerInterface $em): Response
+    {
+        $user = $this->getUser();
+        $vehicle = $em->getRepository(Vehicle::class)->find($vehicle_id);
+        
+        if (!$vehicle || $vehicle->getCreatedBy() !== $user) {
+            throw $this->createAccessDeniedException('Vehicle not found or not owned by you.');
+        }
+
+        $serialNumber = $request->request->get('device_serial');
+        $device = $em->getRepository(Device::class)->findOneBy(['serialNumber' => $serialNumber]);
+        
+        if (!$device) {
+            $this->addFlash('error', 'Device with serial number not found.');
+        } elseif ($device->getSoldTo() !== $user) {
+            $this->addFlash('error', 'This device is not sold to you.');
+        } elseif ($device->getVehicle()) {
+            $this->addFlash('error', 'Device is already assigned to another vehicle.');
+        } else {
+            $device->setVehicle($vehicle);
+            $em->flush();
+            $this->addFlash('success', 'Device assigned successfully.');
+        }
+
+        return $this->redirectToRoute('device_vehicle_edit', ['id' => $vehicle_id]);
+    }
 }

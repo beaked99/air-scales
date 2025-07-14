@@ -41,51 +41,136 @@
     </table>
   </div>
 
-  <!-- Vehicle List -->
-  <div id="vehicle-section">
-    <h2 class="text-xl font-semibold text-white mb-4">Vehicles</h2>
-    {% if vehicles is not empty %}
+  <!-- Connected Devices from Database -->
+  <div class="mb-8">
+    <h2 class="text-xl font-semibold text-white mb-4">Your Devices</h2>
+    {% if devices is not empty %}
       <div class="bg-gray-800 rounded-lg divide-y divide-gray-700">
-        {% for vehicle in vehicles %}
+        {% for device in devices %}
           <div class="flex items-center justify-between p-4">
-            <div>
-              <span class="text-gray-100 font-medium">{{ vehicle.year }} {{ vehicle.make }} {{ vehicle.model }}</span>
-              <span class="text-sm text-gray-400 ml-2">({{ vehicle.nickname ?: 'No nickname' }})</span>
+            <div class="flex-1">
+              <div class="flex items-center space-x-4">
+                <div>
+                  <span class="text-gray-100 font-medium">{{ device.serialNumber ?: 'Device #' ~ device.id }}</span>
+                  <span class="text-sm text-gray-400 ml-2">({{ device.deviceType ?: 'Unknown Type' }})</span>
+                </div>
+                <div class="text-sm text-gray-300">
+                  {% if device.vehicle %}
+                    <span class="text-blue-400">{{ device.vehicle }}</span>
+                  {% else %}
+                    <span class="text-yellow-400">Unassigned</span>
+                  {% endif %}
+                </div>
+              </div>
+              <div class="text-xs text-gray-500 mt-1">
+                MAC: {{ device.macAddress ?: 'N/A' }} | 
+                Firmware: {{ device.firmwareVersion ?: 'Unknown' }}
+                {% set hasAccess = false %}
+                {% for access in accessRecords %}
+                  {% if access.device.id == device.id %}
+                    | <span class="text-green-400">Connected via ESP32</span>
+                    {% set hasAccess = true %}
+                  {% endif %}
+                {% endfor %}
+                {% if device.soldTo == app.user and not hasAccess %}
+                  | <span class="text-blue-400">Purchased</span>
+                {% endif %}
+              </div>
             </div>
-            <a href="{{ path('device_vehicle_edit', { id: vehicle.id }) }}"
-               class="text-sm text-blue-400 hover:text-blue-200 font-medium">
-              Edit
-            </a>
+            <div class="flex space-x-2">
+              {% if not device.vehicle %}
+                <a href="{{ path('device_configure', { id: device.id }) }}" 
+                   class="text-sm text-green-400 hover:text-green-200 font-medium px-3 py-1 bg-green-900 rounded">
+                  Configure
+                </a>
+              {% endif %}
+              {% set userHasAccess = false %}
+              {% for access in accessRecords %}
+                {% if access.device.id == device.id %}
+                  {% set userHasAccess = true %}
+                  <a href="{{ path('unlink_device', { id: device.id }) }}" 
+                     class="text-sm text-red-400 hover:text-red-200 font-medium px-3 py-1 bg-red-900 rounded">
+                    Unlink
+                  </a>
+                {% endif %}
+              {% endfor %}
+              {% if not userHasAccess %}
+                <button onclick="connectToDevice('{{ device.macAddress }}')" 
+                        class="text-sm text-blue-400 hover:text-blue-200 font-medium px-3 py-1 bg-blue-900 rounded">
+                  Connect
+                </button>
+              {% endif %}
+            </div>
           </div>
         {% endfor %}
       </div>
     {% else %}
-      <p class="text-gray-400">No vehicles configured.</p>
+      <div class="bg-gray-800 rounded-lg p-6 text-center">
+        <p class="text-gray-400 mb-4">No devices found.</p>
+        <p class="text-sm text-gray-500">Connect to an ESP32 device to get started, or contact support for device registration.</p>
+      </div>
     {% endif %}
   </div>
+
+  <!-- Vehicle List -->
+  <div id="vehicle-section">
+    <h2 class="text-xl font-semibold text-white mb-4">Your Vehicles</h2>
+    {% if vehicles is not empty %}
+      <div class="bg-gray-800 rounded-lg divide-y divide-gray-700" id="vehicle-list">
+        {% for vehicle in vehicles %}
+          <div class="flex items-center justify-between p-4" data-vehicle-id="{{ vehicle.id }}">
+            <div class="flex-1">
+              <div class="flex items-center space-x-4">
+                <span class="text-gray-100 font-medium">{{ vehicle }}</span>
+                <span class="text-sm text-gray-400">({{ vehicle.nickname ?: 'No nickname' }})</span>
+                {% if connectedMap[vehicle.id] is defined and connectedMap[vehicle.id] %}
+                  <span class="text-xs text-green-400 bg-green-900 px-2 py-1 rounded">Connected</span>
+                {% endif %}
+                {% if vehicle.createdBy != app.user %}
+                  <span class="text-xs text-orange-400 bg-orange-900 px-2 py-1 rounded">Shared</span>
+                {% endif %}
+              </div>
+              <div class="text-xs text-gray-500 mt-1">
+                {{ vehicle.devices|length }} device(s) assigned
+                {% if vehicle.lastSeen %}
+                  | Last seen: {{ vehicle.lastSeen|date('M j, Y g:i A') }}
+                {% endif %}
+                {% if vehicle.createdBy != app.user %}
+                  | Owner: {{ vehicle.createdBy.fullName }}
+                {% endif %}
+              </div>
+            </div>
+            <div class="flex space-x-2">
+              {% if vehicle.createdBy == app.user %}
+                <a href="{{ path('device_vehicle_edit', { id: vehicle.id }) }}"
+                   class="text-sm text-blue-400 hover:text-blue-200 font-medium px-3 py-1 bg-blue-900 rounded">
+                  Manage
+                </a>
+              {% else %}
+                <span class="text-sm text-gray-400 px-3 py-1 bg-gray-700 rounded">
+                  View Only
+                </span>
+              {% endif %}
+              <span class="drag-handle cursor-move text-gray-400 hover:text-gray-200 px-2">⋮⋮</span>
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="bg-gray-800 rounded-lg p-6 text-center">
+        <p class="text-gray-400 mb-4">No vehicles found.</p>
+        <p class="text-sm text-gray-500">Configure a device to create your first vehicle, or connect to an ESP32 to see shared vehicles.</p>
+      </div>
+    {% endif %}
+  </div>
+
+  {# Connected vehicles are integrated into the main vehicle list above with badges #}
 </div>
 
 <script>
 let sensorData = new Map();
 let websocket = null;
 let isOnline = navigator.onLine;
-
-// Initialize when page loads
-document.addEventListener('DOMContentLoaded', () => {
-  detectModeAndConnect();
-  updateStatus();
-  
-  // Listen for network changes
-  window.addEventListener('online', () => {
-    isOnline = true;
-    detectModeAndConnect();
-  });
-  
-  window.addEventListener('offline', () => {
-    isOnline = false;
-    updateStatus();
-  });
-});
 
 function detectModeAndConnect() {
   // Try ESP32 first (AP mode)
@@ -139,33 +224,42 @@ function connectToESP32() {
   };
 }
 
+function connectToDevice(macAddress) {
+  // This function will be called when user clicks "Connect" on a registered device
+  // You can implement specific connection logic for known devices here
+  console.log('Attempting to connect to device:', macAddress);
+  
+  // For now, just try the standard ESP32 connection
+  detectModeAndConnect();
+}
+
 function updateStatus(mode = 'loading') {
   const statusBar = document.getElementById('status-bar');
   const statusText = document.getElementById('status-text');
   
   switch(mode) {
     case 'connected':
-      statusBar.style.background = '#22c55e';
+      statusBar.className = 'bg-green-600 p-3 rounded mb-6';
       statusText.textContent = '✅ Connected to ESP32';
       break;
     case 'ap':
-      statusBar.style.background = '#f59e0b';
+      statusBar.className = 'bg-yellow-600 p-3 rounded mb-6';
       statusText.textContent = '📡 AP Mode - Connecting...';
       break;
     case 'online':
-      statusBar.style.background = '#3b82f6';
+      statusBar.className = 'bg-blue-600 p-3 rounded mb-6';
       statusText.textContent = '🌐 Online Mode';
       break;
     case 'offline':
-      statusBar.style.background = '#ef4444';
+      statusBar.className = 'bg-red-600 p-3 rounded mb-6';
       statusText.textContent = '📴 Offline';
       break;
     case 'disconnected':
-      statusBar.style.background = '#ef4444';
+      statusBar.className = 'bg-red-600 p-3 rounded mb-6';
       statusText.textContent = '❌ Disconnected - Retrying...';
       break;
     default:
-      statusBar.style.background = '#374151';
+      statusBar.className = 'bg-gray-700 p-3 rounded mb-6';
       statusText.textContent = '⏳ Loading...';
   }
 }
@@ -199,5 +293,86 @@ function updateTable() {
   totalWeight.textContent = `${total.toFixed(1)} lbs`;
   deviceCount.textContent = sensorData.size;
 }
+
+// Vehicle drag and drop functionality
+function initVehicleSorting() {
+  const vehicleList = document.getElementById('vehicle-list');
+  if (!vehicleList) return;
+
+  let draggedElement = null;
+
+  vehicleList.addEventListener('dragstart', (e) => {
+    if (e.target.classList.contains('drag-handle') || e.target.closest('.drag-handle')) {
+      draggedElement = e.target.closest('[data-vehicle-id]');
+      draggedElement.style.opacity = '0.5';
+    }
+  });
+
+  vehicleList.addEventListener('dragend', (e) => {
+    if (draggedElement) {
+      draggedElement.style.opacity = '';
+      draggedElement = null;
+    }
+  });
+
+  vehicleList.addEventListener('dragover', (e) => {
+    e.preventDefault();
+  });
+
+  vehicleList.addEventListener('drop', (e) => {
+    e.preventDefault();
+    if (!draggedElement) return;
+
+    const target = e.target.closest('[data-vehicle-id]');
+    if (target && target !== draggedElement) {
+      const rect = target.getBoundingClientRect();
+      const midpoint = rect.top + rect.height / 2;
+      
+      if (e.clientY < midpoint) {
+        target.parentNode.insertBefore(draggedElement, target);
+      } else {
+        target.parentNode.insertBefore(draggedElement, target.nextSibling);
+      }
+      
+      saveVehicleOrder();
+    }
+  });
+
+  // Make drag handles draggable
+  document.querySelectorAll('.drag-handle').forEach(handle => {
+    handle.draggable = true;
+  });
+}
+
+function saveVehicleOrder() {
+  const vehicleElements = document.querySelectorAll('[data-vehicle-id]');
+  const order = Array.from(vehicleElements).map(el => parseInt(el.dataset.vehicleId));
+  
+  fetch('{{ path('vehicle_sort_user') }}', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ order: order })
+  });
+}
+
+// Initialize everything when page loads
+document.addEventListener('DOMContentLoaded', () => {
+  detectModeAndConnect();
+  updateStatus();
+  initVehicleSorting();
+  
+  // Listen for network changes
+  window.addEventListener('online', () => {
+    isOnline = true;
+    detectModeAndConnect();
+  });
+  
+  window.addEventListener('offline', () => {
+    isOnline = false;
+    updateStatus();
+  });
+});
 </script>
 {% endblock %}

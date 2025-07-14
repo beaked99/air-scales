@@ -6,40 +6,148 @@
 
 {% block body %}
 <div class="min-h-screen bg-gray-900 text-gray-100 p-6">
-  <h1 class="text-2xl font-bold text-purple-400 mb-6">
-    Edit Vehicle: {{ vehicle.year }} {{ vehicle.make }} {{ vehicle.model }}
-  </h1>
+  <h1 class="text-2xl font-bold text-green-400 mb-6">Edit Vehicle: {{ vehicle }}</h1>
 
   {% for message in app.flashes('success') %}
     <div class="bg-green-600 text-white p-3 rounded mb-4">{{ message }}</div>
   {% endfor %}
 
-  <div class="bg-gray-800 p-6 rounded-lg shadow-md mb-8">
+  {% for message in app.flashes('error') %}
+    <div class="bg-red-600 text-white p-3 rounded mb-4">{{ message }}</div>
+  {% endfor %}
+
+  <!-- Vehicle Edit Form -->
+  <div class="bg-gray-800 rounded-lg p-6 mb-8">
+    <h2 class="text-xl font-semibold text-white mb-4">Vehicle Details</h2>
     {{ form_start(form, { attr: { class: 'space-y-4' } }) }}
-      {{ form_row(form.year) }}
-      {{ form_row(form.make) }}
-      {{ form_row(form.model) }}
-      {{ form_row(form.vin) }}
-      {{ form_row(form.license_plate) }}
-      {{ form_row(form.nickname) }}
-      {{ form_row(form.axleGroup) }}
-      <button type="submit" class="bg-purple-600 hover:bg-purple-700 text-white font-semibold py-2 px-4 rounded">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {{ form_row(form.year, { attr: { class: 'bg-gray-700 border border-gray-600 text-white rounded px-3 py-2' } }) }}
+        {{ form_row(form.make, { attr: { class: 'bg-gray-700 border border-gray-600 text-white rounded px-3 py-2' } }) }}
+        {{ form_row(form.model, { attr: { class: 'bg-gray-700 border border-gray-600 text-white rounded px-3 py-2' } }) }}
+        {{ form_row(form.nickname, { attr: { class: 'bg-gray-700 border border-gray-600 text-white rounded px-3 py-2' } }) }}
+        {{ form_row(form.vin, { attr: { class: 'bg-gray-700 border border-gray-600 text-white rounded px-3 py-2' } }) }}
+        {{ form_row(form.license_plate, { attr: { class: 'bg-gray-700 border border-gray-600 text-white rounded px-3 py-2' } }) }}
+      </div>
+      
+      {% if form.axleGroup is defined %}
+        {{ form_row(form.axleGroup, { attr: { class: 'bg-gray-700 border border-gray-600 text-white rounded px-3 py-2' } }) }}
+      {% endif %}
+      
+      <button type="submit" class="bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded">
         Save Changes
       </button>
     {{ form_end(form) }}
   </div>
 
-  <form method="post" action="{{ path('device_vehicle_delete', { id: vehicle.id }) }}"
-        onsubmit="return confirm('Are you sure you want to delete this vehicle and unassign any linked devices?');"
-        class="mb-6">
-    <input type="hidden" name="_token" value="{{ csrf_token('delete' ~ vehicle.id) }}">
-    <button class="bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded">
-      Delete Vehicle
-    </button>
-  </form>
+  <!-- Vehicle Information Summary -->
+  <div class="bg-gray-800 rounded-lg p-6 mb-8">
+    <h2 class="text-xl font-semibold text-white mb-4">Vehicle Information</h2>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+      <div>
+        <span class="text-gray-400">Owner:</span>
+        <span class="text-gray-100 ml-2">{{ vehicle.createdBy ? vehicle.createdBy.fullName ~ ' (' ~ vehicle.createdBy.email ~ ')' : 'No Owner' }}</span>
+      </div>
+      <div>
+        <span class="text-gray-400">Created:</span>
+        <span class="text-gray-100 ml-2">{{ vehicle.createdAt ? vehicle.createdAt|date('Y-m-d H:i') : 'Unknown' }}</span>
+      </div>
+      <div>
+        <span class="text-gray-400">Last Updated:</span>
+        <span class="text-gray-100 ml-2">{{ vehicle.updatedAt ? vehicle.updatedAt|date('Y-m-d H:i') : 'Never' }}</span>
+      </div>
+      <div>
+        <span class="text-gray-400">Last Seen:</span>
+        <span class="text-gray-100 ml-2">{{ vehicle.lastSeen ? vehicle.lastSeen|date('Y-m-d H:i') : 'Never' }}</span>
+      </div>
+    </div>
+  </div>
 
-  <a href="{{ path('app_dashboard') }}" class="text-sm text-gray-400 hover:text-gray-200">
-    ← Back to Dashboard
-  </a>
+  <!-- Associated Devices -->
+  {% if vehicle.devices|length > 0 %}
+    <div class="bg-gray-800 rounded-lg mb-8">
+      <div class="p-6 border-b border-gray-700">
+        <h2 class="text-xl font-semibold text-white">Associated Devices ({{ vehicle.devices|length }})</h2>
+      </div>
+      <div class="overflow-hidden">
+        <table class="w-full text-sm">
+          <thead class="bg-gray-700">
+            <tr>
+              <th class="p-3 text-left text-gray-200">Device ID</th>
+              <th class="p-3 text-left text-gray-200">Serial Number</th>
+              <th class="p-3 text-left text-gray-200">Device Type</th>
+              <th class="p-3 text-left text-gray-200">Firmware</th>
+              <th class="p-3 text-left text-gray-200">MAC Address</th>
+              <th class="p-3 text-left text-gray-200">Sold To</th>
+              <th class="p-3 text-left text-gray-200">Actions</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-700">
+            {% for device in vehicle.devices %}
+              <tr>
+                <td class="p-3 text-gray-100">{{ device.id }}</td>
+                <td class="p-3 text-gray-100 font-medium">{{ device.serialNumber ?? 'N/A' }}</td>
+                <td class="p-3 text-gray-300">{{ device.deviceType ?? 'Unknown' }}</td>
+                <td class="p-3 text-gray-300">{{ device.firmwareVersion ?? 'N/A' }}</td>
+                <td class="p-3 text-gray-300 font-mono text-xs">{{ device.macAddress ?? 'N/A' }}</td>
+                <td class="p-3 text-gray-300">{{ device.soldTo ? device.soldTo.fullName : 'Unassigned' }}</td>
+                <td class="p-3">
+                  {# <a href="{{ path('device_detail', { id: device.id }) }}" class="text-blue-400 hover:text-blue-200 mr-2">View</a> #}
+                  <form method="post" action="{{ path('device_unassign', { id: device.id }) }}" style="display: inline;">
+                    <input type="hidden" name="_token" value="{{ csrf_token('unassign' ~ device.id) }}">
+                    <button type="submit" onclick="return confirm('Unassign this device from the vehicle?');" 
+                            class="text-red-400 hover:text-red-200 text-sm">Unassign</button>
+                  </form>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  {% else %}
+    <div class="bg-gray-800 rounded-lg p-6 text-center mb-8">
+      <h2 class="text-xl font-semibold text-white mb-4">Associated Devices</h2>
+      <p class="text-gray-400 mb-4">No devices are currently assigned to this vehicle.</p>
+      {# <a href="{{ path('device_assign', { vehicle_id: vehicle.id }) }}" class="text-blue-400 hover:text-blue-200">Assign a Device</a> #}
+    </div>
+  {% endif %}
+
+  <!-- Device Assignment Form -->
+  <div class="bg-gray-800 rounded-lg p-6 mb-8">
+    <h2 class="text-xl font-semibold text-white mb-4">Assign New Device</h2>
+    <form method="post" action="{{ path('device_assign_to_vehicle', { vehicle_id: vehicle.id }) }}" class="flex flex-col sm:flex-row gap-4">
+      <input type="hidden" name="_token" value="{{ csrf_token('assign_device' ~ vehicle.id) }}">
+      <div class="flex-1">
+        <label for="device_serial" class="block text-sm font-medium text-gray-300 mb-2">Device Serial Number:</label>
+        <input type="text" id="device_serial" name="device_serial" required 
+               class="w-full bg-gray-700 border border-gray-600 text-white rounded px-3 py-2"
+               placeholder="Enter device serial number">
+      </div>
+      <div class="flex items-end">
+        <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded">
+          Assign Device
+        </button>
+      </div>
+    </form>
+  </div>
+
+  <!-- Danger Zone -->
+  <div class="bg-gray-800 rounded-lg p-6 mb-8">
+    <h2 class="text-xl font-semibold text-red-400 mb-4">Danger Zone</h2>
+    <p class="text-gray-400 text-sm mb-4">Deleting this vehicle will unassign all linked devices but not delete them.</p>
+    <form method="post" action="{{ path('device_vehicle_delete', { id: vehicle.id }) }}"
+          onsubmit="return confirm('Are you sure you want to delete this vehicle and unassign any linked devices?');">
+      <input type="hidden" name="_token" value="{{ csrf_token('delete' ~ vehicle.id) }}">
+      <button type="submit" class="bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded">
+        Delete Vehicle
+      </button>
+    </form>
+  </div>
+
+  <div class="text-center">
+    <a href="{{ path('app_dashboard') }}" class="text-blue-400 hover:text-blue-200">
+      ← Back to Dashboard
+    </a>
+  </div>
 </div>
 {% endblock %}
