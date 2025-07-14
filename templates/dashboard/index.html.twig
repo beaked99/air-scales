@@ -440,8 +440,26 @@ function updateLiveTable(data) {
   
   data.devices.forEach(device => {
     const weight = parseFloat(device.weight) || 0;
-    const status = device.last_seen.includes('0 minutes') ? '● Online' : `● ${device.last_seen}`;
-    const statusColor = device.last_seen.includes('0 minutes') ? '#22c55e' : '#f59e0b';
+    
+    // Determine status color based on last_seen
+    let statusColor = '#ef4444'; // Default red for old data
+    let statusText = `● ${device.last_seen}`;
+    
+    if (device.last_seen === 'online') {
+      statusColor = '#22c55e'; // Green for online
+      statusText = '● Online';
+    } else if (device.last_seen.includes('minute')) {
+      const minutes = parseInt(device.last_seen.match(/\d+/)?.[0] || '999');
+      if (minutes <= 10) {
+        statusColor = '#22c55e'; // Green for < 10 minutes
+      } else if (minutes <= 30) {
+        statusColor = '#f59e0b'; // Orange for 10-30 minutes
+      }
+      statusText = `● ${device.last_seen}`;
+    } else if (device.last_seen.includes('hour')) {
+      statusColor = '#f59e0b'; // Orange for hours
+      statusText = `● ${device.last_seen}`;
+    }
     
     html += `
       <tr style="border-bottom: 1px solid #374151;">
@@ -452,7 +470,7 @@ function updateLiveTable(data) {
         <td style="padding: 15px; text-align: right; color: #f1f5f9; font-weight: bold;">${weight.toFixed(1)}</td>
         <td style="padding: 15px; text-align: right; color: #e2e8f0;">${device.main_air_pressure}</td>
         <td style="padding: 15px; text-align: right; color: #e2e8f0;">${device.temperature}</td>
-        <td style="padding: 15px; color: ${statusColor};">${status}</td>
+        <td style="padding: 15px; color: ${statusColor};">${statusText}</td>
       </tr>
     `;
   });
