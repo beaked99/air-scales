@@ -335,5 +335,4 @@ class Device
         return $this->deviceAccesses;
     }
 
-
 }
