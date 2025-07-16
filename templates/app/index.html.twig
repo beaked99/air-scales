@@ -1,73 +1,299 @@
 {# templates/app/index.html.twig #}
 {% extends 'base.html.twig' %}
 
-{% block title %}Air Scales{% endblock %}
+{% block title %}Air Scales - Smart Axle Weight Monitoring{% endblock %}
 
 {% block stylesheets %}
   <link rel="manifest" href="/app/manifest.webmanifest">
   <link rel="icon" href="/app/icon-192.png">
   <link rel="apple-touch-icon" href="/app/icon-192.png">
-  <meta name="theme-color" content="#1f7a1f">
+  <meta name="theme-color" content="#1f2937">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   {{ parent() }}
 {% endblock %}
 
 {% block body %}
-
-<main data-controller="landing" 
-      data-landing-dashboard-url-value="{{ path('app_dashboard') }}">
+<div class="min-h-screen text-gray-100 bg-gray-900">
+  <!-- Hero Section -->
+  <main class="relative">
+    <!-- Background gradient -->
+    <div class="absolute inset-0 bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900"></div>
     
-    <section id="hero">
-        <h1>Monitor your axle weights in real time on your truck or trailer from your phone.</h1>
-        <p>Install the hardware and app. Sync and Calibrate. Drive smarter.</p>
-
-        {% if app.user %}
-            <p>Welcome back, {{ app.user.email }}.</p>
-            <button data-action="click->landing#goToDashboard" 
-                    class="btn-primary">
-                Go to Dashboard
+    <!-- Content -->
+    <div class="relative px-6 lg:px-8">
+      <div class="max-w-3xl pt-20 pb-32 mx-auto sm:pt-48 sm:pb-40">
+        <div class="text-center">
+          <!-- Logo/Icon -->
+          <div class="mb-8">
+            <div class="flex items-center justify-center w-20 h-20 mx-auto bg-green-600 rounded-2xl">
+              <svg class="w-12 h-12 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+              </svg>
+            </div>
+          </div>
+          
+          <!-- Main heading -->
+          <h1 class="text-4xl font-bold tracking-tight text-white sm:text-6xl">
+            Monitor Your <span class="text-green-400">Axle Weights</span> in Real Time
+          </h1>
+          
+          <!-- Subheading -->
+          <p class="mt-6 text-lg leading-8 text-gray-300">
+            Install the hardware and app. Sync and calibrate. Drive smarter with live weight monitoring on your truck or trailer from your phone.
+          </p>
+          
+          <!-- CTA Buttons -->
+          <div class="flex items-center justify-center mt-10 gap-x-6">
+            {% if app.user %}
+              <!-- Logged in user - go to dashboard -->
+              <div class="text-center">
+                <p class="mb-4 text-sm text-gray-400">Welcome back, <span class="text-green-400">{{ app.user.email }}</span></p>
+                <a href="{{ path('app_dashboard') }}" 
+                   class="px-6 py-3 text-base font-semibold text-white transition-colors bg-green-600 rounded-md shadow-sm hover:bg-green-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-600">
+                  📊 Go to Dashboard
+                </a>
+              </div>
+            {% else %}
+              <!-- Not logged in - show auth options -->
+              <a href="{{ path('app_register') }}" 
+                 class="px-6 py-3 text-base font-semibold text-white transition-colors bg-green-600 rounded-md shadow-sm hover:bg-green-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-600">
+                Create Account
+              </a>
+              <a href="{{ path('app_login') }}" 
+                 class="px-6 py-3 text-base font-semibold text-gray-100 transition-colors bg-gray-800 rounded-md shadow-sm hover:bg-gray-700 ring-1 ring-gray-600">
+                Sign In
+              </a>
+            {% endif %}
+          </div>
+          
+          <!-- PWA Install Prompt -->
+          <div id="installPrompt" class="hidden mt-8">
+            <button id="installApp" 
+                    class="px-4 py-2 text-sm font-medium text-white transition-colors bg-blue-600 rounded-md shadow-sm hover:bg-blue-500">
+              📱 Install App
             </button>
-        {% else %}
-            <nav>
-                <button data-action="click->landing#registerUser" 
-                        class="btn-primary">
-                    Create Account
-                </button>
-                <button data-action="click->landing#loginUser" 
-                        class="btn-secondary">
-                    Sign In
-                </button>
-            </nav>
-        {% endif %}
-
-        <div id="installPrompt" hidden>
-            <button id="installApp" class="btn-success">
-                📱 Install App
-            </button>
+            <p class="mt-2 text-xs text-gray-400">Install for offline access and notifications</p>
+          </div>
+          
+          <!-- Browser Warning -->
+          <div id="browserWarning" class="hidden mt-6">
+            <div class="p-4 bg-yellow-900 rounded-md">
+              <div class="flex">
+                <div class="flex-shrink-0">
+                  <svg class="w-5 h-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" />
+                  </svg>
+                </div>
+                <div class="ml-3">
+                  <h3 class="text-sm font-medium text-yellow-200" id="warningTitle">Browser Compatibility</h3>
+                  <p class="mt-1 text-sm text-yellow-300" id="warningMessage"></p>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
-
-        <div id="browserWarning" hidden style="color: red;">
-            <!-- Browser warning messages appear here -->
-        </div>
-    </section>
-
-    <section id="dashboardPreview">
-        <h2>Live Dashboard Preview</h2>
-        <p>[Placeholder for charts, gauges, real-time sensor display]</p>
-    </section>
-
-    <div class="p-6 mt-4 text-white bg-red-600 shadow-lg rounded-xl">
-      <h2 class="text-2xl font-bold">Tailwind is working 🎉</h2>
-      <p class="mt-2 text-sm">If you see this styled correctly, we're good to go.</p>
+      </div>
     </div>
+  </main>
+  
+  <!-- Features Section -->
+  <div class="py-24 bg-gray-800">
+    <div class="px-6 mx-auto max-w-7xl lg:px-8">
+      <div class="max-w-2xl mx-auto lg:text-center">
+        <h2 class="text-base font-semibold leading-7 text-green-400">How It Works</h2>
+        <p class="mt-2 text-3xl font-bold tracking-tight text-white sm:text-4xl">
+          Simple. Smart. Reliable.
+        </p>
+      </div>
+      <div class="max-w-2xl mx-auto mt-16 sm:mt-20 lg:mt-24 lg:max-w-none">
+        <dl class="grid max-w-xl grid-cols-1 gap-x-8 gap-y-16 lg:max-w-none lg:grid-cols-3">
+          <!-- Feature 1 -->
+          <div class="flex flex-col">
+            <dt class="flex items-center text-base font-semibold leading-7 text-white gap-x-3">
+              <div class="flex items-center justify-center w-10 h-10 bg-green-600 rounded-lg">
+                <svg class="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M8.288 15.038a5.25 5.25 0 017.424 0M5.106 11.856c3.807-3.808 9.98-3.808 13.788 0M1.924 8.674c5.565-5.565 14.587-5.565 20.152 0M12.53 18.22l-.53.53-.53-.53a.75.75 0 011.06 0z" />
+                </svg>
+              </div>
+              Install Hardware
+            </dt>
+            <dd class="flex flex-col flex-auto mt-4 text-base leading-7 text-gray-300">
+              <p class="flex-auto">Mount ESP32 sensors on your truck or trailer. Connect via WiFi or Bluetooth for instant data transmission.</p>
+            </dd>
+          </div>
+          
+          <!-- Feature 2 -->
+          <div class="flex flex-col">
+            <dt class="flex items-center text-base font-semibold leading-7 text-white gap-x-3">
+              <div class="flex items-center justify-center w-10 h-10 bg-green-600 rounded-lg">
+                <svg class="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m0 0h.75m0 0V3a2.25 2.25 0 012.25-2.25H13.5a2.25 2.25 0 012.25 2.25v3m-6 0v.75M4.5 12h9.75m-9.75 0a1.5 1.5 0 01-1.5-1.5V9a1.5 1.5 0 011.5-1.5h1.5m-1.5 3v.75M3.75 18h9.75" />
+                </svg>
+              </div>
+              Calibrate & Sync
+            </dt>
+            <dd class="flex flex-col flex-auto mt-4 text-base leading-7 text-gray-300">
+              <p class="flex-auto">Use known weights to calibrate your sensors. Our AI creates accurate regression models for precise weight calculations.</p>
+            </dd>
+          </div>
+          
+          <!-- Feature 3 -->
+          <div class="flex flex-col">
+            <dt class="flex items-center text-base font-semibold leading-7 text-white gap-x-3">
+              <div class="flex items-center justify-center w-10 h-10 bg-green-600 rounded-lg">
+                <svg class="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M15.042 21.672L13.684 16.6m0 0l-2.51 2.225.569-9.47 5.227 7.917-3.286-.672zM12 2.25V4.5m5.834.166l-1.591 1.591M20.25 10.5H18M7.757 14.743l-1.59 1.59M6 10.5H3.75m4.007-4.243l-1.59-1.59" />
+                </svg>
+              </div>
+              Monitor Live
+            </dt>
+            <dd class="flex flex-col flex-auto mt-4 text-base leading-7 text-gray-300">
+              <p class="flex-auto">View real-time axle weights on your phone. Get alerts for overloading. Drive confidently with live data.</p>
+            </dd>
+          </div>
+        </dl>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Live Preview Section -->
+  {% if app.user %}
+  <div class="py-24 bg-gray-900">
+    <div class="px-6 mx-auto max-w-7xl lg:px-8">
+      <div class="max-w-2xl mx-auto text-center">
+        <h2 class="text-3xl font-bold tracking-tight text-white sm:text-4xl">Live Dashboard Preview</h2>
+        <p class="mt-6 text-lg leading-8 text-gray-300">
+          Your devices and real-time weight data
+        </p>
+      </div>
+      
+      <!-- Mini dashboard preview -->
+      <div class="flow-root mt-16">
+        <div class="p-8 bg-gray-800 rounded-2xl">
+          <div class="mb-8 text-center">
+            <div class="text-4xl font-bold text-green-400" id="previewTotalWeight">Loading...</div>
+            <div class="text-sm text-gray-400" id="previewDeviceCount">Checking devices...</div>
+          </div>
+          
+          <div class="text-center">
+            <a href="{{ path('app_dashboard') }}" 
+               class="inline-flex items-center px-6 py-3 text-base font-semibold text-white transition-colors bg-green-600 rounded-md shadow-sm hover:bg-green-500">
+              View Full Dashboard
+              <svg class="w-5 h-5 ml-2" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z" clip-rule="evenodd" />
+              </svg>
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+  
+  <!-- Footer -->
+  <footer class="py-12 bg-gray-800">
+    <div class="px-6 mx-auto max-w-7xl lg:px-8">
+      <div class="text-center">
+        <p class="text-sm text-gray-400">
+          Version: {{ app_version|default('dev') }} | 
+          Build: {{ build_date|default('now'|date('Y-m-d')) }}
+        </p>
+        {% if not app.user %}
+        <div class="flex justify-center mt-4 space-x-6">
+          <a href="{{ path('app_register') }}" class="text-sm text-gray-400 transition-colors hover:text-white">Create Account</a>
+          <a href="{{ path('app_login') }}" class="text-sm text-gray-400 transition-colors hover:text-white">Sign In</a>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </footer>
+</div>
 
-    <footer>
-        <hr>
-        <small>
-            Version: {{ app_version|default('dev') }} |
-            Build: {{ build_date|default('now'|date('Y-m-d')) }}
-        </small>
-    </footer>
-</main>
+<script>
+// PWA Install functionality
+let deferredPrompt;
+
+window.addEventListener('beforeinstallprompt', (e) => {
+  // Prevent Chrome 67 and earlier from automatically showing the prompt
+  e.preventDefault();
+  // Stash the event so it can be triggered later.
+  deferredPrompt = e;
+  // Show install button
+  document.getElementById('installPrompt').classList.remove('hidden');
+});
+
+document.getElementById('installApp')?.addEventListener('click', async () => {
+  if (deferredPrompt) {
+    // Show the prompt
+    deferredPrompt.prompt();
+    // Wait for the user to respond to the prompt
+    const { outcome } = await deferredPrompt.userChoice;
+    console.log(`User response to the install prompt: ${outcome}`);
+    // Clear the deferredPrompt
+    deferredPrompt = null;
+    // Hide install button
+    document.getElementById('installPrompt').classList.add('hidden');
+  }
+});
+
+// Browser compatibility check
+function checkBrowserSupport() {
+  const warnings = [];
+  
+  if (!('bluetooth' in navigator)) {
+    warnings.push('Bluetooth Web API not supported - use Chrome or Edge for full functionality');
+  }
+  
+  if (!('serviceWorker' in navigator)) {
+    warnings.push('Service Workers not supported - offline features unavailable');
+  }
+  
+  if (!('indexedDB' in window)) {
+    warnings.push('IndexedDB not supported - data storage limited');
+  }
+  
+  if (warnings.length > 0) {
+    const warningDiv = document.getElementById('browserWarning');
+    const warningMessage = document.getElementById('warningMessage');
+    
+    warningMessage.textContent = warnings.join('. ');
+    warningDiv.classList.remove('hidden');
+  }
+}
+
+// Load preview data for logged-in users
+{% if app.user %}
+async function loadPreviewData() {
+  try {
+    const response = await fetch('/calibration/api/devices/live-data');
+    if (response.ok) {
+      const data = await response.json();
+      
+      document.getElementById('previewTotalWeight').textContent = 
+        `${data.total_weight.toFixed(1)} lbs`;
+      document.getElementById('previewDeviceCount').textContent = 
+        `${data.device_count} active devices`;
+    } else {
+      throw new Error('Failed to load data');
+    }
+  } catch (error) {
+    document.getElementById('previewTotalWeight').textContent = 'No data';
+    document.getElementById('previewDeviceCount').textContent = 'Connect devices to see data';
+  }
+}
+{% endif %}
+
+// Initialize when page loads
+document.addEventListener('DOMContentLoaded', () => {
+  checkBrowserSupport();
+  
+  {% if app.user %}
+  loadPreviewData();
+  // Refresh preview data every 30 seconds
+  setInterval(loadPreviewData, 30000);
+  {% endif %}
+});
+</script>
 {% endblock %}
