@@ -5,9 +5,19 @@
 #include <ArduinoJson.h>
 #include <SPIFFS.h>
 #include <Preferences.h>
+#include <BLEDevice.h>
+#include <BLEServer.h>
+#include <BLEUtils.h>
+#include <BLE2902.h>
 
 // Hardware Configuration
 #define STATUS_LED_PIN 13
+
+//BLE configuration shit
+#define SERVICE_UUID        "12345678-1234-1234-1234-123456789abc"
+#define SENSOR_CHAR_UUID    "87654321-4321-4321-4321-cba987654321"
+#define COEFFS_CHAR_UUID    "11111111-2222-3333-4444-555555555555"
+#define DEVICE_NAME_PREFIX  "AirScales-"
 
 // Network Configuration
 const char* SERVER_URL = "https://beaker.ca";
@@ -19,6 +29,14 @@ WebServer server(80);
 WebSocketsServer webSocket(81);
 Preferences preferences;
 HTTPClient http;
+
+// BLE Global Objects
+BLEServer* pServer = nullptr;
+BLECharacteristic* pSensorCharacteristic = nullptr;
+BLECharacteristic* pCoeffsCharacteristic = nullptr;
+bool deviceConnected = false;
+bool bleEnabled = false;
+String bleDeviceName;
 
 // Device State
 String deviceMAC;
@@ -71,6 +89,8 @@ void handleRestart();
 void handleDataDownload();
 void checkForUpdatedCoeffs(String response);
 String getCurrentTimestamp();
+void initBLE();
+void sendSensorDataViaBLE(SensorData data);
 
 void setup() {
   Serial.begin(115200);
@@ -110,6 +130,9 @@ void setup() {
   
   // Setup web server routes
   setupWebServer();
+
+  // Initialize BLE
+  initBLE();
   
   // Start WebSocket server
   webSocket.begin();
@@ -128,6 +151,26 @@ void loop() {
   // Handle web server
   server.handleClient();
   webSocket.loop();
+
+  // Check WiFi connection every 10 seconds
+  static unsigned long lastWiFiCheck = 0;
+  if (millis() - lastWiFiCheck > 10000) {
+  //    checkWiFiConnection();
+      lastWiFiCheck = millis();
+  }
+  //Read sensors and send data on BLE every second.
+  static unsigned long lastSensorRead = 0;
+  if (millis() - lastSensorRead > 1000) {
+      SensorData data = readSensors();
+      
+      // Send via BLE every second (if connected)
+      sendSensorDataViaBLE(data);
+      
+      // Send via WebSocket to AP clients
+      broadcastSensorData(data);
+      
+      lastSensorRead = millis();
+  }
   
   // Read sensors and send data every 30 seconds
   if (millis() - lastDataSend > 30000) {
@@ -138,11 +181,10 @@ void loop() {
     
     // Send to server if connected
     if (isConnectedToWiFi) {
-      sendDataToServer(data);
+        sendDataToServer(data);
+    } else {
+        Serial.println("Skipping server send - no WiFi connection");
     }
-    
-    // Send via WebSocket to connected clients
-    broadcastSensorData(data);
     
     lastDataSend = millis();
   }
@@ -400,17 +442,20 @@ void loadRegressionCoeffs() {
 
 // Web server handlers
 void handleStatus() {
-  DynamicJsonDocument doc(512);
-  doc["status"] = "online";
-  doc["mac_address"] = deviceMAC;
-  doc["wifi_connected"] = isConnectedToWiFi;
-  doc["ap_mode"] = isAPMode;
-  doc["free_heap"] = ESP.getFreeHeap();
-  doc["uptime"] = millis();
-  
-  String response;
-  serializeJson(doc, response);
-  server.send(200, "application/json", response);
+    DynamicJsonDocument doc(512);
+    doc["status"] = "online";
+    doc["mac_address"] = deviceMAC;
+    doc["wifi_connected"] = isConnectedToWiFi;
+    doc["ap_mode"] = isAPMode;
+    doc["ble_enabled"] = bleEnabled;
+    doc["ble_connected"] = deviceConnected;
+    doc["ble_device_name"] = bleDeviceName;
+    doc["free_heap"] = ESP.getFreeHeap();
+    doc["uptime"] = millis();
+    
+    String response;
+    serializeJson(doc, response);
+    server.send(200, "application/json", response);
 }
 
 void handleSensors() {
@@ -523,4 +568,126 @@ String getCurrentTimestamp() {
   // For now, return a simple timestamp
   // In production, you'd want to sync with NTP or use RTC
   return String(millis());
+}
+
+// BLE Callback Classes
+class MyServerCallbacks: public BLEServerCallbacks {
+    void onConnect(BLEServer* pServer) {
+        deviceConnected = true;
+        Serial.println("BLE Client Connected!");
+    }
+
+    void onDisconnect(BLEServer* pServer) {
+        deviceConnected = false;
+        Serial.println("BLE Client Disconnected!");
+        // Restart advertising
+        if (bleEnabled) {
+            pServer->startAdvertising();
+        }
+    }
+};
+
+class CoeffsCallbacks: public BLECharacteristicCallbacks {
+    void onWrite(BLECharacteristic* pCharacteristic) {
+        std::string rxValue = pCharacteristic->getValue();
+        
+        if (rxValue.length() > 0) {
+            Serial.println("Received coefficients via BLE:");
+            Serial.println(rxValue.c_str());
+            
+            // Parse JSON coefficients from PWA
+            DynamicJsonDocument doc(512);
+            DeserializationError error = deserializeJson(doc, rxValue.c_str());
+            
+            if (!error) {
+                coeffs.intercept = doc["intercept"] | 0.0;
+                coeffs.airPressureCoeff = doc["air_pressure_coeff"] | 0.0;
+                coeffs.ambientPressureCoeff = doc["ambient_pressure_coeff"] | 0.0;
+                coeffs.airTempCoeff = doc["air_temp_coeff"] | 0.0;
+                
+                saveRegressionCoeffs();
+                
+                Serial.println("Updated coefficients via BLE:");
+                Serial.println("  Intercept: " + String(coeffs.intercept));
+                Serial.println("  Air Pressure: " + String(coeffs.airPressureCoeff));
+                Serial.println("  Ambient Pressure: " + String(coeffs.ambientPressureCoeff));
+                Serial.println("  Temperature: " + String(coeffs.airTempCoeff));
+            } else {
+                Serial.println("Failed to parse coefficients JSON");
+            }
+        }
+    }
+};
+
+// BLE Functions (add these new functions)
+void initBLE() {
+    // Create unique device name with MAC address
+    bleDeviceName = DEVICE_NAME_PREFIX + deviceMAC;
+    
+    Serial.println("Initializing BLE...");
+    Serial.println("Device name: " + bleDeviceName);
+    
+    BLEDevice::init(bleDeviceName.c_str());
+    
+    // Create BLE Server
+    pServer = BLEDevice::createServer();
+    pServer->setCallbacks(new MyServerCallbacks());
+    
+    // Create BLE Service
+    BLEService *pService = pServer->createService(SERVICE_UUID);
+    
+    // Create Sensor Data Characteristic (Read + Notify)
+    pSensorCharacteristic = pService->createCharacteristic(
+        SENSOR_CHAR_UUID,
+        BLECharacteristic::PROPERTY_READ |
+        BLECharacteristic::PROPERTY_NOTIFY
+    );
+    pSensorCharacteristic->addDescriptor(new BLE2902());
+    
+    // Create Coefficients Characteristic (Write)
+    pCoeffsCharacteristic = pService->createCharacteristic(
+        COEFFS_CHAR_UUID,
+        BLECharacteristic::PROPERTY_WRITE
+    );
+    pCoeffsCharacteristic->setCallbacks(new CoeffsCallbacks());
+    
+    // Start the service
+    pService->start();
+    
+    // Start advertising
+    BLEAdvertising *pAdvertising = BLEDevice::getAdvertising();
+    pAdvertising->addServiceUUID(SERVICE_UUID);
+    pAdvertising->setScanResponse(false);
+    pAdvertising->setMinPreferred(0x0);
+    
+    pServer->startAdvertising();
+    Serial.println("BLE advertising started");
+    
+    bleEnabled = true;
+}
+
+void sendSensorDataViaBLE(SensorData data) {
+    if (!bleEnabled || !deviceConnected) return;
+    
+    // Create JSON payload for PWA
+    DynamicJsonDocument doc(1024);
+    doc["mac_address"] = deviceMAC;
+    doc["main_air_pressure"] = data.mainAirPressure;
+    doc["atmospheric_pressure"] = data.atmosphericPressure;
+    doc["temperature"] = data.temperature;
+    doc["elevation"] = data.elevation;
+    doc["gps_lat"] = data.gpsLat;
+    doc["gps_lng"] = data.gpsLng;
+    doc["weight"] = data.weight;
+    doc["timestamp"] = data.timestamp;
+    doc["device_type"] = "FeatherS3";
+    
+    String jsonString;
+    serializeJson(doc, jsonString);
+    
+    // Send via BLE
+    pSensorCharacteristic->setValue(jsonString.c_str());
+    pSensorCharacteristic->notify();
+    
+    Serial.println("Sent via BLE: " + jsonString);
 }
