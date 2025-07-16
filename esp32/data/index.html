@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>AirScales Device</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            margin: 0; 
+            padding: 20px; 
+            background: #1a1a1a; 
+            color: #fff; 
+        }
+        .container { 
+            max-width: 600px; 
+            margin: 0 auto; 
+        }
+        .card { 
+            background: #333; 
+            padding: 20px; 
+            margin: 10px 0; 
+            border-radius: 8px; 
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+        .status { 
+            color: #22c55e; 
+            font-weight: bold; 
+        }
+        .button { 
+            background: #22c55e; 
+            color: white; 
+            padding: 10px 20px; 
+            border: none; 
+            border-radius: 4px; 
+            cursor: pointer; 
+            margin: 5px;
+        }
+        .button:hover {
+            background: #16a34a;
+        }
+        .input { 
+            width: 100%; 
+            padding: 8px; 
+            margin: 5px 0; 
+            border-radius: 4px; 
+            border: 1px solid #555; 
+            background: #222; 
+            color: #fff; 
+            box-sizing: border-box;
+        }
+        .sensor-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin: 10px 0;
+        }
+        .sensor-item {
+            text-align: center;
+            padding: 10px;
+            background: #444;
+            border-radius: 4px;
+        }
+        .sensor-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #22c55e;
+        }
+        .sensor-label {
+            font-size: 12px;
+            color: #ccc;
+        }
+        h1 { color: #22c55e; }
+        h2 { color: #fff; margin-top: 0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="card">
+            <h1>🚛 AirScales Device</h1>
+            <p><strong>MAC Address:</strong> <span id="macAddress">Loading...</span></p>
+            <p><strong>Status:</strong> <span class="status">Online</span></p>
+            <p><strong>WiFi:</strong> <span id="wifiStatus">Loading...</span></p>
+            <p><strong>Uptime:</strong> <span id="uptime">Loading...</span></p>
+        </div>
+        
+        <div class="card">
+            <h2>📡 Live Sensor Data</h2>
+            <div class="sensor-grid">
+                <div class="sensor-item">
+                    <div class="sensor-value" id="weight">--</div>
+                    <div class="sensor-label">Weight (lbs)</div>
+                </div>
+                <div class="sensor-item">
+                    <div class="sensor-value" id="pressure">--</div>
+                    <div class="sensor-label">Pressure (psi)</div>
+                </div>
+                <div class="sensor-item">
+                    <div class="sensor-value" id="temperature">--</div>
+                    <div class="sensor-label">Temperature (°F)</div>
+                </div>
+                <div class="sensor-item">
+                    <div class="sensor-value" id="timestamp">--</div>
+                    <div class="sensor-label">Last Reading</div>
+                </div>
+            </div>
+            <button class="button" onclick="refreshData()">Refresh Data</button>
+        </div>
+        
+        <div class="card">
+            <h2>⚙️ WiFi Configuration</h2>
+            <input type="text" id="ssid" class="input" placeholder="WiFi Network Name (SSID)">
+            <input type="password" id="password" class="input" placeholder="WiFi Password">
+            <button class="button" onclick="saveWiFi()">Save WiFi Settings</button>
+            <p style="font-size: 12px; color: #aaa;">
+                Device will restart automatically after saving new WiFi settings.
+            </p>
+        </div>
+        
+        <div class="card">
+            <h2>🔄 Device Actions</h2>
+            <button class="button" onclick="restart()">Restart Device</button>
+            <button class="button" onclick="location.href='/data'">Download Raw Data</button>
+            <button class="button" onclick="location.href='/config.html'">Advanced Config</button>
+        </div>
+    </div>
+    
+    <script>
+        function refreshData() {
+            // Get device status
+            fetch('/api/status')
+                .then(r => r.json())
+                .then(data => {
+                    document.getElementById('macAddress').textContent = data.mac_address;
+                    document.getElementById('wifiStatus').textContent = data.wifi_connected ? 'Connected' : 'AP Mode';
+                    document.getElementById('uptime').textContent = Math.floor(data.uptime / 1000) + ' seconds';
+                })
+                .catch(e => console.error('Status error:', e));
+            
+            // Get sensor data
+            fetch('/api/sensors')
+                .then(r => r.json())
+                .then(data => {
+                    document.getElementById('weight').textContent = parseFloat(data.weight).toFixed(1);
+                    document.getElementById('pressure').textContent = parseFloat(data.main_air_pressure).toFixed(1);
+                    document.getElementById('temperature').textContent = parseFloat(data.temperature).toFixed(1);
+                    document.getElementById('timestamp').textContent = 'Now';
+                })
+                .catch(e => {
+                    console.error('Sensor error:', e);
+                    document.getElementById('weight').textContent = 'Error';
+                    document.getElementById('pressure').textContent = 'Error';
+                    document.getElementById('temperature').textContent = 'Error';
+                });
+        }
+        
+        function saveWiFi() {
+            const ssid = document.getElementById('ssid').value.trim();
+            const password = document.getElementById('password').value;
+            
+            if (!ssid) {
+                alert('Please enter a WiFi network name');
+                return;
+            }
+            
+            fetch('/api/wifi', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ssid: ssid, password: password})
+            })
+            .then(r => r.json())
+            .then(data => {
+                alert(data.message);
+            })
+            .catch(e => {
+                alert('Error saving WiFi settings');
+                console.error(e);
+            });
+        }
+        
+        function restart() {
+            if (confirm('Are you sure you want to restart the device?')) {
+                fetch('/api/restart', {method: 'POST'})
+                    .then(() => {
+                        alert('Device is restarting...');
+                    })
+                    .catch(e => console.error(e));
+            }
+        }
+        
+        // Auto-refresh every 5 seconds
+        refreshData();
+        setInterval(refreshData, 5000);
+    </script>
+</body>
+</html>
