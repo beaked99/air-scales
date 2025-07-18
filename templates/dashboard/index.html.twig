@@ -383,7 +383,7 @@ function stopLiveDataPolling() {
 }
 
 function fetchLiveData() {
-    fetch('/calibration/api/devices/live-data')
+    fetch('/dashboard/api/devices/live-data')  // Changed from /calibration/ to /dashboard/
         .then(response => {
             if (!response.ok) {
                 throw new Error('Failed to fetch live data');
