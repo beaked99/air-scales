@@ -12,6 +12,25 @@
     <span id="status-text">Loading...</span>
   </div>
 
+  <!-- BLE Controls -->
+  <div id="ble-controls" class="p-4 mb-6 bg-gray-800 rounded-lg" style="display: none;">
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="text-lg font-semibold text-white">📱 Bluetooth Devices</h3>
+      <div class="flex space-x-2">
+        <button id="scanBLEDevices" 
+                class="px-3 py-1 text-sm font-medium text-blue-400 bg-blue-900 rounded hover:text-blue-200">
+          📡 Scan for Devices
+        </button>
+        <span id="bleStatus" class="px-3 py-1 text-sm text-gray-400 bg-gray-700 rounded">
+          Ready
+        </span>
+      </div>
+    </div>
+    <div id="bleDeviceList" class="space-y-2">
+      <p class="text-sm text-gray-400">Click "Scan for Devices" to find nearby AirScales devices</p>
+    </div>
+  </div>
+
   <!-- Live Sensor Data -->
   <div class="mb-8 overflow-hidden bg-gray-800 rounded-lg">
     <table id="sensor-table" class="w-full text-sm">
@@ -170,318 +189,21 @@
       </div>
     {% endif %}
   </div>
-
-  {# Connected vehicles are integrated into the main vehicle list above with badges #}
 </div>
 
 <script>
-let sensorData = new Map();
+// Unified device data management
+let allDeviceData = new Map(); // Combined data from all sources
+let dataSourcePriority = {
+    'bluetooth': 3,    // Highest priority (most current)
+    'websocket': 2,    // Medium priority
+    'server': 1        // Lowest priority (cached data)
+};
+
 let websocket = null;
 let isOnline = navigator.onLine;
-
-function detectModeAndConnect() {
-  // Try ESP32 first (AP mode)
-  testESP32Connection()
-    .then(available => {
-      if (available) {
-        connectToESP32();
-      } else if (isOnline) {
-        // Online mode - could scan for ESP32s on network here
-        updateStatus('online');
-      } else {
-        updateStatus('offline');
-      }
-    });
-}
-
-async function testESP32Connection() {
-  try {
-    const response = await fetch('http://192.168.4.1/status', { 
-      method: 'GET',
-      signal: AbortSignal.timeout(2000) // 2 second timeout
-    });
-    return response.ok;
-  } catch {
-    return false;
-  }
-}
-
-function connectToESP32() {
-  updateStatus('ap');
-  
-  // Connect WebSocket
-  websocket = new WebSocket('ws://192.168.4.1/ws');
-  
-  websocket.onopen = () => {
-    console.log('Connected to ESP32');
-    updateStatus('connected');
-  };
-  
-  websocket.onmessage = (event) => {
-    const data = JSON.parse(event.data);
-    sensorData.set(data.mac_address, data);
-    updateTable();
-  };
-  
-  websocket.onclose = () => {
-    console.log('ESP32 disconnected');
-    updateStatus('disconnected');
-    // Retry connection
-    setTimeout(connectToESP32, 3000);
-  };
-}
-
-function connectToDevice(macAddress) {
-  // This function will be called when user clicks "Connect" on a registered device
-  // You can implement specific connection logic for known devices here
-  console.log('Attempting to connect to device:', macAddress);
-  
-  // For now, just try the standard ESP32 connection
-  detectModeAndConnect();
-}
-
-function updateStatus(mode = 'loading') {
-  const statusBar = document.getElementById('status-bar');
-  const statusText = document.getElementById('status-text');
-  
-  switch(mode) {
-    case 'connected':
-      statusBar.className = 'bg-green-600 p-3 rounded mb-6';
-      statusText.textContent = '✅ Connected to ESP32';
-      break;
-    case 'ap':
-      statusBar.className = 'bg-yellow-600 p-3 rounded mb-6';
-      statusText.textContent = '📡 AP Mode - Connecting...';
-      break;
-    case 'online':
-      statusBar.className = 'bg-blue-600 p-3 rounded mb-6';
-      statusText.textContent = '🌐 Online Mode';
-      break;
-    case 'offline':
-      statusBar.className = 'bg-red-600 p-3 rounded mb-6';
-      statusText.textContent = '📴 Offline';
-      break;
-    case 'disconnected':
-      statusBar.className = 'bg-red-600 p-3 rounded mb-6';
-      statusText.textContent = '❌ Disconnected - Retrying...';
-      break;
-    default:
-      statusBar.className = 'bg-gray-700 p-3 rounded mb-6';
-      statusText.textContent = '⏳ Loading...';
-  }
-}
-
-function updateTable() {
-  const tbody = document.getElementById('sensor-data');
-  const totalWeight = document.getElementById('total-weight');
-  const deviceCount = document.getElementById('device-count');
-  
-  if (sensorData.size === 0) return;
-  
-  let html = '';
-  let total = 0;
-  
-  sensorData.forEach((data, mac) => {
-    const weight = parseFloat(data.weight) || 0;
-    total += weight;
-    
-    html += `
-      <tr style="border-bottom: 1px solid #374151;">
-        <td style="padding: 15px; color: #e2e8f0;">${data.device_name || mac.slice(-4)}</td>
-        <td style="padding: 15px; text-align: right; color: #f1f5f9; font-weight: bold;">${weight.toFixed(1)}</td>
-        <td style="padding: 15px; text-align: right; color: #e2e8f0;">${data.main_air_pressure}</td>
-        <td style="padding: 15px; text-align: right; color: #e2e8f0;">${data.temperature}</td>
-        <td style="padding: 15px; color: #22c55e;">● Online</td>
-      </tr>
-    `;
-  });
-  
-  tbody.innerHTML = html;
-  totalWeight.textContent = `${total.toFixed(1)} lbs`;
-  deviceCount.textContent = sensorData.size;
-}
-
-// Vehicle drag and drop functionality
-function initVehicleSorting() {
-  const vehicleList = document.getElementById('vehicle-list');
-  if (!vehicleList) return;
-
-  let draggedElement = null;
-
-  vehicleList.addEventListener('dragstart', (e) => {
-    if (e.target.classList.contains('drag-handle') || e.target.closest('.drag-handle')) {
-      draggedElement = e.target.closest('[data-vehicle-id]');
-      draggedElement.style.opacity = '0.5';
-    }
-  });
-
-  vehicleList.addEventListener('dragend', (e) => {
-    if (draggedElement) {
-      draggedElement.style.opacity = '';
-      draggedElement = null;
-    }
-  });
-
-  vehicleList.addEventListener('dragover', (e) => {
-    e.preventDefault();
-  });
-
-  vehicleList.addEventListener('drop', (e) => {
-    e.preventDefault();
-    if (!draggedElement) return;
-
-    const target = e.target.closest('[data-vehicle-id]');
-    if (target && target !== draggedElement) {
-      const rect = target.getBoundingClientRect();
-      const midpoint = rect.top + rect.height / 2;
-      
-      if (e.clientY < midpoint) {
-        target.parentNode.insertBefore(draggedElement, target);
-      } else {
-        target.parentNode.insertBefore(draggedElement, target.nextSibling);
-      }
-      
-      saveVehicleOrder();
-    }
-  });
-
-  // Make drag handles draggable
-  document.querySelectorAll('.drag-handle').forEach(handle => {
-    handle.draggable = true;
-  });
-}
-
-function saveVehicleOrder() {
-  const vehicleElements = document.querySelectorAll('[data-vehicle-id]');
-  const order = Array.from(vehicleElements).map(el => parseInt(el.dataset.vehicleId));
-  
-  fetch('{{ path('vehicle_sort_user') }}', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ order: order })
-  });
-}
-
-// Initialize everything when page loads
-document.addEventListener('DOMContentLoaded', () => {
-  detectModeAndConnect();
-  updateStatus();
-  initVehicleSorting();
-  startLiveDataPolling(); // New: Start polling for live data
-  
-  // Listen for network changes
-  window.addEventListener('online', () => {
-    isOnline = true;
-    detectModeAndConnect();
-    startLiveDataPolling(); // Restart polling when back online
-  });
-  
-  window.addEventListener('offline', () => {
-    isOnline = false;
-    updateStatus();
-    stopLiveDataPolling(); // Stop polling when offline
-  });
-});
-
-// Live data polling variables
 let liveDataInterval = null;
-
-function startLiveDataPolling() {
-  // Clear any existing interval
-  stopLiveDataPolling();
-  
-  // Start polling every 30 seconds
-  liveDataInterval = setInterval(fetchLiveData, 30000);
-  
-  // Fetch immediately on start
-  fetchLiveData();
-}
-
-function stopLiveDataPolling() {
-  if (liveDataInterval) {
-    clearInterval(liveDataInterval);
-    liveDataInterval = null;
-  }
-}
-
-function fetchLiveData() {
-  fetch('/calibration/api/devices/live-data')
-    .then(response => {
-      if (!response.ok) {
-        throw new Error('Failed to fetch live data');
-      }
-      return response.json();
-    })
-    .then(data => {
-      updateLiveTable(data);
-      updateStatus('connected'); // Show we're getting live data
-    })
-    .catch(error => {
-      console.error('Error fetching live data:', error);
-      updateStatus('offline');
-    });
-}
-
-function updateLiveTable(data) {
-  const tbody = document.getElementById('sensor-data');
-  const totalWeight = document.getElementById('total-weight');
-  const deviceCount = document.getElementById('device-count');
-  
-  if (!data.devices || data.devices.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="5" class="p-6 text-center text-gray-400">📡 No devices with recent data...</td></tr>';
-    totalWeight.textContent = '0.0 lbs';
-    deviceCount.textContent = '0';
-    return;
-  }
-  
-  let html = '';
-  
-  data.devices.forEach(device => {
-    const weight = parseFloat(device.weight) || 0;
-    
-    // Determine status color based on last_seen
-    let statusColor = '#ef4444'; // Default red for old data
-    let statusText = `● ${device.last_seen}`;
-    
-    if (device.last_seen === 'online') {
-      statusColor = '#22c55e'; // Green for online
-      statusText = '● Online';
-    } else if (device.last_seen.includes('minute')) {
-      const minutes = parseInt(device.last_seen.match(/\d+/)?.[0] || '999');
-      if (minutes <= 10) {
-        statusColor = '#22c55e'; // Green for < 10 minutes
-      } else if (minutes <= 30) {
-        statusColor = '#f59e0b'; // Orange for 10-30 minutes
-      }
-      statusText = `● ${device.last_seen}`;
-    } else if (device.last_seen.includes('hour')) {
-      statusColor = '#f59e0b'; // Orange for hours
-      statusText = `● ${device.last_seen}`;
-    }
-    
-    html += `
-      <tr style="border-bottom: 1px solid #374151;">
-        <td style="padding: 15px; color: #e2e8f0;">
-          ${device.device_name}
-          ${device.vehicle ? '<br><span style="font-size: 12px; color: #9ca3af;">' + device.vehicle + '</span>' : ''}
-        </td>
-        <td style="padding: 15px; text-align: right; color: #f1f5f9; font-weight: bold;">${weight.toFixed(1)}</td>
-        <td style="padding: 15px; text-align: right; color: #e2e8f0;">${device.main_air_pressure}</td>
-        <td style="padding: 15px; text-align: right; color: #e2e8f0;">${device.temperature}</td>
-        <td style="padding: 15px; color: ${statusColor};">${statusText}</td>
-      </tr>
-    `;
-  });
-  
-  tbody.innerHTML = html;
-  totalWeight.textContent = `${data.total_weight.toFixed(1)} lbs`;
-  deviceCount.textContent = data.device_count;
-}
-</script>
-<script>
-  // BLE Integration Module - Add this to your dashboard template
+let lastServerSync = 0;
 
 // BLE Configuration
 const BLE_SERVICE_UUID = '12345678-1234-1234-1234-123456789abc';
@@ -490,11 +212,236 @@ const BLE_COEFFS_CHAR_UUID = '11111111-2222-3333-4444-555555555555';
 
 // BLE State Management
 let bleDevices = new Map(); // Connected BLE devices
-let bleDataBuffer = new Map(); // Buffer for 30-second batches
-let lastServerSync = 0;
 let dbInstance = null;
 
-// Initialize IndexedDB for offline storage
+// Unified table update function
+function updateUnifiedTable() {
+    const tbody = document.getElementById('sensor-data');
+    const totalWeight = document.getElementById('total-weight');
+    const deviceCount = document.getElementById('device-count');
+    
+    if (allDeviceData.size === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" class="p-6 text-center text-gray-400">📡 No devices found...</td></tr>';
+        totalWeight.textContent = '0.0 lbs';
+        deviceCount.textContent = '0';
+        return;
+    }
+    
+    let html = '';
+    let total = 0;
+    let activeDevices = 0;
+    
+    allDeviceData.forEach((deviceInfo, mac) => {
+        const weight = parseFloat(deviceInfo.weight) || 0;
+        total += weight;
+        activeDevices++;
+        
+        // Determine status and color based on source and last seen
+        let statusColor = '#ef4444';
+        let statusText = '● Unknown';
+        
+        if (deviceInfo.source === 'bluetooth') {
+            statusColor = '#22c55e';
+            statusText = '● BLE Connected';
+        } else if (deviceInfo.source === 'websocket') {
+            statusColor = '#22c55e';
+            statusText = '● WiFi Connected';
+        } else if (deviceInfo.last_seen) {
+            if (deviceInfo.last_seen === 'online') {
+                statusColor = '#22c55e';
+                statusText = '● Online';
+            } else if (deviceInfo.last_seen.includes('minute')) {
+                const minutes = parseInt(deviceInfo.last_seen.match(/\d+/)?.[0] || '999');
+                if (minutes <= 10) {
+                    statusColor = '#22c55e';
+                } else if (minutes <= 30) {
+                    statusColor = '#f59e0b';
+                }
+                statusText = `● ${deviceInfo.last_seen}`;
+            } else {
+                statusColor = '#f59e0b';
+                statusText = `● ${deviceInfo.last_seen}`;
+            }
+        }
+        
+        html += `
+            <tr style="border-bottom: 1px solid #374151;">
+                <td style="padding: 15px; color: #e2e8f0;">
+                    ${deviceInfo.device_name || mac.slice(-4)}
+                    ${deviceInfo.vehicle ? '<br><span style="font-size: 12px; color: #9ca3af;">' + deviceInfo.vehicle + '</span>' : ''}
+                    <br><span style="font-size: 10px; color: #6b7280;">${deviceInfo.source?.toUpperCase() || 'UNKNOWN'}</span>
+                </td>
+                <td style="padding: 15px; text-align: right; color: #f1f5f9; font-weight: bold;">${weight.toFixed(1)}</td>
+                <td style="padding: 15px; text-align: right; color: #e2e8f0;">${deviceInfo.main_air_pressure || 'N/A'}</td>
+                <td style="padding: 15px; text-align: right; color: #e2e8f0;">${deviceInfo.temperature || 'N/A'}</td>
+                <td style="padding: 15px; color: ${statusColor};">${statusText}</td>
+            </tr>
+        `;
+    });
+    
+    tbody.innerHTML = html;
+    totalWeight.textContent = `${total.toFixed(1)} lbs`;
+    deviceCount.textContent = activeDevices;
+}
+
+// Clean up old data (remove devices that haven't been seen in 5 minutes)
+function cleanupOldData() {
+    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+    
+    allDeviceData.forEach((deviceInfo, mac) => {
+        if (deviceInfo.last_updated < fiveMinutesAgo && deviceInfo.source !== 'bluetooth') {
+            allDeviceData.delete(mac);
+        }
+    });
+    
+    updateUnifiedTable();
+}
+
+// ESP32 Connection Functions
+function detectModeAndConnect() {
+    testESP32Connection()
+        .then(available => {
+            if (available) {
+                connectToESP32();
+            } else if (isOnline) {
+                updateStatus('online');
+            } else {
+                updateStatus('offline');
+            }
+        });
+}
+
+async function testESP32Connection() {
+    try {
+        const response = await fetch('http://192.168.4.1/status', { 
+            method: 'GET',
+            signal: AbortSignal.timeout(2000)
+        });
+        return response.ok;
+    } catch {
+        return false;
+    }
+}
+
+function connectToESP32() {
+    updateStatus('ap');
+    
+    websocket = new WebSocket('ws://192.168.4.1/ws');
+    
+    websocket.onopen = () => {
+        console.log('Connected to ESP32');
+        updateStatus('connected');
+    };
+    
+    websocket.onmessage = handleWebSocketMessage;
+    
+    websocket.onclose = () => {
+        console.log('ESP32 disconnected');
+        updateStatus('disconnected');
+        setTimeout(connectToESP32, 3000);
+    };
+}
+
+function handleWebSocketMessage(event) {
+    const data = JSON.parse(event.data);
+    
+    allDeviceData.set(data.mac_address, {
+        ...data,
+        device_name: data.device_name || data.mac_address.slice(-4),
+        source: 'websocket',
+        last_updated: new Date(),
+        priority: dataSourcePriority.websocket
+    });
+    
+    updateUnifiedTable();
+}
+
+function connectToDevice(macAddress) {
+    console.log('Attempting to connect to device:', macAddress);
+    detectModeAndConnect();
+}
+
+// Live Data Polling
+function startLiveDataPolling() {
+    stopLiveDataPolling();
+    liveDataInterval = setInterval(fetchLiveData, 30000);
+    fetchLiveData();
+}
+
+function stopLiveDataPolling() {
+    if (liveDataInterval) {
+        clearInterval(liveDataInterval);
+        liveDataInterval = null;
+    }
+}
+
+function fetchLiveData() {
+    fetch('/calibration/api/devices/live-data')
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Failed to fetch live data');
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.devices) {
+                data.devices.forEach(device => {
+                    const existing = allDeviceData.get(device.mac_address);
+                    
+                    // Only add server data if no higher priority source exists
+                    if (!existing || existing.priority < dataSourcePriority.server) {
+                        allDeviceData.set(device.mac_address, {
+                            ...device,
+                            source: 'server',
+                            last_updated: new Date(),
+                            priority: dataSourcePriority.server
+                        });
+                    }
+                });
+            }
+            
+            updateUnifiedTable();
+            updateStatus('connected');
+        })
+        .catch(error => {
+            console.error('Error fetching live data:', error);
+            updateStatus('offline');
+        });
+}
+
+// Status Management
+function updateStatus(mode = 'loading') {
+    const statusBar = document.getElementById('status-bar');
+    const statusText = document.getElementById('status-text');
+    
+    switch(mode) {
+        case 'connected':
+            statusBar.className = 'bg-green-600 p-3 rounded mb-6';
+            statusText.textContent = '✅ Connected';
+            break;
+        case 'ap':
+            statusBar.className = 'bg-yellow-600 p-3 rounded mb-6';
+            statusText.textContent = '📡 AP Mode - Connecting...';
+            break;
+        case 'online':
+            statusBar.className = 'bg-blue-600 p-3 rounded mb-6';
+            statusText.textContent = '🌐 Online Mode';
+            break;
+        case 'offline':
+            statusBar.className = 'bg-red-600 p-3 rounded mb-6';
+            statusText.textContent = '📴 Offline';
+            break;
+        case 'disconnected':
+            statusBar.className = 'bg-red-600 p-3 rounded mb-6';
+            statusText.textContent = '❌ Disconnected - Retrying...';
+            break;
+        default:
+            statusBar.className = 'bg-gray-700 p-3 rounded mb-6';
+            statusText.textContent = '⏳ Loading...';
+    }
+}
+
+// BLE Functions
 async function initDB() {
     return new Promise((resolve, reject) => {
         const request = indexedDB.open('AirScalesDB', 1);
@@ -508,7 +455,6 @@ async function initDB() {
         request.onupgradeneeded = (event) => {
             const db = event.target.result;
             
-            // Store for sensor data
             if (!db.objectStoreNames.contains('sensorData')) {
                 const store = db.createObjectStore('sensorData', { 
                     keyPath: 'id', 
@@ -518,7 +464,6 @@ async function initDB() {
                 store.createIndex('timestamp', 'timestamp', { unique: false });
             }
             
-            // Store for device info
             if (!db.objectStoreNames.contains('devices')) {
                 const deviceStore = db.createObjectStore('devices', { 
                     keyPath: 'mac_address' 
@@ -528,55 +473,16 @@ async function initDB() {
     });
 }
 
-// Check if Web Bluetooth is supported
 function isBluetoothSupported() {
     return 'bluetooth' in navigator;
 }
 
-// Add BLE controls to dashboard
 function addBLEControls() {
-    // Find the status bar instead
-    const statusBar = document.getElementById('status-bar');
-    if (!statusBar) return;
-    
-    // Create BLE controls container
-    const bleControls = document.createElement('div');
-    bleControls.className = 'bg-gray-800 rounded-lg p-4 mb-6';
-    bleControls.innerHTML = `
-        <div class="flex items-center justify-between mb-4">
-            <h3 class="text-lg font-semibold text-white">📱 Bluetooth Devices</h3>
-            <div class="flex space-x-2">
-                <button id="scanBLEDevices" 
-                        class="px-3 py-1 text-sm font-medium text-blue-400 bg-blue-900 rounded hover:text-blue-200">
-                    📡 Scan for Devices
-                </button>
-                <span id="bleStatus" class="px-3 py-1 text-sm text-gray-400 bg-gray-700 rounded">
-                    Ready
-                </span>
-            </div>
-        </div>
-        <div id="bleDeviceList" class="space-y-2">
-            <p class="text-sm text-gray-400">Click "Scan for Devices" to find nearby AirScales devices</p>
-        </div>
-    `;
-    
-    // Insert AFTER the status bar (not before)
-    statusBar.parentNode.insertBefore(bleControls, statusBar.nextSibling);
+    if (isBluetoothSupported()) {
+        document.getElementById('ble-controls').style.display = 'block';
+    }
 }
 
-// Also, make disconnectBLEDevice globally accessible:
-window.disconnectBLEDevice = async function(deviceId) {
-    const deviceInfo = bleDevices.get(deviceId);
-    if (!deviceInfo) return;
-    
-    try {
-        await deviceInfo.server.disconnect();
-    } catch (error) {
-        console.error('Disconnect error:', error);
-    }
-};
-
-// Scan for BLE devices
 async function scanForBLEDevices() {
     if (!isBluetoothSupported()) {
         updateBLEStatus('Bluetooth not supported', 'error');
@@ -600,7 +506,6 @@ async function scanForBLEDevices() {
     }
 }
 
-// Connect to a BLE device
 async function connectToBLEDevice(device) {
     try {
         updateBLEStatus(`Connecting to ${device.name}...`, 'info');
@@ -610,7 +515,6 @@ async function connectToBLEDevice(device) {
         const sensorCharacteristic = await service.getCharacteristic(BLE_SENSOR_CHAR_UUID);
         const coeffsCharacteristic = await service.getCharacteristic(BLE_COEFFS_CHAR_UUID);
         
-        // Store device info
         const deviceInfo = {
             device,
             server,
@@ -623,12 +527,10 @@ async function connectToBLEDevice(device) {
         
         bleDevices.set(device.id, deviceInfo);
         
-        // Start notifications
         await sensorCharacteristic.startNotifications();
         sensorCharacteristic.addEventListener('characteristicvaluechanged', 
             (event) => handleBLEData(event, deviceInfo));
         
-        // Handle disconnection
         device.addEventListener('gattserverdisconnected', 
             () => handleBLEDisconnection(device));
         
@@ -643,7 +545,6 @@ async function connectToBLEDevice(device) {
     }
 }
 
-// Handle incoming BLE data
 function handleBLEData(event, deviceInfo) {
     const decoder = new TextDecoder();
     const jsonString = decoder.decode(event.target.value);
@@ -652,27 +553,21 @@ function handleBLEData(event, deviceInfo) {
         const data = JSON.parse(jsonString);
         console.log('BLE data received:', data);
         
-        // Update device info
         deviceInfo.lastSeen = new Date();
         deviceInfo.dataCount++;
         
-        // Add to live sensor data (existing dashboard display)
-        sensorData.set(data.mac_address, {
+        // Add to unified device data with highest priority
+        allDeviceData.set(data.mac_address, {
             ...data,
             device_name: `BLE: ${deviceInfo.device.name}`,
-            source: 'bluetooth'
+            source: 'bluetooth',
+            last_updated: new Date(),
+            priority: dataSourcePriority.bluetooth
         });
         
-        // Update existing dashboard table
-        updateTable();
-        
-        // Buffer data for server sync
+        updateUnifiedTable();
         bufferDataForSync(data);
-        
-        // Store in IndexedDB
         storeDataInDB(data);
-        
-        // Update BLE device list
         updateBLEDeviceList();
         
     } catch (error) {
@@ -680,18 +575,15 @@ function handleBLEData(event, deviceInfo) {
     }
 }
 
-// Buffer data for 30-second server sync
 function bufferDataForSync(data) {
     const now = Date.now();
     
-    // Send to server every 30 seconds (not every second)
     if (now - lastServerSync > 30000) {
         sendBLEDataToServer(data);
         lastServerSync = now;
     }
 }
 
-// Send BLE data to server
 async function sendBLEDataToServer(data) {
     try {
         const response = await fetch('/api/esp32/data', {
@@ -709,7 +601,6 @@ async function sendBLEDataToServer(data) {
             const result = await response.json();
             console.log('BLE data sent to server:', result);
             
-            // Check for updated coefficients
             if (result.regression_coefficients) {
                 await sendCoefficientsViaBLE(data.mac_address, result.regression_coefficients);
             }
@@ -721,7 +612,6 @@ async function sendBLEDataToServer(data) {
     }
 }
 
-// Send updated coefficients back to ESP32
 async function sendCoefficientsViaBLE(macAddress, coefficients) {
     const deviceInfo = Array.from(bleDevices.values())
         .find(d => d.mac_address === macAddress);
@@ -739,7 +629,6 @@ async function sendCoefficientsViaBLE(macAddress, coefficients) {
     }
 }
 
-// Store data in IndexedDB
 async function storeDataInDB(data) {
     if (!dbInstance) return;
     
@@ -755,28 +644,23 @@ async function storeDataInDB(data) {
     await store.add(record);
 }
 
-// Handle BLE device disconnection
 function handleBLEDisconnection(device) {
     console.log('BLE device disconnected:', device.name);
     
-    // Remove from active devices
     bleDevices.delete(device.id);
     
-    // Remove from sensor data display
-    const deviceInfo = Array.from(sensorData.entries())
-        .find(([mac, data]) => data.source === 'bluetooth' && 
-               data.device_name.includes(device.name));
+    // Remove from unified data
+    allDeviceData.forEach((deviceInfo, mac) => {
+        if (deviceInfo.source === 'bluetooth' && deviceInfo.device_name.includes(device.name)) {
+            allDeviceData.delete(mac);
+        }
+    });
     
-    if (deviceInfo) {
-        sensorData.delete(deviceInfo[0]);
-        updateTable();
-    }
-    
+    updateUnifiedTable();
     updateBLEDeviceList();
     updateBLEStatus('Device disconnected', 'warning');
 }
 
-// Update BLE status display
 function updateBLEStatus(message, type = 'info') {
     const statusElement = document.getElementById('bleStatus');
     if (!statusElement) return;
@@ -792,7 +676,6 @@ function updateBLEStatus(message, type = 'info') {
     statusElement.textContent = message;
 }
 
-// Update BLE device list display
 function updateBLEDeviceList() {
     const listElement = document.getElementById('bleDeviceList');
     if (!listElement) return;
@@ -829,7 +712,6 @@ function updateBLEDeviceList() {
     listElement.innerHTML = html;
 }
 
-// Disconnect BLE device
 async function disconnectBLEDevice(deviceId) {
     const deviceInfo = bleDevices.get(deviceId);
     if (!deviceInfo) return;
@@ -841,6 +723,71 @@ async function disconnectBLEDevice(deviceId) {
     }
 }
 
+// Global function for template access
+window.disconnectBLEDevice = disconnectBLEDevice;
+
+// Vehicle Management
+function initVehicleSorting() {
+    const vehicleList = document.getElementById('vehicle-list');
+    if (!vehicleList) return;
+
+    let draggedElement = null;
+
+    vehicleList.addEventListener('dragstart', (e) => {
+        if (e.target.classList.contains('drag-handle') || e.target.closest('.drag-handle')) {
+            draggedElement = e.target.closest('[data-vehicle-id]');
+            draggedElement.style.opacity = '0.5';
+        }
+    });
+
+    vehicleList.addEventListener('dragend', (e) => {
+        if (draggedElement) {
+            draggedElement.style.opacity = '';
+            draggedElement = null;
+        }
+    });
+
+    vehicleList.addEventListener('dragover', (e) => {
+        e.preventDefault();
+    });
+
+    vehicleList.addEventListener('drop', (e) => {
+        e.preventDefault();
+        if (!draggedElement) return;
+
+        const target = e.target.closest('[data-vehicle-id]');
+        if (target && target !== draggedElement) {
+            const rect = target.getBoundingClientRect();
+            const midpoint = rect.top + rect.height / 2;
+            
+            if (e.clientY < midpoint) {
+                target.parentNode.insertBefore(draggedElement, target);
+            } else {
+                target.parentNode.insertBefore(draggedElement, target.nextSibling);
+            }
+            
+            saveVehicleOrder();
+        }
+    });
+
+    document.querySelectorAll('.drag-handle').forEach(handle => {
+        handle.draggable = true;
+    });
+}
+
+function saveVehicleOrder() {
+    const vehicleElements = document.querySelectorAll('[data-vehicle-id]');
+    const order = Array.from(vehicleElements).map(el => parseInt(el.dataset.vehicleId));
+    
+    fetch('{{ path('vehicle_sort_user') }}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ order: order })
+    });
+}
+
 // Initialize BLE integration
 async function initBLEIntegration() {
     if (!isBluetoothSupported()) {
@@ -848,13 +795,9 @@ async function initBLEIntegration() {
         return;
     }
     
-    // Initialize IndexedDB
     await initDB();
-    
-    // Add BLE controls to dashboard
     addBLEControls();
     
-    // Bind scan button
     const scanButton = document.getElementById('scanBLEDevices');
     if (scanButton) {
         scanButton.addEventListener('click', scanForBLEDevices);
@@ -863,18 +806,17 @@ async function initBLEIntegration() {
     console.log('BLE integration initialized');
 }
 
-// Extend your existing DOMContentLoaded event
+// Initialize everything when page loads
 document.addEventListener('DOMContentLoaded', () => {
-    // Your existing initialization code...
     detectModeAndConnect();
     updateStatus();
     initVehicleSorting();
     startLiveDataPolling();
-    
-    // ADD THIS: Initialize BLE integration
     initBLEIntegration();
     
-    // Your existing event listeners...
+    // Run cleanup every minute
+    setInterval(cleanupOldData, 60000);
+    
     window.addEventListener('online', () => {
         isOnline = true;
         detectModeAndConnect();
