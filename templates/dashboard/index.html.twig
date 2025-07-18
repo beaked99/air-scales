@@ -236,7 +236,7 @@ function updateUnifiedTable() {
         total += weight;
         activeDevices++;
         
-        // Determine status and color based on source and last seen
+        // Determine status and color based on source and status
         let statusColor = '#ef4444';
         let statusText = '● Unknown';
         
@@ -246,11 +246,15 @@ function updateUnifiedTable() {
         } else if (deviceInfo.source === 'websocket') {
             statusColor = '#22c55e';
             statusText = '● WiFi Connected';
-        } else if (deviceInfo.last_seen) {
-            if (deviceInfo.last_seen === 'online') {
+        } else if (deviceInfo.source === 'server') {
+            // For server data, check the 'status' field first, then fall back to 'last_seen'
+            if (deviceInfo.status === 'online') {
                 statusColor = '#22c55e';
                 statusText = '● Online';
-            } else if (deviceInfo.last_seen.includes('minute')) {
+            } else if (deviceInfo.last_seen === 'just now') {
+                statusColor = '#22c55e';
+                statusText = '● Online';
+            } else if (deviceInfo.last_seen && deviceInfo.last_seen.includes('minute')) {
                 const minutes = parseInt(deviceInfo.last_seen.match(/\d+/)?.[0] || '999');
                 if (minutes <= 10) {
                     statusColor = '#22c55e';
@@ -258,7 +262,10 @@ function updateUnifiedTable() {
                     statusColor = '#f59e0b';
                 }
                 statusText = `● ${deviceInfo.last_seen}`;
-            } else {
+            } else if (deviceInfo.last_seen && deviceInfo.last_seen.includes('hour')) {
+                statusColor = '#f59e0b';
+                statusText = `● ${deviceInfo.last_seen}`;
+            } else if (deviceInfo.last_seen) {
                 statusColor = '#f59e0b';
                 statusText = `● ${deviceInfo.last_seen}`;
             }
