@@ -384,20 +384,26 @@ function fetchLiveData() {
             return response.json();
         })
         .then(data => {
-            if (data.devices) {
+            console.log('Live data received:', data); // Debug log
+            
+            if (data.devices && data.devices.length > 0) {
                 data.devices.forEach(device => {
                     const existing = allDeviceData.get(device.mac_address);
                     
-                    // Only add server data if no higher priority source exists
-                    if (!existing || existing.priority < dataSourcePriority.server) {
+                    // Add server data if no existing data, OR if existing data is also from server (update it)
+                    // Don't overwrite higher priority sources (bluetooth/websocket)
+                    if (!existing || existing.priority <= dataSourcePriority.server) {
                         allDeviceData.set(device.mac_address, {
                             ...device,
+                            device_name: device.device_name || device.mac_address.slice(-4),
                             source: 'server',
                             last_updated: new Date(),
                             priority: dataSourcePriority.server
                         });
                     }
                 });
+                
+                console.log('Updated allDeviceData:', Array.from(allDeviceData.entries())); // Debug log
             }
             
             updateUnifiedTable();
