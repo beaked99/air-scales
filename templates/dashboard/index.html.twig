@@ -1467,5 +1467,89 @@ document.addEventListener('DOMContentLoaded', () => {
         stopLiveDataPolling();
     });
 });
+async function connectToBLEDevice(device) {
+    try {
+        updateBLEStatus(`Connecting to ${device.name}...`, 'info');
+        
+        const server = await device.gatt.connect();
+        const service = await server.getPrimaryService(BLE_SERVICE_UUID);
+        const sensorCharacteristic = await service.getCharacteristic(BLE_SENSOR_CHAR_UUID);
+        const coeffsCharacteristic = await service.getCharacteristic(BLE_COEFFS_CHAR_UUID);
+        
+        const deviceInfo = {
+            device,
+            server,
+            sensorCharacteristic,
+            coeffsCharacteristic,
+            mac_address: device.name.replace('AirScales-', ''),
+            lastSeen: new Date(),
+            dataCount: 0
+        };
+        
+        bleDevices.set(device.id, deviceInfo);
+        
+        // ✅ ADD THIS: Notify server about the BLE connection
+        await notifyServerOfBLEConnection(deviceInfo.mac_address);
+        
+        await sensorCharacteristic.startNotifications();
+        sensorCharacteristic.addEventListener('characteristicvaluechanged', 
+            (event) => handleBLEData(event, deviceInfo));
+        
+        device.addEventListener('gattserverdisconnected', 
+            () => handleBLEDisconnection(device));
+        
+        updateBLEDeviceList();
+        updateBLEStatus(`Connected to ${device.name}`, 'success');
+        
+        console.log('BLE device connected:', device.name);
+        
+    } catch (error) {
+        console.error('BLE connection error:', error);
+        updateBLEStatus('Connection failed: ' + error.message, 'error');
+    }
+}
+
+// ✅ NEW FUNCTION: Notify server about BLE connection
+async function notifyServerOfBLEConnection(macAddress) {
+    try {
+        // Get current user ID (you'll need to add this to your page)
+        const userId = getCurrentUserId(); // You need to implement this
+        
+        const response = await fetch('/api/esp32/connect', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                mac_address: macAddress,
+                user_id: userId
+            })
+        });
+        
+        if (response.ok) {
+            const result = await response.json();
+            console.log('Server notified of BLE connection:', result);
+        } else {
+            console.error('Failed to notify server of BLE connection:', response.status);
+        }
+    } catch (error) {
+        console.error('Error notifying server of BLE connection:', error);
+    }
+}
+
+// ✅ HELPER FUNCTION: Get current user ID
+function getCurrentUserId() {
+    // You can add this to your Twig template or get it via AJAX
+    // Option 1: Add to template as a global variable
+    return window.currentUserId; // Set this in your Twig template
+    
+    // Option 2: Parse from a meta tag
+    // return document.querySelector('meta[name="user-id"]')?.getAttribute('content');
+    
+    // Option 3: Get via AJAX (if you don't want to expose it)
+    // This would require a separate endpoint
+}
+    window.currentUserId = {{ app.user.id }};
 </script>
+
 {% endblock %}
