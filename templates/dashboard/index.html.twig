@@ -1511,6 +1511,7 @@ async function connectToBLEDevice(device) {
 
 // ✅ NEW FUNCTION: Notify server about BLE connection
 async function notifyServerOfBLEConnection(macAddress) {
+    console.log('Sending MAC to server:', macAddress); // ← Add this debug
     try {
         // Get current user ID (you'll need to add this to your page)
         const userId = getCurrentUserId(); // You need to implement this
