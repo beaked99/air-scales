@@ -9,6 +9,8 @@
 #include <BLEServer.h>
 #include <BLEUtils.h>
 #include <BLE2902.h>
+#include <esp_now.h>
+#include <esp_wifi.h>
 
 // Hardware Configuration
 #define STATUS_LED_PIN 13
@@ -18,6 +20,12 @@
 #define SENSOR_CHAR_UUID    "87654321-4321-4321-4321-cba987654321"
 #define COEFFS_CHAR_UUID    "11111111-2222-3333-4444-555555555555"
 #define DEVICE_NAME_PREFIX  "AirScales-"
+
+// ESPNow Configuration
+#define MAX_SLAVES 10           // Maximum devices in mesh
+#define MESH_CHANNEL 1          // WiFi channel for mesh
+#define DISCOVERY_INTERVAL 30000 // 30 seconds between discovery broadcasts
+#define HEARTBEAT_INTERVAL 10000 // 10 seconds between slave heartbeats
 
 // Network Configuration
 const char* SERVER_URL = "https://beaker.ca";
@@ -45,6 +53,58 @@ bool isConnectedToWiFi = false;
 bool isAPMode = false;
 unsigned long lastDataSend = 0;
 unsigned long lastHeartbeat = 0;
+
+// Device Role Enumeration
+enum DeviceRole {
+  ROLE_UNDEFINED = 0,
+  ROLE_MASTER = 1,
+  ROLE_SLAVE = 2,
+  ROLE_DISCOVERY = 3
+};
+
+// Message Types for ESPNow Communication
+enum MessageType {
+  MSG_DISCOVERY_BROADCAST = 1,
+  MSG_DISCOVERY_RESPONSE = 2,
+  MSG_PAIRING_REQUEST = 3,
+  MSG_PAIRING_RESPONSE = 4,
+  MSG_SENSOR_DATA = 5,
+  MSG_HEARTBEAT = 6,
+  MSG_ROLE_ASSIGNMENT = 7,
+  MSG_CONFIGURATION_SAVE = 8
+};
+
+// ESPNow Message Structure
+typedef struct {
+  uint8_t messageType;
+  uint8_t senderMAC[6];
+  char deviceName[32];
+  char truckConfig[64];
+  float sensorData[8];  // [pressure, temp, weight, lat, lng, elevation, atmospheric, timestamp]
+  uint32_t timestamp;
+  uint8_t batteryLevel;
+  bool isCharging;
+} MeshMessage;
+
+// Device Information Structure
+typedef struct {
+  uint8_t macAddress[6];
+  char deviceName[32];
+  DeviceRole role;
+  unsigned long lastSeen;
+  float lastSensorData[8];
+  bool isActive;
+  uint8_t signalStrength;
+} DeviceInfo;
+
+// Global Mesh Variables
+DeviceRole currentRole = ROLE_UNDEFINED;
+String truckConfiguration = "";
+DeviceInfo knownDevices[MAX_SLAVES];
+uint8_t knownDeviceCount = 0;
+unsigned long lastDiscovery = 0;
+unsigned long lastHeartbeat = 0;
+bool meshInitialized = false;
 
 // Sensor Data Structure
 struct SensorData {
@@ -91,6 +151,26 @@ void checkForUpdatedCoeffs(String response);
 String getCurrentTimestamp();
 void initBLE();
 void sendSensorDataViaBLE(SensorData data);
+
+// ESPNow, Master / Slave Shit
+void initMeshNetworking();
+void onESPNowDataReceived(const uint8_t *mac_addr, const uint8_t *data, int data_len);
+void onESPNowDataSent(const uint8_t *mac_addr, esp_now_send_status_t status);
+void handleDiscoveryBroadcast();
+void handleDiscoveryResponse(const uint8_t *mac_addr, MeshMessage* msg);
+void handlePairingRequest(const uint8_t *mac_addr, MeshMessage* msg);
+void handleSensorData(const uint8_t *mac_addr, MeshMessage* msg);
+void sendMeshMessage(const uint8_t *mac_addr, MeshMessage* msg);
+void broadcastMeshMessage(MeshMessage* msg);
+void becomeMaster();
+void becomeSlave(const uint8_t *masterMAC);
+void aggregateSlaveData();
+void saveTruckConfiguration();
+void loadTruckConfiguration();
+void handleMeshLoop();
+DeviceInfo* findDevice(const uint8_t *mac_addr);
+void addOrUpdateDevice(const uint8_t *mac_addr, MeshMessage* msg);
+void removeInactiveDevices();
 
 void setup() {
   Serial.begin(115200);
@@ -145,12 +225,19 @@ void setup() {
   
   Serial.println("AirScales Ready!");
   digitalWrite(STATUS_LED_PIN, HIGH);
+
+  // Initialize mesh networking
+  initMeshNetworking();
+  
+  Serial.println("AirScales Ready with Mesh!");
+  digitalWrite(STATUS_LED_PIN, HIGH);
 }
 
 void loop() {
   // Handle web server
   server.handleClient();
   webSocket.loop();
+  handleMeshLoop();
 
   // Check WiFi connection every 10 seconds
   static unsigned long lastWiFiCheck = 0;
@@ -690,4 +777,338 @@ void sendSensorDataViaBLE(SensorData data) {
     pSensorCharacteristic->notify();
     
     Serial.println("Sent via BLE: " + jsonString);
+}
+
+// ESPNow Mesh Implementation
+void initMeshNetworking() {
+  Serial.println("Initializing Mesh Networking...");
+  
+  // Load saved truck configuration
+  loadTruckConfiguration();
+  
+  // Set WiFi mode to STA+AP for ESPNow
+  WiFi.mode(WIFI_AP_STA);
+  
+  // Initialize ESPNow
+  if (esp_now_init() != ESP_OK) {
+    Serial.println("Error initializing ESP-NOW");
+    return;
+  }
+  
+  // Set WiFi channel
+  esp_wifi_set_channel(MESH_CHANNEL, WIFI_SECOND_CHAN_NONE);
+  
+  // Register callbacks
+  esp_now_register_send_cb(onESPNowDataSent);
+  esp_now_register_recv_cb(onESPNowDataReceived);
+  
+  // Start in discovery mode
+  currentRole = ROLE_DISCOVERY;
+  meshInitialized = true;
+  
+  Serial.println("Mesh networking initialized");
+  Serial.println("Device Role: DISCOVERY");
+}
+
+void onESPNowDataReceived(const uint8_t *mac_addr, const uint8_t *data, int data_len) {
+  if (data_len != sizeof(MeshMessage)) return;
+  
+  MeshMessage* msg = (MeshMessage*)data;
+  
+  Serial.println("ESPNow message received from: " + String(msg->deviceName));
+  
+  switch (msg->messageType) {
+    case MSG_DISCOVERY_BROADCAST:
+      handleDiscoveryResponse(mac_addr, msg);
+      break;
+    case MSG_DISCOVERY_RESPONSE:
+      handleDiscoveryResponse(mac_addr, msg);
+      break;
+    case MSG_PAIRING_REQUEST:
+      handlePairingRequest(mac_addr, msg);
+      break;
+    case MSG_SENSOR_DATA:
+      handleSensorData(mac_addr, msg);
+      break;
+    case MSG_HEARTBEAT:
+      addOrUpdateDevice(mac_addr, msg);
+      break;
+  }
+}
+
+void onESPNowDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
+  Serial.println("ESPNow Send Status: " + String(status == ESP_NOW_SEND_SUCCESS ? "Success" : "Failed"));
+}
+
+void handleMeshLoop() {
+  if (!meshInitialized) return;
+  
+  unsigned long now = millis();
+  
+  // Discovery mode: broadcast discovery every 30 seconds
+  if (currentRole == ROLE_DISCOVERY && now - lastDiscovery > DISCOVERY_INTERVAL) {
+    handleDiscoveryBroadcast();
+    lastDiscovery = now;
+  }
+  
+  // Master mode: aggregate data and decide on becoming master
+  if (currentRole == ROLE_MASTER) {
+    aggregateSlaveData();
+    
+    // Check if we should remain master (device with phone connection should be master)
+    if (deviceConnected || isConnectedToWiFi) {
+      // We should remain master
+    }
+  }
+  
+  // Slave mode: send heartbeat
+  if (currentRole == ROLE_SLAVE && now - lastHeartbeat > HEARTBEAT_INTERVAL) {
+    MeshMessage msg;
+    msg.messageType = MSG_HEARTBEAT;
+    memcpy(msg.senderMAC, WiFi.macAddress().c_str(), 6);
+    strcpy(msg.deviceName, bleDeviceName.c_str());
+    strcpy(msg.truckConfig, truckConfiguration.c_str());
+    msg.timestamp = now;
+    
+    // Send to master (broadcast for now, could be optimized)
+    broadcastMeshMessage(&msg);
+    lastHeartbeat = now;
+  }
+  
+  // Remove inactive devices every minute
+  static unsigned long lastCleanup = 0;
+  if (now - lastCleanup > 60000) {
+    removeInactiveDevices();
+    lastCleanup = now;
+  }
+}
+
+void handleDiscoveryBroadcast() {
+  Serial.println("Broadcasting discovery...");
+  
+  MeshMessage msg;
+  msg.messageType = MSG_DISCOVERY_BROADCAST;
+  memcpy(msg.senderMAC, WiFi.macAddress().c_str(), 6);
+  strcpy(msg.deviceName, bleDeviceName.c_str());
+  strcpy(msg.truckConfig, truckConfiguration.c_str());
+  msg.timestamp = millis();
+  
+  broadcastMeshMessage(&msg);
+}
+
+void handleDiscoveryResponse(const uint8_t *mac_addr, MeshMessage* msg) {
+  Serial.println("Discovery response from: " + String(msg->deviceName));
+  
+  addOrUpdateDevice(mac_addr, msg);
+  
+  // Decide on roles based on capabilities
+  // Priority: Device with BLE connection > Device with WiFi > Others
+  bool shouldBecomeMaster = false;
+  
+  if (deviceConnected) {
+    // We have BLE connection - highest priority
+    shouldBecomeMaster = true;
+  } else if (isConnectedToWiFi && currentRole != ROLE_SLAVE) {
+    // We have WiFi and aren't already a slave
+    shouldBecomeMaster = true;
+  }
+  
+  if (shouldBecomeMaster && currentRole != ROLE_MASTER) {
+    becomeMaster();
+  }
+}
+
+void handlePairingRequest(const uint8_t *mac_addr, MeshMessage* msg) {
+  if (currentRole == ROLE_MASTER) {
+    // Accept pairing request
+    MeshMessage response;
+    response.messageType = MSG_PAIRING_RESPONSE;
+    memcpy(response.senderMAC, WiFi.macAddress().c_str(), 6);
+    strcpy(response.deviceName, bleDeviceName.c_str());
+    strcpy(response.truckConfig, truckConfiguration.c_str());
+    response.timestamp = millis();
+    
+    sendMeshMessage(mac_addr, &response);
+    addOrUpdateDevice(mac_addr, msg);
+    
+    Serial.println("Accepted pairing from: " + String(msg->deviceName));
+  }
+}
+
+void handleSensorData(const uint8_t *mac_addr, MeshMessage* msg) {
+  if (currentRole == ROLE_MASTER) {
+    // Store slave sensor data
+    addOrUpdateDevice(mac_addr, msg);
+    
+    // Forward to dashboard via BLE/WiFi
+    if (deviceConnected) {
+      // Create combined sensor data for dashboard
+      SensorData combinedData;
+      combinedData.mainAirPressure = msg->sensorData[0];
+      combinedData.temperature = msg->sensorData[1];
+      combinedData.weight = msg->sensorData[2];
+      combinedData.gpsLat = msg->sensorData[3];
+      combinedData.gpsLng = msg->sensorData[4];
+      combinedData.elevation = msg->sensorData[5];
+      combinedData.atmosphericPressure = msg->sensorData[6];
+      combinedData.timestamp = String(msg->timestamp);
+      
+      sendSensorDataViaBLE(combinedData);
+    }
+    
+    Serial.println("Received sensor data from slave: " + String(msg->deviceName));
+  }
+}
+
+void becomeMaster() {
+  if (currentRole == ROLE_MASTER) return;
+  
+  Serial.println("Becoming MASTER device");
+  currentRole = ROLE_MASTER;
+  
+  // Send role assignment to known devices
+  MeshMessage msg;
+  msg.messageType = MSG_ROLE_ASSIGNMENT;
+  memcpy(msg.senderMAC, WiFi.macAddress().c_str(), 6);
+  strcpy(msg.deviceName, bleDeviceName.c_str());
+  strcpy(msg.truckConfig, truckConfiguration.c_str());
+  msg.timestamp = millis();
+  
+  broadcastMeshMessage(&msg);
+}
+
+void becomeSlave(const uint8_t *masterMAC) {
+  if (currentRole == ROLE_SLAVE) return;
+  
+  Serial.println("Becoming SLAVE device");
+  currentRole = ROLE_SLAVE;
+  
+  // Add master to peer list
+  esp_now_peer_info_t peerInfo;
+  memcpy(peerInfo.peer_addr, masterMAC, 6);
+  peerInfo.channel = MESH_CHANNEL;
+  peerInfo.encrypt = false;
+  
+  if (esp_now_add_peer(&peerInfo) != ESP_OK) {
+    Serial.println("Failed to add master peer");
+  }
+}
+
+void aggregateSlaveData() {
+  // Calculate total weight from all devices
+  float totalWeight = 0;
+  int activeDevices = 0;
+  
+  // Add our own data
+  SensorData ourData = readSensors();
+  totalWeight += ourData.weight;
+  activeDevices++;
+  
+  // Add slave data
+  for (int i = 0; i < knownDeviceCount; i++) {
+    if (knownDevices[i].isActive && millis() - knownDevices[i].lastSeen < 30000) {
+      totalWeight += knownDevices[i].lastSensorData[2]; // weight is index 2
+      activeDevices++;
+    }
+  }
+  
+  // Update our weight calculation with total
+  // This would be sent to the dashboard as the combined truck weight
+  Serial.println("Total truck weight: " + String(totalWeight) + " lbs from " + String(activeDevices) + " devices");
+}
+
+void saveTruckConfiguration() {
+  // Save current truck configuration to preferences
+  preferences.putString("truck_config", truckConfiguration);
+  preferences.putUInt("device_role", currentRole);
+  
+  // Save known devices
+  for (int i = 0; i < knownDeviceCount; i++) {
+    String key = "device_" + String(i);
+    String deviceData = String((char*)knownDevices[i].macAddress) + "," + 
+                       String(knownDevices[i].deviceName) + "," + 
+                       String(knownDevices[i].role);
+    preferences.putString(key.c_str(), deviceData);
+  }
+  preferences.putUInt("device_count", knownDeviceCount);
+}
+
+void loadTruckConfiguration() {
+  truckConfiguration = preferences.getString("truck_config", "");
+  currentRole = (DeviceRole)preferences.getUInt("device_role", ROLE_UNDEFINED);
+  
+  // Load known devices
+  knownDeviceCount = preferences.getUInt("device_count", 0);
+  for (int i = 0; i < knownDeviceCount && i < MAX_SLAVES; i++) {
+    String key = "device_" + String(i);
+    String deviceData = preferences.getString(key.c_str(), "");
+    // Parse and restore device info (simplified)
+    if (deviceData.length() > 0) {
+      knownDevices[i].isActive = false; // Will be activated when device is seen
+    }
+  }
+}
+
+// Utility functions
+DeviceInfo* findDevice(const uint8_t *mac_addr) {
+  for (int i = 0; i < knownDeviceCount; i++) {
+    if (memcmp(knownDevices[i].macAddress, mac_addr, 6) == 0) {
+      return &knownDevices[i];
+    }
+  }
+  return nullptr;
+}
+
+void addOrUpdateDevice(const uint8_t *mac_addr, MeshMessage* msg) {
+  DeviceInfo* device = findDevice(mac_addr);
+  
+  if (device == nullptr && knownDeviceCount < MAX_SLAVES) {
+    // Add new device
+    device = &knownDevices[knownDeviceCount++];
+    memcpy(device->macAddress, mac_addr, 6);
+  }
+  
+  if (device != nullptr) {
+    strcpy(device->deviceName, msg->deviceName);
+    device->lastSeen = millis();
+    device->isActive = true;
+    
+    // Copy sensor data if present
+    if (msg->messageType == MSG_SENSOR_DATA) {
+      memcpy(device->lastSensorData, msg->sensorData, sizeof(msg->sensorData));
+    }
+  }
+}
+
+void removeInactiveDevices() {
+  unsigned long timeout = 60000; // 1 minute timeout
+  
+  for (int i = 0; i < knownDeviceCount; i++) {
+    if (millis() - knownDevices[i].lastSeen > timeout) {
+      knownDevices[i].isActive = false;
+    }
+  }
+}
+
+void sendMeshMessage(const uint8_t *mac_addr, MeshMessage* msg) {
+  esp_err_t result = esp_now_send(mac_addr, (uint8_t*)msg, sizeof(MeshMessage));
+  if (result != ESP_OK) {
+    Serial.println("Error sending mesh message");
+  }
+}
+
+void broadcastMeshMessage(MeshMessage* msg) {
+  uint8_t broadcastAddress[] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
+  
+  // Add broadcast peer if not exists
+  esp_now_peer_info_t peerInfo;
+  memcpy(peerInfo.peer_addr, broadcastAddress, 6);
+  peerInfo.channel = MESH_CHANNEL;
+  peerInfo.encrypt = false;
+  
+  if (!esp_now_is_peer_exist(broadcastAddress)) {
+    esp_now_add_peer(&peerInfo);
+  }
+  
+  sendMeshMessage(broadcastAddress, msg);
 }

@@ -218,7 +218,11 @@ class ESP32ApiController extends AbstractController
                 $logger->error('Invalid JSON received at /api/esp32/data', ['error' => json_last_error_msg()]);
                 return new JsonResponse(['error' => 'Invalid JSON'], 400);
             }
-            
+            // Check if this is mesh aggregated data or single device data
+            if (isset($data['mesh_data']) && $data['mesh_data'] === true) {
+                return $this->meshData($request, $em, $logger);
+            }
+
             $macAddress = $data['mac_address'] ?? null;
             if (!$macAddress) {
                 return new JsonResponse(['error' => 'MAC address required'], 400);
@@ -404,5 +408,289 @@ class ESP32ApiController extends AbstractController
                   ($microData->getTemperature() * $airTempCoeff);
         
         return max(0, $weight); // Don't allow negative weights
+    }
+
+    // Add these methods to your existing ESP32ApiController
+
+    #[Route('/mesh/register', name: 'mesh_register', methods: ['POST'])]
+    public function meshRegister(Request $request, EntityManagerInterface $em, LoggerInterface $logger): JsonResponse
+    {
+        try {
+            $data = json_decode($request->getContent(), true);
+            
+            if (json_last_error() !== JSON_ERROR_NONE) {
+                return new JsonResponse(['error' => 'Invalid JSON'], 400);
+            }
+            
+            $macAddress = $data['mac_address'] ?? null;
+            $role = $data['role'] ?? 'discovery';
+            $masterMac = $data['master_mac'] ?? null;
+            $connectedSlaves = $data['connected_slaves'] ?? [];
+            $signalStrength = $data['signal_strength'] ?? null;
+            
+            if (!$macAddress) {
+                return new JsonResponse(['error' => 'MAC address required'], 400);
+            }
+            
+            $logger->info('Mesh registration request', [
+                'mac_address' => $macAddress,
+                'role' => $role,
+                'master_mac' => $masterMac
+            ]);
+            
+            $device = $em->getRepository(Device::class)->findOneBy(['macAddress' => $macAddress]);
+            if (!$device) {
+                // Auto-provision
+                $device = new Device();
+                $device->setMacAddress($macAddress);
+                $device->setDeviceType($data['device_type'] ?? 'ESP32');
+                $device->setSerialNumber($data['serial_number'] ?? null);
+                $em->persist($device);
+            }
+            
+            // Update mesh information
+            $device->setCurrentRole($role);
+            $device->setLastMeshActivity(new \DateTime());
+            $device->setSignalStrength($signalStrength);
+            $device->setMasterDeviceMac($masterMac);
+            $device->setConnectedSlaves($connectedSlaves);
+            
+            $em->flush();
+            
+            return new JsonResponse([
+                'status' => 'registered',
+                'device_id' => $device->getId(),
+                'role' => $role
+            ]);
+            
+        } catch (\Exception $e) {
+            $logger->error('Mesh registration failed', ['error' => $e->getMessage()]);
+            return new JsonResponse(['error' => 'Registration failed'], 500);
+        }
+    }
+
+    #[Route('/mesh/data', name: 'mesh_data', methods: ['POST'])]
+    public function meshData(Request $request, EntityManagerInterface $em, LoggerInterface $logger): JsonResponse
+    {
+        try {
+            $data = json_decode($request->getContent(), true);
+            
+            if (json_last_error() !== JSON_ERROR_NONE) {
+                return new JsonResponse(['error' => 'Invalid JSON'], 400);
+            }
+            
+            $masterMac = $data['master_mac'] ?? null;
+            $aggregatedData = $data['aggregated_data'] ?? [];
+            $meshTopology = $data['mesh_topology'] ?? [];
+            
+            if (!$masterMac) {
+                return new JsonResponse(['error' => 'Master MAC required'], 400);
+            }
+            
+            $logger->info('Mesh aggregated data received', [
+                'master_mac' => $masterMac,
+                'device_count' => count($aggregatedData)
+            ]);
+            
+            $masterDevice = $em->getRepository(Device::class)->findOneBy(['macAddress' => $masterMac]);
+            if (!$masterDevice) {
+                return new JsonResponse(['error' => 'Master device not found'], 404);
+            }
+            
+            // Process aggregated data from all devices in the mesh
+            $totalWeight = 0;
+            $processedDevices = [];
+            
+            foreach ($aggregatedData as $deviceData) {
+                $deviceMac = $deviceData['mac_address'] ?? null;
+                if (!$deviceMac) continue;
+                
+                $device = $em->getRepository(Device::class)->findOneBy(['macAddress' => $deviceMac]);
+                if (!$device) {
+                    // Auto-provision slave device
+                    $device = new Device();
+                    $device->setMacAddress($deviceMac);
+                    $device->setDeviceType('ESP32');
+                    $device->setCurrentRole('slave');
+                    $device->setMasterDeviceMac($masterMac);
+                    $em->persist($device);
+                }
+                
+                // Update mesh activity
+                $device->setLastMeshActivity(new \DateTime());
+                $device->setSignalStrength($deviceData['signal_strength'] ?? null);
+                
+                // Create MicroData record
+                $microData = new MicroData();
+                $microData->setDevice($device);
+                $microData->setMacAddress($deviceMac);
+                $microData->setMainAirPressure($deviceData['main_air_pressure'] ?? 0.0);
+                $microData->setAtmosphericPressure($deviceData['atmospheric_pressure'] ?? 0.0);
+                $microData->setTemperature($deviceData['temperature'] ?? 0.0);
+                $microData->setElevation($deviceData['elevation'] ?? 0.0);
+                $microData->setGpsLat($deviceData['gps_lat'] ?? 0.0);
+                $microData->setGpsLng($deviceData['gps_lng'] ?? 0.0);
+                $microData->setTimestamp(new \DateTimeImmutable());
+                
+                // Calculate weight
+                $weight = $this->calculateWeight($device, $microData);
+                $microData->setWeight($weight);
+                $totalWeight += $weight;
+                
+                $em->persist($microData);
+                $processedDevices[] = [
+                    'mac_address' => $deviceMac,
+                    'weight' => $weight,
+                    'role' => $deviceData['role'] ?? 'slave'
+                ];
+            }
+            
+            // Update master device with mesh topology
+            $masterDevice->setConnectedSlaves(array_column($processedDevices, 'mac_address'));
+            $masterDevice->setMeshConfiguration([
+                'topology' => $meshTopology,
+                'total_weight' => $totalWeight,
+                'device_count' => count($processedDevices),
+                'last_update' => (new \DateTime())->format('Y-m-d H:i:s')
+            ]);
+            
+            $em->flush();
+            
+            $logger->info('Mesh data processed successfully', [
+                'master_device_id' => $masterDevice->getId(),
+                'total_weight' => $totalWeight,
+                'devices_processed' => count($processedDevices)
+            ]);
+            
+            return new JsonResponse([
+                'status' => 'success',
+                'total_weight' => $totalWeight,
+                'devices_processed' => count($processedDevices),
+                'master_device_id' => $masterDevice->getId()
+            ]);
+            
+        } catch (\Exception $e) {
+            $logger->error('Mesh data processing failed', ['error' => $e->getMessage()]);
+            return new JsonResponse(['error' => 'Processing failed'], 500);
+        }
+    }
+
+    #[Route('/mesh/topology', name: 'mesh_topology', methods: ['GET'])]
+    public function getMeshTopology(Request $request, EntityManagerInterface $em): JsonResponse
+    {
+        $userMac = $request->query->get('mac_address');
+        if (!$userMac) {
+            return new JsonResponse(['error' => 'MAC address required'], 400);
+        }
+        
+        // Find the user's device
+        $userDevice = $em->getRepository(Device::class)->findOneBy(['macAddress' => $userMac]);
+        if (!$userDevice) {
+            return new JsonResponse(['error' => 'Device not found'], 404);
+        }
+        
+        // Find all devices in the same mesh network
+        $meshDevices = [];
+        
+        if ($userDevice->isMeshMaster()) {
+            // User is master - get all slaves
+            $meshDevices = $em->getRepository(Device::class)->findBy([
+                'masterDeviceMac' => $userMac
+            ]);
+            $meshDevices[] = $userDevice; // Include master
+        } elseif ($userDevice->isMeshSlave()) {
+            // User is slave - get master and other slaves
+            $masterMac = $userDevice->getMasterDeviceMac();
+            if ($masterMac) {
+                $masterDevice = $em->getRepository(Device::class)->findOneBy(['macAddress' => $masterMac]);
+                if ($masterDevice) {
+                    $meshDevices[] = $masterDevice;
+                    $slaves = $em->getRepository(Device::class)->findBy([
+                        'masterDeviceMac' => $masterMac
+                    ]);
+                    $meshDevices = array_merge($meshDevices, $slaves);
+                }
+            }
+        }
+        
+        // Format response
+        $topology = [];
+        foreach ($meshDevices as $device) {
+            $topology[] = [
+                'mac_address' => $device->getMacAddress(),
+                'device_name' => $device->getSerialNumber() ?: ('Device #' . $device->getId()),
+                'role' => $device->getCurrentRole(),
+                'signal_strength' => $device->getSignalStrength(),
+                'last_seen' => $device->getLastMeshActivity()?->format('Y-m-d H:i:s'),
+                'is_active' => $device->getLastMeshActivity() && 
+                            $device->getLastMeshActivity() > (new \DateTime())->modify('-5 minutes'),
+                'vehicle' => $device->getVehicle()?->__toString(),
+                'connected_slaves' => $device->getConnectedSlaves() ?: []
+            ];
+        }
+        
+        return new JsonResponse([
+            'user_device' => [
+                'mac_address' => $userDevice->getMacAddress(),
+                'role' => $userDevice->getCurrentRole()
+            ],
+            'mesh_topology' => $topology,
+            'device_count' => count($topology)
+        ]);
+    }
+
+    #[Route('/mesh/assign-role', name: 'mesh_assign_role', methods: ['POST'])]
+    public function assignMeshRole(Request $request, EntityManagerInterface $em, LoggerInterface $logger): JsonResponse
+    {
+        try {
+            $data = json_decode($request->getContent(), true);
+            
+            $macAddress = $data['mac_address'] ?? null;
+            $newRole = $data['role'] ?? null;
+            $masterMac = $data['master_mac'] ?? null;
+            
+            if (!$macAddress || !$newRole) {
+                return new JsonResponse(['error' => 'MAC address and role required'], 400);
+            }
+            
+            $device = $em->getRepository(Device::class)->findOneBy(['macAddress' => $macAddress]);
+            if (!$device) {
+                return new JsonResponse(['error' => 'Device not found'], 404);
+            }
+            
+            $logger->info('Assigning mesh role', [
+                'mac_address' => $macAddress,
+                'old_role' => $device->getCurrentRole(),
+                'new_role' => $newRole
+            ]);
+            
+            // Update device role
+            $device->setCurrentRole($newRole);
+            $device->setLastMeshActivity(new \DateTime());
+            
+            if ($newRole === 'slave' && $masterMac) {
+                $device->setMasterDeviceMac($masterMac);
+            } elseif ($newRole === 'master') {
+                $device->setMasterDeviceMac(null);
+                // Clear any existing master's slave list and update it
+                $oldSlaves = $em->getRepository(Device::class)->findBy([
+                    'masterDeviceMac' => $macAddress
+                ]);
+                $slaveList = array_map(fn($d) => $d->getMacAddress(), $oldSlaves);
+                $device->setConnectedSlaves($slaveList);
+            }
+            
+            $em->flush();
+            
+            return new JsonResponse([
+                'status' => 'success',
+                'device_id' => $device->getId(),
+                'new_role' => $newRole
+            ]);
+            
+        } catch (\Exception $e) {
+            $logger->error('Role assignment failed', ['error' => $e->getMessage()]);
+            return new JsonResponse(['error' => 'Assignment failed'], 500);
+        }
     }
 }

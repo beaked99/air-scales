@@ -191,6 +191,554 @@
   </div>
 </div>
 
+<!-- Add this section to your dashboard template -->
+
+<!-- Truck Configuration Section -->
+<div class="mb-8">
+  <div class="flex items-center justify-between mb-4">
+    <h2 class="text-xl font-semibold text-white">Truck Configurations</h2>
+    <div class="flex space-x-2">
+      <button id="discover-devices" 
+              class="px-3 py-1 text-sm font-medium text-green-400 bg-green-900 rounded hover:text-green-200">
+        🔍 Discover Devices
+      </button>
+      <button id="create-config" 
+              class="px-3 py-1 text-sm font-medium text-blue-400 bg-blue-900 rounded hover:text-blue-200">
+        ➕ Create Configuration
+      </button>
+    </div>
+  </div>
+  
+  <!-- Active Configuration Display -->
+  <div id="active-config" class="p-4 mb-4 bg-gray-800 rounded-lg" style="display: none;">
+    <h3 class="mb-3 text-lg font-medium text-white">Active Configuration: <span id="config-name"></span></h3>
+    <div id="truck-visual" class="relative p-6 bg-gray-900 rounded-lg" style="min-height: 200px;">
+      <!-- Visual representation of truck + trailers will be rendered here -->
+    </div>
+  </div>
+  
+  <!-- Mesh Network Status -->
+  <div class="p-4 mb-4 bg-gray-800 rounded-lg">
+    <h3 class="mb-3 text-lg font-medium text-white">📡 Mesh Network Status</h3>
+    <div id="mesh-status" class="space-y-2">
+      <div class="flex items-center justify-between text-sm">
+        <span class="text-gray-400">Network Status:</span>
+        <span id="mesh-network-status" class="text-yellow-400">Discovering...</span>
+      </div>
+      <div class="flex items-center justify-between text-sm">
+        <span class="text-gray-400">Role:</span>
+        <span id="device-role" class="text-blue-400">Undefined</span>
+      </div>
+      <div class="flex items-center justify-between text-sm">
+        <span class="text-gray-400">Connected Devices:</span>
+        <span id="connected-count" class="text-green-400">0</span>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Device Mesh List -->
+  <div class="p-4 bg-gray-800 rounded-lg">
+    <h3 class="mb-3 text-lg font-medium text-white">🚛 Discovered Devices</h3>
+    <div id="mesh-devices" class="space-y-2">
+      <div class="py-4 text-sm text-center text-gray-400">
+        Click "Discover Devices" to scan for nearby AirScales devices
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Configuration Creation Modal -->
+<div id="config-modal" class="fixed inset-0 z-50 hidden bg-black bg-opacity-50">
+  <div class="flex items-center justify-center min-h-screen p-4">
+    <div class="w-full max-w-4xl max-h-screen overflow-y-auto bg-gray-800 rounded-lg">
+      <div class="p-6">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-xl font-semibold text-white">Create Truck Configuration</h2>
+          <button id="close-modal" class="text-gray-400 hover:text-white">✕</button>
+        </div>
+        
+        <div class="mb-4">
+          <label class="block mb-2 text-sm font-medium text-gray-300">Configuration Name</label>
+          <input type="text" id="config-name-input" 
+                 class="w-full px-3 py-2 text-white bg-gray-700 border border-gray-600 rounded"
+                 placeholder="e.g., Peterbilt 579 + 53ft Trailer">
+        </div>
+        
+        <!-- Truck Builder -->
+        <div class="mb-6">
+          <h3 class="mb-3 text-lg font-medium text-white">Build Your Truck</h3>
+          <div class="flex mb-4 space-x-4">
+            <button class="px-3 py-2 text-white bg-blue-600 rounded truck-component" data-type="tractor">
+              🚚 Add Tractor
+            </button>
+            <button class="px-3 py-2 text-white bg-green-600 rounded truck-component" data-type="trailer">
+              📦 Add Trailer
+            </button>
+            <button class="px-3 py-2 text-white bg-purple-600 rounded truck-component" data-type="dolly">
+              🔗 Add Dolly
+            </button>
+          </div>
+          
+          <!-- Visual Truck Builder -->
+          <div id="truck-builder" class="relative p-6 bg-gray-900 border-2 border-gray-600 border-dashed rounded-lg min-h-64">
+            <div class="py-8 text-center text-gray-400">
+              <p>Click components above to build your truck configuration</p>
+              <p class="text-sm">Drag devices from the list below to assign them to positions</p>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Available Devices -->
+        <div class="mb-6">
+          <h3 class="mb-3 text-lg font-medium text-white">Available Devices</h3>
+          <div id="available-devices" class="grid grid-cols-2 gap-3 md:grid-cols-3">
+            <!-- Devices will be populated here -->
+          </div>
+        </div>
+        
+        <div class="flex justify-end space-x-3">
+          <button id="cancel-config" class="px-4 py-2 text-white bg-gray-600 rounded hover:bg-gray-700">
+            Cancel
+          </button>
+          <button id="save-config" class="px-4 py-2 text-white bg-blue-600 rounded hover:bg-blue-700">
+            Save Configuration
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// Truck Configuration Management
+let discoveredDevices = new Map();
+let currentConfig = null;
+let meshDevices = new Map();
+
+// Mesh networking functions
+function startDeviceDiscovery() {
+  updateMeshStatus('discovering', 'Discovering devices...');
+  
+  // Simulate device discovery (in reality, this would trigger ESP32 discovery)
+  setTimeout(() => {
+    // Mock discovered devices
+    const mockDevices = [
+      { mac: 'EC:DA:3B:5C:19:84', name: 'AirScales-Tractor', role: 'master', signal: -45, position: 'tractor' },
+      { mac: 'EC:DA:3B:5C:19:85', name: 'AirScales-Trailer1', role: 'slave', signal: -52, position: 'trailer_front' },
+      { mac: 'EC:DA:3B:5C:19:86', name: 'AirScales-Trailer2', role: 'slave', signal: -58, position: 'trailer_rear' }
+    ];
+    
+    mockDevices.forEach(device => {
+      discoveredDevices.set(device.mac, device);
+    });
+    
+    updateMeshDeviceList();
+    updateMeshStatus('connected', 'Mesh Active');
+  }, 3000);
+}
+
+function updateMeshDeviceList() {
+  const container = document.getElementById('mesh-devices');
+  
+  if (discoveredDevices.size === 0) {
+    container.innerHTML = '<div class="py-4 text-sm text-center text-gray-400">No devices discovered</div>';
+    return;
+  }
+  
+  let html = '';
+  discoveredDevices.forEach((device, mac) => {
+    const signalStrength = getSignalStrengthIcon(device.signal);
+    const roleColor = device.role === 'master' ? 'text-blue-400' : 'text-green-400';
+    
+    html += `
+      <div class="flex items-center justify-between p-3 bg-gray-700 rounded device-item" data-mac="${mac}">
+        <div class="flex-1">
+          <div class="font-medium text-white">${device.name}</div>
+          <div class="text-sm text-gray-400">
+            ${mac} | ${signalStrength} | 
+            <span class="${roleColor}">${device.role.toUpperCase()}</span>
+            ${device.position ? ' | ' + device.position : ''}
+          </div>
+        </div>
+        <div class="flex space-x-2">
+          <button onclick="assignDeviceRole('${mac}')" 
+                  class="px-2 py-1 text-xs text-blue-400 bg-blue-900 rounded hover:text-blue-200">
+            Configure
+          </button>
+          ${device.role === 'master' ? 
+            '<span class="px-2 py-1 text-xs text-blue-400 bg-blue-900 rounded">MASTER</span>' :
+            '<button onclick="promoteToMaster(\'' + mac + '\')" class="px-2 py-1 text-xs text-yellow-400 bg-yellow-900 rounded hover:text-yellow-200">Make Master</button>'
+          }
+        </div>
+      </div>
+    `;
+  });
+  
+  container.innerHTML = html;
+  
+  // Update mesh status
+  const masterCount = Array.from(discoveredDevices.values()).filter(d => d.role === 'master').length;
+  const slaveCount = Array.from(discoveredDevices.values()).filter(d => d.role === 'slave').length;
+  
+  document.getElementById('connected-count').textContent = discoveredDevices.size;
+  document.getElementById('device-role').textContent = masterCount > 0 ? 'Master Network' : 'Searching...';
+}
+
+function getSignalStrengthIcon(rssi) {
+  if (rssi > -50) return '📶📶📶';
+  if (rssi > -60) return '📶📶';
+  if (rssi > -70) return '📶';
+  return '📱';
+}
+
+function updateMeshStatus(status, message) {
+  const statusElement = document.getElementById('mesh-network-status');
+  const colors = {
+    'discovering': 'text-yellow-400',
+    'connected': 'text-green-400',
+    'error': 'text-red-400'
+  };
+  
+  statusElement.className = colors[status] || 'text-gray-400';
+  statusElement.textContent = message;
+}
+
+function assignDeviceRole(mac) {
+  const device = discoveredDevices.get(mac);
+  if (!device) return;
+  
+  const newRole = prompt(`Assign role for ${device.name}:`, device.role);
+  if (newRole && ['master', 'slave', 'trailer_front', 'trailer_rear'].includes(newRole)) {
+    device.role = newRole;
+    updateMeshDeviceList();
+    
+    // Send role assignment to ESP32
+    sendRoleAssignment(mac, newRole);
+  }
+}
+
+function promoteToMaster(mac) {
+  const device = discoveredDevices.get(mac);
+  if (!device) return;
+  
+  // Demote current master
+  discoveredDevices.forEach((d) => {
+    if (d.role === 'master') d.role = 'slave';
+  });
+  
+  // Promote new master
+  device.role = 'master';
+  updateMeshDeviceList();
+  
+  sendRoleAssignment(mac, 'master');
+}
+
+function sendRoleAssignment(mac, role) {
+  // In real implementation, this would send commands to ESP32
+  console.log(`Assigning role ${role} to device ${mac}`);
+  
+  // Mock API call
+  fetch('/dashboard/api/assign-device-role', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ mac_address: mac, role: role })
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.status === 'success') {
+      console.log('Role assigned successfully');
+    }
+  })
+  .catch(error => console.error('Error assigning role:', error));
+}
+
+// Configuration Management
+function showConfigurationModal() {
+  document.getElementById('config-modal').classList.remove('hidden');
+  populateAvailableDevices();
+}
+
+function hideConfigurationModal() {
+  document.getElementById('config-modal').classList.add('hidden');
+  clearTruckBuilder();
+}
+
+function populateAvailableDevices() {
+  const container = document.getElementById('available-devices');
+  
+  let html = '';
+  discoveredDevices.forEach((device, mac) => {
+    html += `
+      <div class="p-3 bg-gray-700 rounded cursor-move device-tile" draggable="true" data-mac="${mac}">
+        <div class="text-sm font-medium text-white">${device.name}</div>
+        <div class="text-xs text-gray-400">${mac.slice(-8)}</div>
+        <div class="text-xs text-blue-400">${device.role}</div>
+      </div>
+    `;
+  });
+  
+  container.innerHTML = html;
+  
+  // Add drag listeners
+  container.querySelectorAll('.device-tile').forEach(tile => {
+    tile.addEventListener('dragstart', (e) => {
+      e.dataTransfer.setData('text/plain', e.target.dataset.mac);
+    });
+  });
+}
+
+function clearTruckBuilder() {
+  const builder = document.getElementById('truck-builder');
+  builder.innerHTML = `
+    <div class="py-8 text-center text-gray-400">
+      <p>Click components above to build your truck configuration</p>
+      <p class="text-sm">Drag devices from the list below to assign them to positions</p>
+    </div>
+  `;
+}
+
+// Truck component building
+let truckComponents = [];
+
+function addTruckComponent(type) {
+  const builder = document.getElementById('truck-builder');
+  const componentId = 'component-' + Date.now();
+  
+  const component = {
+    id: componentId,
+    type: type,
+    devices: [],
+    position: { x: truckComponents.length * 150 + 50, y: 100 }
+  };
+  
+  truckComponents.push(component);
+  renderTruckBuilder();
+}
+
+function renderTruckBuilder() {
+  const builder = document.getElementById('truck-builder');
+  
+  if (truckComponents.length === 0) {
+    clearTruckBuilder();
+    return;
+  }
+  
+  let html = '';
+  truckComponents.forEach(component => {
+    const icons = {
+      'tractor': '🚚',
+      'trailer': '📦', 
+      'dolly': '🔗'
+    };
+    
+    html += `
+      <div class="absolute p-4 bg-gray-700 border-2 border-gray-500 rounded-lg truck-component-visual min-w-32" 
+           style="left: ${component.position.x}px; top: ${component.position.y}px;"
+           data-component-id="${component.id}">
+        <div class="text-center">
+          <div class="mb-2 text-2xl">${icons[component.type]}</div>
+          <div class="text-sm font-medium text-white">${component.type.toUpperCase()}</div>
+          <div class="mt-2 bg-gray-800 border-2 border-gray-600 border-dashed rounded min-h-16 device-drop-zone" 
+               data-component-id="${component.id}">
+            ${component.devices.length > 0 ? 
+              component.devices.map(d => `<div class="p-1 text-xs text-green-400">${d.name}</div>`).join('') :
+              '<div class="p-2 text-xs text-gray-500">Drop device here</div>'
+            }
+          </div>
+        </div>
+      </div>
+    `;
+  });
+  
+  builder.innerHTML = html;
+  
+  // Add drop zone listeners
+  builder.querySelectorAll('.device-drop-zone').forEach(zone => {
+    zone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      zone.classList.add('border-blue-400');
+    });
+    
+    zone.addEventListener('dragleave', (e) => {
+      zone.classList.remove('border-blue-400');
+    });
+    
+    zone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      zone.classList.remove('border-blue-400');
+      
+      const deviceMac = e.dataTransfer.getData('text/plain');
+      const componentId = zone.dataset.componentId;
+      
+      assignDeviceToComponent(deviceMac, componentId);
+    });
+  });
+}
+
+function assignDeviceToComponent(deviceMac, componentId) {
+  const device = discoveredDevices.get(deviceMac);
+  const component = truckComponents.find(c => c.id === componentId);
+  
+  if (device && component) {
+    // Remove device from other components
+    truckComponents.forEach(c => {
+      c.devices = c.devices.filter(d => d.mac !== deviceMac);
+    });
+    
+    // Add to current component
+    component.devices.push({
+      mac: deviceMac,
+      name: device.name,
+      role: device.role
+    });
+    
+    renderTruckBuilder();
+  }
+}
+
+function saveConfiguration() {
+  const name = document.getElementById('config-name-input').value;
+  if (!name.trim()) {
+    alert('Please enter a configuration name');
+    return;
+  }
+  
+  const config = {
+    name: name.trim(),
+    components: truckComponents,
+    devices: Array.from(discoveredDevices.entries()).map(([mac, device]) => ({
+      mac: mac,
+      name: device.name,
+      role: device.role,
+      position: device.position
+    })),
+    layout: {
+      components: truckComponents
+    }
+  };
+  
+  // Save to server
+  fetch('/dashboard/truck-configuration/create', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(config)
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.status === 'success') {
+      hideConfigurationModal();
+      loadTruckConfigurations();
+      alert('Configuration saved successfully!');
+    }
+  })
+  .catch(error => {
+    console.error('Error saving configuration:', error);
+    alert('Error saving configuration');
+  });
+}
+
+// Event listeners
+document.addEventListener('DOMContentLoaded', () => {
+  // Add to your existing DOMContentLoaded function
+  
+  document.getElementById('discover-devices')?.addEventListener('click', startDeviceDiscovery);
+  document.getElementById('create-config')?.addEventListener('click', showConfigurationModal);
+  document.getElementById('close-modal')?.addEventListener('click', hideConfigurationModal);
+  document.getElementById('cancel-config')?.addEventListener('click', hideConfigurationModal);
+  document.getElementById('save-config')?.addEventListener('click', saveConfiguration);
+  
+  // Truck component buttons
+  document.querySelectorAll('.truck-component').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      addTruckComponent(e.target.dataset.type);
+    });
+  });
+  
+  // Start mesh monitoring
+  setInterval(updateMeshStatus, 5000);
+});
+
+// Update existing functions to include mesh device data
+function updateUnifiedTable() {
+  const tbody = document.getElementById('sensor-data');
+  const totalWeight = document.getElementById('total-weight');
+  const deviceCount = document.getElementById('device-count');
+  
+  if (allDeviceData.size === 0) {
+    tbody.innerHTML = '<tr><td colspan="5" class="p-6 text-center text-gray-400">📡 No devices found...</td></tr>';
+    totalWeight.textContent = '0.0 lbs';
+    deviceCount.textContent = '0';
+    return;
+  }
+  
+  let html = '';
+  let total = 0;
+  let activeDevices = 0;
+  
+  allDeviceData.forEach((deviceInfo, mac) => {
+    const weight = parseFloat(deviceInfo.weight) || 0;
+    total += weight;
+    activeDevices++;
+    
+    // Check if this device is part of mesh network
+    const meshDevice = discoveredDevices.get(mac);
+    const meshInfo = meshDevice ? ` | MESH: ${meshDevice.role.toUpperCase()}` : '';
+    
+    // Determine status and color based on source and status
+    let statusColor = '#ef4444';
+    let statusText = '● Unknown';
+    
+    if (deviceInfo.source === 'bluetooth') {
+      statusColor = '#22c55e';
+      statusText = '● BLE Connected';
+    } else if (deviceInfo.source === 'websocket') {
+      statusColor = '#22c55e';
+      statusText = '● WiFi Connected';
+    } else if (deviceInfo.source === 'server') {
+      if (deviceInfo.status === 'online') {
+        statusColor = '#22c55e';
+        statusText = '● Online';
+      } else if (deviceInfo.last_seen === 'just now') {
+        statusColor = '#22c55e';
+        statusText = '● Online';
+      } else if (deviceInfo.last_seen && deviceInfo.last_seen.includes('minute')) {
+        const minutes = parseInt(deviceInfo.last_seen.match(/\d+/)?.[0] || '999');
+        if (minutes <= 10) {
+          statusColor = '#22c55e';
+        } else if (minutes <= 30) {
+          statusColor = '#f59e0b';
+        }
+        statusText = `● ${deviceInfo.last_seen}`;
+      } else if (deviceInfo.last_seen && deviceInfo.last_seen.includes('hour')) {
+        statusColor = '#f59e0b';
+        statusText = `● ${deviceInfo.last_seen}`;
+      } else if (deviceInfo.last_seen) {
+        statusColor = '#f59e0b';
+        statusText = `● ${deviceInfo.last_seen}`;
+      }
+    }
+    
+    html += `
+      <tr style="border-bottom: 1px solid #374151;">
+        <td style="padding: 15px; color: #e2e8f0;">
+          ${deviceInfo.device_name || mac.slice(-4)}
+          ${deviceInfo.vehicle ? '<br><span style="font-size: 12px; color: #9ca3af;">' + deviceInfo.vehicle + '</span>' : ''}
+          <br><span style="font-size: 10px; color: #6b7280;">${deviceInfo.source?.toUpperCase() || 'UNKNOWN'}${meshInfo}</span>
+        </td>
+        <td style="padding: 15px; text-align: right; color: #f1f5f9; font-weight: bold;">${weight.toFixed(1)}</td>
+        <td style="padding: 15px; text-align: right; color: #e2e8f0;">${deviceInfo.main_air_pressure || 'N/A'}</td>
+        <td style="padding: 15px; text-align: right; color: #e2e8f0;">${deviceInfo.temperature || 'N/A'}</td>
+        <td style="padding: 15px; color: ${statusColor};">${statusText}</td>
+      </tr>
+    `;
+  });
+  
+  tbody.innerHTML = html;
+  totalWeight.textContent = `${total.toFixed(1)} lbs`;
+  deviceCount.textContent = activeDevices;
+}
+</script>
+
 <script>
 // Unified device data management
 let allDeviceData = new Map(); // Combined data from all sources
