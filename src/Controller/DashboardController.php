@@ -213,110 +213,38 @@ class DashboardController extends AbstractController
     {
         $user = $this->getUser();
         
-        // Get user's accessible devices
+        // Get user's devices
         $userDevices = $this->getUserDevices($em, $user);
         
-        // Find mesh networks involving user's devices
+        // ONLY get devices that have recent mesh activity (last 5 minutes)
+        $activeThreshold = (new \DateTime())->modify('-5 minutes');
+        
         $meshNetworks = [];
         
         foreach ($userDevices as $device) {
-            // Skip if device doesn't have mesh methods yet
-            if (!method_exists($device, 'getCurrentRole')) {
+            // Skip devices without mesh methods or no recent mesh activity
+            if (!method_exists($device, 'getCurrentRole') || 
+                !$device->getLastMeshActivity() || 
+                $device->getLastMeshActivity() < $activeThreshold) {
+                continue; // Skip inactive devices like your old Toyota Camry
+            }
+            
+            // Only include devices that are actually in mesh mode
+            if (!in_array($device->getCurrentRole(), ['master', 'slave', 'discovery'])) {
                 continue;
             }
             
-            $networkDevices = [];
-            
-            if (method_exists($device, 'isMeshMaster') && $device->isMeshMaster()) {
-                // Get all slaves for this master
-                $slaves = $em->getRepository(Device::class)->findBy([
-                    'masterDeviceMac' => $device->getMacAddress()
-                ]);
-                $networkDevices[] = $device; // Include master
-                $networkDevices = array_merge($networkDevices, $slaves);
-            } elseif (method_exists($device, 'isMeshSlave') && $device->isMeshSlave()) {
-                // Get master and other slaves in the network
-                $masterMac = $device->getMasterDeviceMac();
-                if ($masterMac) {
-                    $master = $em->getRepository(Device::class)->findOneBy(['macAddress' => $masterMac]);
-                    if ($master) {
-                        $networkDevices[] = $master;
-                        $slaves = $em->getRepository(Device::class)->findBy([
-                            'masterDeviceMac' => $masterMac
-                        ]);
-                        $networkDevices = array_merge($networkDevices, $slaves);
-                    }
-                }
-            } else {
-                // Single device not in mesh
-                $networkDevices[] = $device;
-            }
-            
-            // Deduplicate devices across networks
-            $networkKey = (method_exists($device, 'isMeshMaster') && $device->isMeshMaster()) ? 
-                         $device->getMacAddress() : 
-                         (method_exists($device, 'getMasterDeviceMac') ? $device->getMasterDeviceMac() : $device->getMacAddress());
-            
-            if (!isset($meshNetworks[$networkKey])) {
-                $meshNetworks[$networkKey] = $networkDevices;
-            }
-        }
-        
-        // Format response
-        $response = [];
-        foreach ($meshNetworks as $networkKey => $devices) {
-            $network = [
-                'network_id' => $networkKey,
-                'devices' => [],
-                'total_weight' => 0,
-                'is_active' => false
-            ];
-            
-            foreach ($devices as $device) {
-                $isActive = method_exists($device, 'getLastMeshActivity') && 
-                           $device->getLastMeshActivity() && 
-                           $device->getLastMeshActivity() > (new \DateTime())->modify('-5 minutes');
-                
-                if ($isActive) {
-                    $network['is_active'] = true;
-                }
-                
-                // Get latest weight
-                $latestData = $em->getRepository(\App\Entity\MicroData::class)
-                    ->createQueryBuilder('m')
-                    ->where('m.device = :device')
-                    ->setParameter('device', $device)
-                    ->orderBy('m.id', 'DESC')
-                    ->setMaxResults(1)
-                    ->getQuery()
-                    ->getOneOrNullResult();
-                
-                $weight = $latestData ? $latestData->getWeight() : 0;
-                $network['total_weight'] += $weight;
-                
-                $network['devices'][] = [
-                    'device_id' => $device->getId(),
-                    'mac_address' => $device->getMacAddress(),
-                    'device_name' => $device->getSerialNumber() ?: ('Device #' . $device->getId()),
-                    'role' => method_exists($device, 'getCurrentRole') ? ($device->getCurrentRole() ?: 'standalone') : 'standalone',
-                    'signal_strength' => method_exists($device, 'getSignalStrength') ? $device->getSignalStrength() : null,
-                    'last_seen' => method_exists($device, 'getLastMeshActivity') ? $device->getLastMeshActivity()?->format('Y-m-d H:i:s') : null,
-                    'is_active' => $isActive,
-                    'weight' => $weight,
-                    'vehicle' => $device->getVehicle()?->__toString(),
-                    'user_has_access' => in_array($device->getId(), array_map(fn($d) => $d->getId(), $userDevices))
-                ];
-            }
-            
-            $response[] = $network;
+            // Rest of your existing mesh network building logic...
+            // (keep the existing code that builds $networkDevices, etc.)
         }
         
         return new JsonResponse([
-            'mesh_networks' => $response,
-            'total_networks' => count($response),
+            'mesh_networks' => $meshNetworks,
+            'total_networks' => count($meshNetworks),
             'timestamp' => (new \DateTime())->format('Y-m-d H:i:s')
         ]);
     }
+
 
     #[Route('/dashboard/truck-configurations', name: 'dashboard_truck_configurations')]
     public function truckConfigurations(EntityManagerInterface $em): Response
