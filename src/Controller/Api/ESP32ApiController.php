@@ -155,7 +155,7 @@ class ESP32ApiController extends AbstractController
 
             
             $access->setIsActive(true);
-            $access->setLastConnectedAt(new \DateTimeImmutable());
+            $access->setLastConnectedAt(new \DateTime());
             
             $em->persist($access);
             
