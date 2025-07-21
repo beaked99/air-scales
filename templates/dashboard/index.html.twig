@@ -1194,6 +1194,13 @@ function handleBLEData(event, deviceInfo) {
         deviceInfo.lastSeen = new Date();
         deviceInfo.dataCount++;
         
+        // ✅ ADD: Notify server using correct MAC from data (only once)
+        if (!deviceInfo.serverNotified) {
+            deviceInfo.serverNotified = true;
+            console.log('Notifying server with correct MAC:', data.mac_address);
+            notifyServerOfBLEConnection(data.mac_address); // Use data.mac_address instead of device name
+        }
+        
         // Add to unified device data with highest priority
         allDeviceData.set(data.mac_address, {
             ...data,
@@ -1489,7 +1496,7 @@ async function connectToBLEDevice(device) {
         bleDevices.set(device.id, deviceInfo);
         
         // ✅ ADD THIS: Notify server about the BLE connection
-        await notifyServerOfBLEConnection(deviceInfo.mac_address);
+        //await notifyServerOfBLEConnection(deviceInfo.mac_address);
         
         await sensorCharacteristic.startNotifications();
         sensorCharacteristic.addEventListener('characteristicvaluechanged', 
