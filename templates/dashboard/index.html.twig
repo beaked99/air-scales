@@ -1529,6 +1529,7 @@ async function notifyServerOfBLEConnection(macAddress) {
     try {
         // Get current user ID (you'll need to add this to your page)
         const userId = getCurrentUserId(); // You need to implement this
+        console.log('User ID:', userId);
         
         const response = await fetch('/api/esp32/connect', {
             method: 'POST',
@@ -1540,6 +1541,8 @@ async function notifyServerOfBLEConnection(macAddress) {
                 user_id: userId
             })
         });
+        const result = await response.json();
+        console.log('Server response:', result);
         
         if (response.ok) {
             const result = await response.json();
