@@ -150,10 +150,12 @@ class ESP32ApiController extends AbstractController
                 $access = new DeviceAccess();
                 $access->setDevice($device);
                 $access->setUser($user);
+                $access->setFirstSeenAt(new \DateTimeImmutable()); // Add this for new connections
             }
+
             
             $access->setIsActive(true);
-            $access->setLastAccessedAt(new \DateTimeImmutable());
+            $access->setLastConnectedAt(new \DateTimeImmutable());
             
             $em->persist($access);
             

@@ -171,6 +171,7 @@ void handleMeshLoop();
 DeviceInfo* findDevice(const uint8_t *mac_addr);
 void addOrUpdateDevice(const uint8_t *mac_addr, MeshMessage* msg);
 void removeInactiveDevices();
+void registerMeshStatus();
 
 void setup() {
   Serial.begin(115200);
@@ -274,6 +275,13 @@ void loop() {
     }
     
     lastDataSend = millis();
+  }
+
+  // Register mesh status every 30 seconds
+  static unsigned long lastMeshRegister = 0;
+  if (millis() - lastMeshRegister > 30000) {
+    registerMeshStatus();
+    lastMeshRegister = millis();
   }
   
   // Heartbeat every 5 minutes
@@ -805,6 +813,7 @@ void initMeshNetworking() {
   // Start in discovery mode
   currentRole = ROLE_DISCOVERY;
   meshInitialized = true;
+  registerMeshStatus();
   
   Serial.println("Mesh networking initialized");
   Serial.println("Device Role: DISCOVERY");
@@ -965,6 +974,9 @@ void becomeMaster() {
   
   Serial.println("Becoming MASTER device");
   currentRole = ROLE_MASTER;
+
+  // Register new role with server
+  registerMeshStatus();
   
   // Send role assignment to known devices
   MeshMessage msg;
@@ -982,6 +994,9 @@ void becomeSlave(const uint8_t *masterMAC) {
   
   Serial.println("Becoming SLAVE device");
   currentRole = ROLE_SLAVE;
+
+  // Register new role with server
+  registerMeshStatus();
   
   // Add master to peer list
   esp_now_peer_info_t peerInfo;
@@ -1111,4 +1126,56 @@ void broadcastMeshMessage(MeshMessage* msg) {
   }
   
   sendMeshMessage(broadcastAddress, msg);
+}
+
+void registerMeshStatus() {
+  if (!isConnectedToWiFi) return;
+  
+  Serial.println("=== MESH REGISTRATION DEBUG ===");
+  Serial.println("Device MAC: " + deviceMAC);
+  Serial.println("Calling: " + String(SERVER_URL) + "/api/esp32/mesh/register");
+
+  http.begin(String(SERVER_URL) + "/api/esp32/mesh/register");
+  http.addHeader("Content-Type", "application/json");
+  
+  DynamicJsonDocument doc(512);
+  doc["mac_address"] = deviceMAC;
+  doc["role"] = currentRole == ROLE_MASTER ? "master" : 
+                currentRole == ROLE_SLAVE ? "slave" : "discovery";
+  doc["device_type"] = "FeatherS3";
+  doc["signal_strength"] = WiFi.RSSI();
+  
+  // Add connected slaves if master
+  if (currentRole == ROLE_MASTER) {
+    JsonArray slaves = doc.createNestedArray("connected_slaves");
+    for (int i = 0; i < knownDeviceCount; i++) {
+      if (knownDevices[i].isActive) {
+        slaves.add(String((char*)knownDevices[i].macAddress));
+      }
+    }
+  }
+  
+  // Add master MAC if slave
+  if (currentRole == ROLE_SLAVE) {
+    // Add master MAC here when you know it
+  }
+  
+  String jsonString;
+  serializeJson(doc, jsonString);
+
+  Serial.println("Sending JSON: " + jsonString);
+  
+  int httpResponseCode = http.POST(jsonString);
+  String response = http.getString();
+  
+  if (httpResponseCode > 0) {
+    Serial.println("Mesh status registered: " + String(httpResponseCode));
+  } else {
+    Serial.println("Failed to register mesh status");
+  }
+  
+  Serial.println("Response Code: " + String(httpResponseCode));
+  Serial.println("Response Body: " + response);
+  
+  http.end();
 }
