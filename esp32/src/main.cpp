@@ -103,7 +103,7 @@ String truckConfiguration = "";
 DeviceInfo knownDevices[MAX_SLAVES];
 uint8_t knownDeviceCount = 0;
 unsigned long lastDiscovery = 0;
-unsigned long lastHeartbeat = 0;
+//unsigned long lastHeartbeat = 0;
 bool meshInitialized = false;
 
 // Sensor Data Structure

@@ -319,29 +319,52 @@ let meshDevices = new Map();
 function startDeviceDiscovery() {
   updateMeshStatus('discovering', 'Discovering devices...');
   
-  // Simulate device discovery (in reality, this would trigger ESP32 discovery)
-  setTimeout(() => {
-    // Mock discovered devices
-    const mockDevices = [
-      { mac: 'EC:DA:3B:5C:19:84', name: 'AirScales-Tractor', role: 'master', signal: -45, position: 'tractor' },
-      { mac: 'EC:DA:3B:5C:19:85', name: 'AirScales-Trailer1', role: 'slave', signal: -52, position: 'trailer_front' },
-      { mac: 'EC:DA:3B:5C:19:86', name: 'AirScales-Trailer2', role: 'slave', signal: -58, position: 'trailer_rear' }
-    ];
-    
-    mockDevices.forEach(device => {
-      discoveredDevices.set(device.mac, device);
+  // Call your real API to get mesh devices
+  fetch('/dashboard/api/mesh-devices')
+    .then(response => response.json())
+    .then(data => {
+      console.log('Mesh networks received:', data);
+      
+      // Clear existing discovered devices
+      discoveredDevices.clear();
+      
+      if (data.mesh_networks && data.mesh_networks.length > 0) {
+        // Process real mesh networks
+        data.mesh_networks.forEach(network => {
+          network.devices.forEach(device => {
+            discoveredDevices.set(device.mac_address, {
+              mac: device.mac_address,
+              name: device.device_name,
+              role: device.role,
+              signal: device.signal_strength || -60, // Default signal if not provided
+              position: device.position || '',
+              isActive: device.is_active,
+              weight: device.weight,
+              vehicle: device.vehicle,
+              deviceId: device.device_id
+            });
+          });
+        });
+        
+        updateMeshDeviceList();
+        updateMeshStatus('connected', `Found ${discoveredDevices.size} devices`);
+      } else {
+        updateMeshDeviceList();
+        updateMeshStatus('no_devices', 'No mesh devices found');
+      }
+    })
+    .catch(error => {
+      console.error('Error discovering devices:', error);
+      updateMeshStatus('error', 'Discovery failed');
+      updateMeshDeviceList(); // Show empty list
     });
-    
-    updateMeshDeviceList();
-    updateMeshStatus('connected', 'Mesh Active');
-  }, 3000);
 }
 
 function updateMeshDeviceList() {
   const container = document.getElementById('mesh-devices');
   
   if (discoveredDevices.size === 0) {
-    container.innerHTML = '<div class="py-4 text-sm text-center text-gray-400">No devices discovered</div>';
+    container.innerHTML = '<div class="py-4 text-sm text-center text-gray-400">No devices discovered. Make sure ESP32 devices are nearby and powered on.</div>';
     return;
   }
   
@@ -349,6 +372,8 @@ function updateMeshDeviceList() {
   discoveredDevices.forEach((device, mac) => {
     const signalStrength = getSignalStrengthIcon(device.signal);
     const roleColor = device.role === 'master' ? 'text-blue-400' : 'text-green-400';
+    const statusColor = device.isActive ? 'text-green-400' : 'text-yellow-400';
+    const statusText = device.isActive ? 'Active' : 'Inactive';
     
     html += `
       <div class="flex items-center justify-between p-3 bg-gray-700 rounded device-item" data-mac="${mac}">
@@ -358,6 +383,11 @@ function updateMeshDeviceList() {
             ${mac} | ${signalStrength} | 
             <span class="${roleColor}">${device.role.toUpperCase()}</span>
             ${device.position ? ' | ' + device.position : ''}
+            ${device.vehicle ? ' | ' + device.vehicle : ''}
+          </div>
+          <div class="text-xs text-gray-500">
+            Weight: ${device.weight || 0} lbs | 
+            <span class="${statusColor}">${statusText}</span>
           </div>
         </div>
         <div class="flex space-x-2">
@@ -379,9 +409,10 @@ function updateMeshDeviceList() {
   // Update mesh status
   const masterCount = Array.from(discoveredDevices.values()).filter(d => d.role === 'master').length;
   const slaveCount = Array.from(discoveredDevices.values()).filter(d => d.role === 'slave').length;
+  const activeCount = Array.from(discoveredDevices.values()).filter(d => d.isActive).length;
   
-  document.getElementById('connected-count').textContent = discoveredDevices.size;
-  document.getElementById('device-role').textContent = masterCount > 0 ? 'Master Network' : 'Searching...';
+  document.getElementById('connected-count').textContent = activeCount;
+  document.getElementById('device-role').textContent = masterCount > 0 ? 'Master Network Active' : 'No Master Found';
 }
 
 function getSignalStrengthIcon(rssi) {
@@ -396,6 +427,7 @@ function updateMeshStatus(status, message) {
   const colors = {
     'discovering': 'text-yellow-400',
     'connected': 'text-green-400',
+    'no_devices': 'text-orange-400',
     'error': 'text-red-400'
   };
   
@@ -407,13 +439,37 @@ function assignDeviceRole(mac) {
   const device = discoveredDevices.get(mac);
   if (!device) return;
   
-  const newRole = prompt(`Assign role for ${device.name}:`, device.role);
-  if (newRole && ['master', 'slave', 'trailer_front', 'trailer_rear'].includes(newRole)) {
-    device.role = newRole;
-    updateMeshDeviceList();
-    
-    // Send role assignment to ESP32
-    sendRoleAssignment(mac, newRole);
+  const roles = ['master', 'slave', 'trailer_front', 'trailer_rear', 'tractor'];
+  const newRole = prompt(`Assign role for ${device.name}:\n\nOptions: ${roles.join(', ')}`, device.role);
+  
+  if (newRole && roles.includes(newRole)) {
+    // Send role assignment to server
+    fetch('/dashboard/api/assign-device-role', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 
+        mac_address: mac, 
+        role: newRole,
+        device_id: device.deviceId 
+      })
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.status === 'success') {
+        // Update local device data
+        device.role = newRole;
+        updateMeshDeviceList();
+        
+        // Refresh discovery to get latest state
+        setTimeout(() => startDeviceDiscovery(), 1000);
+      } else {
+        alert('Failed to assign role: ' + (data.error || 'Unknown error'));
+      }
+    })
+    .catch(error => {
+      console.error('Error assigning role:', error);
+      alert('Error assigning role');
+    });
   }
 }
 
@@ -421,17 +477,38 @@ function promoteToMaster(mac) {
   const device = discoveredDevices.get(mac);
   if (!device) return;
   
-  // Demote current master
-  discoveredDevices.forEach((d) => {
-    if (d.role === 'master') d.role = 'slave';
-  });
-  
-  // Promote new master
-  device.role = 'master';
-  updateMeshDeviceList();
-  
-  sendRoleAssignment(mac, 'master');
+  if (confirm(`Promote ${device.name} to master?\n\nThis will demote the current master device.`)) {
+    assignDeviceRole(mac); // This will prompt for role, user can enter 'master'
+  }
 }
+
+// Update the periodic refresh to use real data
+function startMeshMonitoring() {
+  // Refresh mesh device list every 10 seconds
+  setInterval(() => {
+    if (discoveredDevices.size > 0) {
+      startDeviceDiscovery(); // Refresh with real data
+    }
+  }, 10000);
+}
+
+// Update your DOMContentLoaded event listener
+document.addEventListener('DOMContentLoaded', () => {
+  // Your existing initialization code...
+  detectModeAndConnect();
+  updateStatus();
+  initVehicleSorting();
+  startLiveDataPolling();
+  initBLEIntegration();
+  
+  // Initialize mesh monitoring
+  startMeshMonitoring();
+  
+  // Your existing event listeners...
+  document.getElementById('discover-devices')?.addEventListener('click', startDeviceDiscovery);
+  document.getElementById('create-config')?.addEventListener('click', showConfigurationModal);
+  // ... rest of your event listeners
+});
 
 function sendRoleAssignment(mac, role) {
   // In real implementation, this would send commands to ESP32

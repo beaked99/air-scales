@@ -494,4 +494,27 @@ class DashboardController extends AbstractController
             return 'just now';
         }
     }
+
+    #[Route('/dashboard/api/assign-device-role', name: 'dashboard_assign_device_role', methods: ['POST'])]
+    public function assignDeviceRole(Request $request, EntityManagerInterface $em): JsonResponse
+    {
+        $data = json_decode($request->getContent(), true);
+        $macAddress = $data['mac_address'] ?? null;
+        $newRole = $data['role'] ?? null;
+        
+        if (!$macAddress || !$newRole) {
+            return new JsonResponse(['error' => 'MAC address and role required'], 400);
+        }
+        
+        $device = $em->getRepository(Device::class)->findOneBy(['macAddress' => $macAddress]);
+        if (!$device) {
+            return new JsonResponse(['error' => 'Device not found'], 404);
+        }
+        
+        $device->setCurrentRole($newRole);
+        $device->setLastMeshActivity(new \DateTime());
+        $em->flush();
+        
+        return new JsonResponse(['status' => 'success']);
+    }
 }
