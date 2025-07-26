@@ -105,6 +105,7 @@ uint8_t knownDeviceCount = 0;
 unsigned long lastDiscovery = 0;
 //unsigned long lastHeartbeat = 0;
 bool meshInitialized = false;
+bool meshPeerSetup = false;
 
 // Sensor Data Structure
 struct SensorData {
@@ -173,6 +174,10 @@ void addOrUpdateDevice(const uint8_t *mac_addr, MeshMessage* msg);
 void removeInactiveDevices();
 void registerMeshStatus();
 
+void setupBroadcastPeer();
+void sendAggregatedDataViaBLE();
+void sendSensorDataToMaster();
+
 void setup() {
   Serial.begin(115200);
   delay(1000);
@@ -203,7 +208,7 @@ void setup() {
   
   // Try to connect to known WiFi networks
   connectToWiFi();
-  
+  initMeshNetworking();
   // If no WiFi connection, start AP mode
   if (!isConnectedToWiFi) {
     startAPMode();
@@ -809,6 +814,8 @@ void initMeshNetworking() {
   // Register callbacks
   esp_now_register_send_cb(onESPNowDataSent);
   esp_now_register_recv_cb(onESPNowDataReceived);
+
+  setupBroadcastPeer();
   
   // Start in discovery mode
   currentRole = ROLE_DISCOVERY;
@@ -817,6 +824,8 @@ void initMeshNetworking() {
   
   Serial.println("Mesh networking initialized");
   Serial.println("Device Role: DISCOVERY");
+
+  handleDiscoveryBroadcast();
 }
 
 void onESPNowDataReceived(const uint8_t *mac_addr, const uint8_t *data, int data_len) {
@@ -854,39 +863,31 @@ void handleMeshLoop() {
   
   unsigned long now = millis();
   
-  // Discovery mode: broadcast discovery every 30 seconds
-  if (currentRole == ROLE_DISCOVERY && now - lastDiscovery > DISCOVERY_INTERVAL) {
+  // Discovery mode: broadcast every 10 seconds instead of 30
+  if (currentRole == ROLE_DISCOVERY && now - lastDiscovery > 10000) {
     handleDiscoveryBroadcast();
     lastDiscovery = now;
   }
   
-  // Master mode: aggregate data and decide on becoming master
+  // Master mode: aggregate data and send via BLE
   if (currentRole == ROLE_MASTER) {
-    aggregateSlaveData();
-    
-    // Check if we should remain master (device with phone connection should be master)
-    if (deviceConnected || isConnectedToWiFi) {
-      // We should remain master
+    // Send aggregated data to phone every 2 seconds
+    static unsigned long lastBLEUpdate = 0;
+    if (now - lastBLEUpdate > 2000) {
+      sendAggregatedDataViaBLE();
+      lastBLEUpdate = now;
     }
   }
   
-  // Slave mode: send heartbeat
-  if (currentRole == ROLE_SLAVE && now - lastHeartbeat > HEARTBEAT_INTERVAL) {
-    MeshMessage msg;
-    msg.messageType = MSG_HEARTBEAT;
-    memcpy(msg.senderMAC, WiFi.macAddress().c_str(), 6);
-    strcpy(msg.deviceName, bleDeviceName.c_str());
-    strcpy(msg.truckConfig, truckConfiguration.c_str());
-    msg.timestamp = now;
-    
-    // Send to master (broadcast for now, could be optimized)
-    broadcastMeshMessage(&msg);
+  // Slave mode: send data to master every 5 seconds
+  if (currentRole == ROLE_SLAVE && now - lastHeartbeat > 5000) {
+    sendSensorDataToMaster();
     lastHeartbeat = now;
   }
   
-  // Remove inactive devices every minute
+  // Remove inactive devices every 30 seconds
   static unsigned long lastCleanup = 0;
-  if (now - lastCleanup > 60000) {
+  if (now - lastCleanup > 30000) {
     removeInactiveDevices();
     lastCleanup = now;
   }
@@ -906,27 +907,36 @@ void handleDiscoveryBroadcast() {
 }
 
 void handleDiscoveryResponse(const uint8_t *mac_addr, MeshMessage* msg) {
-  Serial.println("Discovery response from: " + String(msg->deviceName));
+  Serial.printf("Discovery response from: %s\n", msg->deviceName);
   
   addOrUpdateDevice(mac_addr, msg);
   
-  // Decide on roles based on capabilities
-  // Priority: Device with BLE connection > Device with WiFi > Others
+  // Auto role assignment logic
   bool shouldBecomeMaster = false;
   
-  if (deviceConnected) {
-    // We have BLE connection - highest priority
+  // Priority 1: Device with BLE connection becomes master
+  if (deviceConnected && currentRole != ROLE_MASTER) {
     shouldBecomeMaster = true;
-  } else if (isConnectedToWiFi && currentRole != ROLE_SLAVE) {
-    // We have WiFi and aren't already a slave
+    Serial.println("Becoming master - BLE connected");
+  }
+  // Priority 2: First device to see others becomes master
+  else if (knownDeviceCount > 0 && currentRole == ROLE_DISCOVERY) {
     shouldBecomeMaster = true;
+    Serial.println("Becoming master - first to discover others");
   }
   
-  if (shouldBecomeMaster && currentRole != ROLE_MASTER) {
+  if (shouldBecomeMaster) {
     becomeMaster();
+  } else if (currentRole == ROLE_DISCOVERY) {
+    // If we see a master, become a slave
+    for (int i = 0; i < knownDeviceCount; i++) {
+      if (knownDevices[i].role == ROLE_MASTER) {
+        becomeSlave(knownDevices[i].macAddress);
+        break;
+      }
+    }
   }
 }
-
 void handlePairingRequest(const uint8_t *mac_addr, MeshMessage* msg) {
   if (currentRole == ROLE_MASTER) {
     // Accept pairing request
@@ -1113,19 +1123,25 @@ void sendMeshMessage(const uint8_t *mac_addr, MeshMessage* msg) {
 }
 
 void broadcastMeshMessage(MeshMessage* msg) {
-  uint8_t broadcastAddress[] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
-  
-  // Add broadcast peer if not exists
-  esp_now_peer_info_t peerInfo;
-  memcpy(peerInfo.peer_addr, broadcastAddress, 6);
-  peerInfo.channel = MESH_CHANNEL;
-  peerInfo.encrypt = false;
-  
-  if (!esp_now_is_peer_exist(broadcastAddress)) {
-    esp_now_add_peer(&peerInfo);
+  if (!meshPeerSetup) {
+    Serial.println("Mesh not setup, cannot broadcast");
+    return;
   }
   
-  sendMeshMessage(broadcastAddress, msg);
+  uint8_t broadcastAddress[] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
+  
+  // Copy our MAC address into the message
+  uint8_t mac[6];
+  esp_read_mac(mac, ESP_MAC_WIFI_STA);
+  memcpy(msg->senderMAC, mac, 6);
+  
+  esp_err_t result = esp_now_send(broadcastAddress, (uint8_t*)msg, sizeof(MeshMessage));
+  
+  if (result == ESP_OK) {
+    Serial.printf("Broadcast sent successfully (type: %d)\n", msg->messageType);
+  } else {
+    Serial.printf("Broadcast failed: %d\n", result);
+  }
 }
 
 void registerMeshStatus() {
@@ -1178,4 +1194,114 @@ void registerMeshStatus() {
   Serial.println("Response Body: " + response);
   
   http.end();
+}
+
+void setupBroadcastPeer() {
+  uint8_t broadcastAddress[] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
+  
+  // Check if broadcast peer already exists
+  if (!esp_now_is_peer_exist(broadcastAddress)) {
+    esp_now_peer_info_t peerInfo;
+    memset(&peerInfo, 0, sizeof(peerInfo));
+    memcpy(peerInfo.peer_addr, broadcastAddress, 6);
+    peerInfo.channel = MESH_CHANNEL;
+    peerInfo.encrypt = false;
+    peerInfo.ifidx = WIFI_IF_STA;  // Use STA interface for ESPNow
+    
+    esp_err_t result = esp_now_add_peer(&peerInfo);
+    if (result == ESP_OK) {
+      Serial.println("Broadcast peer added successfully");
+      meshPeerSetup = true;
+    } else {
+      Serial.printf("Failed to add broadcast peer: %d\n", result);
+    }
+  } else {
+    Serial.println("Broadcast peer already exists");
+    meshPeerSetup = true;
+  }
+}
+
+void sendSensorDataToMaster() {
+  if (currentRole != ROLE_SLAVE) return;
+  
+  Serial.println("Sending sensor data to master...");
+  
+  SensorData data = readSensors();
+  
+  MeshMessage msg;
+  msg.messageType = MSG_SENSOR_DATA;
+  memcpy(msg.senderMAC, WiFi.macAddress().c_str(), 6);
+  strcpy(msg.deviceName, bleDeviceName.c_str());
+  strcpy(msg.truckConfig, truckConfiguration.c_str());
+  
+  // Pack sensor data
+  msg.sensorData[0] = data.mainAirPressure;
+  msg.sensorData[1] = data.temperature;
+  msg.sensorData[2] = data.weight;
+  msg.sensorData[3] = data.gpsLat;
+  msg.sensorData[4] = data.gpsLng;
+  msg.sensorData[5] = data.elevation;
+  msg.sensorData[6] = data.atmosphericPressure;
+  msg.sensorData[7] = millis(); // timestamp
+  
+  msg.timestamp = millis();
+  msg.batteryLevel = 85; // Mock battery level
+  msg.isCharging = false;
+  
+  broadcastMeshMessage(&msg);
+}
+
+// NEW: Send aggregated data via BLE (master only)
+void sendAggregatedDataViaBLE() {
+  if (currentRole != ROLE_MASTER) return;
+  
+  // Get our own sensor data
+  SensorData ourData = readSensors();
+  float totalWeight = ourData.weight;
+  int deviceCount = 1;
+  
+  // Add slave data
+  for (int i = 0; i < knownDeviceCount; i++) {
+    if (knownDevices[i].isActive && millis() - knownDevices[i].lastSeen < 15000) {
+      totalWeight += knownDevices[i].lastSensorData[2]; // weight is index 2
+      deviceCount++;
+    }
+  }
+  
+  // Create aggregated JSON for PWA
+  DynamicJsonDocument doc(2048);
+  doc["mac_address"] = deviceMAC;
+  doc["role"] = "master";
+  doc["device_count"] = deviceCount;
+  doc["total_weight"] = totalWeight;
+  doc["timestamp"] = millis();
+  
+  // Our device data
+  doc["master_device"]["main_air_pressure"] = ourData.mainAirPressure;
+  doc["master_device"]["temperature"] = ourData.temperature;
+  doc["master_device"]["weight"] = ourData.weight;
+  
+  // Slave devices data
+  JsonArray slaves = doc.createNestedArray("slave_devices");
+  for (int i = 0; i < knownDeviceCount; i++) {
+    if (knownDevices[i].isActive && millis() - knownDevices[i].lastSeen < 15000) {
+      JsonObject slave = slaves.createNestedObject();
+      slave["mac_address"] = String((char*)knownDevices[i].macAddress);
+      slave["device_name"] = knownDevices[i].deviceName;
+      slave["weight"] = knownDevices[i].lastSensorData[2];
+      slave["main_air_pressure"] = knownDevices[i].lastSensorData[0];
+      slave["temperature"] = knownDevices[i].lastSensorData[1];
+      slave["last_seen"] = millis() - knownDevices[i].lastSeen;
+    }
+  }
+  
+  String jsonString;
+  serializeJson(doc, jsonString);
+  
+  // Send via BLE if connected
+  if (bleEnabled && deviceConnected) {
+    pSensorCharacteristic->setValue(jsonString.c_str());
+    pSensorCharacteristic->notify();
+    Serial.printf("Sent aggregated data via BLE: %d devices, %.1f lbs total\n", deviceCount, totalWeight);
+  }
 }
