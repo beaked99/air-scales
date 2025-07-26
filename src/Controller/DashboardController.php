@@ -208,6 +208,8 @@ class DashboardController extends AbstractController
         ]);
     }
 
+    // Add this method to your DashboardController.php
+
     #[Route('/dashboard/api/mesh-devices', name: 'dashboard_api_mesh_devices')]
     public function getMeshDevices(EntityManagerInterface $em): JsonResponse
     {
@@ -216,32 +218,106 @@ class DashboardController extends AbstractController
         // Get user's devices
         $userDevices = $this->getUserDevices($em, $user);
         
-        // ONLY get devices that have recent mesh activity (last 5 minutes)
-        $activeThreshold = (new \DateTime())->modify('-5 minutes');
+        // Get devices that have recent mesh activity (last 10 minutes for testing)
+        $activeThreshold = (new \DateTime())->modify('-10 minutes');
         
         $meshNetworks = [];
+        $processedMasters = [];
         
         foreach ($userDevices as $device) {
-            // Skip devices without mesh methods or no recent mesh activity
+            // Skip devices without mesh activity or methods
             if (!method_exists($device, 'getCurrentRole') || 
-                !$device->getLastMeshActivity() || 
-                $device->getLastMeshActivity() < $activeThreshold) {
-                continue; // Skip inactive devices like your old Toyota Camry
-            }
-            
-            // Only include devices that are actually in mesh mode
-            if (!in_array($device->getCurrentRole(), ['master', 'slave', 'discovery'])) {
+                !$device->getCurrentRole() ||
+                !in_array($device->getCurrentRole(), ['master', 'slave', 'discovery'])) {
                 continue;
             }
             
-            // Rest of your existing mesh network building logic...
-            // (keep the existing code that builds $networkDevices, etc.)
+            // For testing: include devices even without recent mesh activity
+            // Remove this condition later when mesh is working properly
+            // if (!$device->getLastMeshActivity() || 
+            //     $device->getLastMeshActivity() < $activeThreshold) {
+            //     continue;
+            // }
+            
+            $deviceData = [
+                'device_id' => $device->getId(),
+                'mac_address' => $device->getMacAddress(),
+                'device_name' => $device->getSerialNumber() ?: ('Device #' . $device->getId()),
+                'role' => $device->getCurrentRole(),
+                'signal_strength' => $device->getSignalStrength(),
+                'is_active' => $device->getLastMeshActivity() && 
+                            $device->getLastMeshActivity() > $activeThreshold,
+                'last_mesh_activity' => $device->getLastMeshActivity()?->format('Y-m-d H:i:s'),
+                'vehicle' => $device->getVehicle()?->__toString(),
+                'position' => '', // Could be added later
+                'weight' => 0 // Will be filled from latest sensor data
+            ];
+            
+            // Get latest sensor data for weight
+            $latestData = $em->getRepository(\App\Entity\MicroData::class)
+                ->createQueryBuilder('m')
+                ->where('m.device = :device')
+                ->setParameter('device', $device)
+                ->orderBy('m.id', 'DESC')
+                ->setMaxResults(1)
+                ->getQuery()
+                ->getOneOrNullResult();
+                
+            if ($latestData) {
+                $deviceData['weight'] = $latestData->getWeight();
+            }
+            
+            // Organize by mesh networks
+            if ($device->getCurrentRole() === 'master') {
+                if (!isset($processedMasters[$device->getMacAddress()])) {
+                    $networkId = 'network_' . $device->getId();
+                    $meshNetworks[$networkId] = [
+                        'network_id' => $networkId,
+                        'master_mac' => $device->getMacAddress(),
+                        'master_device_id' => $device->getId(),
+                        'devices' => [$deviceData]
+                    ];
+                    $processedMasters[$device->getMacAddress()] = $networkId;
+                }
+            } else if ($device->getCurrentRole() === 'slave') {
+                $masterMac = $device->getMasterDeviceMac();
+                if ($masterMac && isset($processedMasters[$masterMac])) {
+                    $networkId = $processedMasters[$masterMac];
+                    $meshNetworks[$networkId]['devices'][] = $deviceData;
+                } else {
+                    // Orphaned slave - create separate entry
+                    $networkId = 'orphan_' . $device->getId();
+                    $meshNetworks[$networkId] = [
+                        'network_id' => $networkId,
+                        'master_mac' => $masterMac,
+                        'master_device_id' => null,
+                        'devices' => [$deviceData]
+                    ];
+                }
+            } else {
+                // Discovery mode devices - each gets its own "network"
+                $networkId = 'discovery_' . $device->getId();
+                $meshNetworks[$networkId] = [
+                    'network_id' => $networkId,
+                    'master_mac' => null,
+                    'master_device_id' => null,
+                    'devices' => [$deviceData]
+                ];
+            }
         }
         
         return new JsonResponse([
-            'mesh_networks' => $meshNetworks,
+            'mesh_networks' => array_values($meshNetworks),
             'total_networks' => count($meshNetworks),
-            'timestamp' => (new \DateTime())->format('Y-m-d H:i:s')
+            'total_devices' => array_sum(array_map(fn($network) => count($network['devices']), $meshNetworks)),
+            'timestamp' => (new \DateTime())->format('Y-m-d H:i:s'),
+            'debug' => [
+                'user_devices_count' => count($userDevices),
+                'active_threshold' => $activeThreshold->format('Y-m-d H:i:s'),
+                'devices_with_mesh_role' => count(array_filter($userDevices, fn($d) => 
+                    method_exists($d, 'getCurrentRole') && $d->getCurrentRole()
+                ))
+            ]
         ]);
     }
 

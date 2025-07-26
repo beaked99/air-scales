@@ -106,6 +106,8 @@ unsigned long lastDiscovery = 0;
 //unsigned long lastHeartbeat = 0;
 bool meshInitialized = false;
 bool meshPeerSetup = false;
+bool hasWiFiMaster();
+bool hasAnyMaster();
 
 // Sensor Data Structure
 struct SensorData {
@@ -177,6 +179,8 @@ void registerMeshStatus();
 void setupBroadcastPeer();
 void sendAggregatedDataViaBLE();
 void sendSensorDataToMaster();
+void initMeshNetworkingFixed();
+void setupBroadcastPeerFixed();
 
 void setup() {
   Serial.begin(115200);
@@ -236,6 +240,11 @@ void setup() {
   initMeshNetworking();
   
   Serial.println("AirScales Ready with Mesh!");
+  digitalWrite(STATUS_LED_PIN, HIGH);
+
+  initMeshNetworkingFixed();
+
+  Serial.println("AirScales Ready with Fixed Mesh!");
   digitalWrite(STATUS_LED_PIN, HIGH);
 }
 
@@ -792,6 +801,194 @@ void sendSensorDataViaBLE(SensorData data) {
     Serial.println("Sent via BLE: " + jsonString);
 }
 
+void initMeshNetworkingFixed() {
+  Serial.println("Initializing Fixed Mesh Networking...");
+  
+  // Load saved truck configuration
+  loadTruckConfiguration();
+  
+  // CRITICAL: If WiFi is connected, we need to handle this carefully
+  if (isConnectedToWiFi) {
+    Serial.println("WiFi is connected - configuring for WiFi+ESPNow coexistence");
+    
+    // Get the current WiFi channel
+    int wifiChannel = WiFi.channel();
+    Serial.printf("Current WiFi channel: %d\n", wifiChannel);
+    
+    // Set ESPNow to use the same channel as WiFi
+    esp_wifi_set_channel(wifiChannel, WIFI_SECOND_CHAN_NONE);
+    Serial.printf("Set ESPNow channel to: %d\n", wifiChannel);
+  } else {
+    Serial.println("No WiFi - using dedicated ESPNow channel");
+    // Set WiFi mode for ESPNow only
+    WiFi.mode(WIFI_AP_STA);
+    esp_wifi_set_channel(MESH_CHANNEL, WIFI_SECOND_CHAN_NONE);
+  }
+  
+  // Initialize ESPNow
+  if (esp_now_init() != ESP_OK) {
+    Serial.println("Error initializing ESP-NOW");
+    return;
+  }
+  
+  // Register callbacks
+  esp_now_register_send_cb(onESPNowDataSent);
+  esp_now_register_recv_cb(onESPNowDataReceived);
+  
+  // Setup broadcast peer with current channel
+  setupBroadcastPeerFixed();
+  
+  // Start in discovery mode
+  currentRole = ROLE_DISCOVERY;
+  meshInitialized = true;
+  
+  Serial.println("Fixed mesh networking initialized");
+  Serial.println("Device Role: DISCOVERY");
+}
+
+void setupBroadcastPeerFixed() {
+  uint8_t broadcastAddress[] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
+  
+  // Remove existing peer if it exists (for reconfiguration)
+  if (esp_now_is_peer_exist(broadcastAddress)) {
+    esp_now_del_peer(broadcastAddress);
+    Serial.println("Removed existing broadcast peer");
+  }
+  
+  esp_now_peer_info_t peerInfo;
+  memset(&peerInfo, 0, sizeof(peerInfo));
+  memcpy(peerInfo.peer_addr, broadcastAddress, 6);
+  
+  // Use current WiFi channel if connected, otherwise use mesh channel
+  peerInfo.channel = isConnectedToWiFi ? WiFi.channel() : MESH_CHANNEL;
+  peerInfo.encrypt = false;
+  peerInfo.ifidx = WIFI_IF_STA;
+  
+  esp_err_t result = esp_now_add_peer(&peerInfo);
+  if (result == ESP_OK) {
+    Serial.printf("Broadcast peer added on channel %d\n", peerInfo.channel);
+    meshPeerSetup = true;
+  } else {
+    Serial.printf("Failed to add broadcast peer: %d\n", result);
+    
+    // Try alternative setup
+    delay(100);
+    peerInfo.ifidx = WIFI_IF_AP;
+    result = esp_now_add_peer(&peerInfo);
+    if (result == ESP_OK) {
+      Serial.println("Broadcast peer added via AP interface");
+      meshPeerSetup = true;
+    } else {
+      Serial.printf("Failed both interfaces: %d\n", result);
+    }
+  }
+}
+
+void broadcastMeshMessageFixed(MeshMessage* msg) {
+  if (!meshPeerSetup) {
+    Serial.println("Mesh not setup, cannot broadcast");
+    return;
+  }
+  
+  uint8_t broadcastAddress[] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
+  
+  // Copy our MAC address into the message
+  uint8_t mac[6];
+  esp_read_mac(mac, ESP_MAC_WIFI_STA);
+  memcpy(msg->senderMAC, mac, 6);
+  
+  // Try sending with retry logic
+  esp_err_t result = esp_now_send(broadcastAddress, (uint8_t*)msg, sizeof(MeshMessage));
+  
+  if (result == ESP_OK) {
+    Serial.printf("Broadcast sent successfully (type: %d)\n", msg->messageType);
+  } else {
+    Serial.printf("Broadcast failed: %d", result);
+    
+    // Decode common errors
+    switch (result) {
+      case ESP_ERR_ESPNOW_NO_MEM:
+        Serial.println(" (No memory - WiFi interference)");
+        // Try to free some memory and retry
+        delay(10);
+        result = esp_now_send(broadcastAddress, (uint8_t*)msg, sizeof(MeshMessage));
+        if (result == ESP_OK) {
+          Serial.println("Retry successful!");
+        }
+        break;
+      case ESP_ERR_ESPNOW_NOT_INIT:
+        Serial.println(" (ESPNow not initialized)");
+        break;
+      case ESP_ERR_ESPNOW_ARG:
+        Serial.println(" (Invalid argument)");
+        break;
+      case ESP_ERR_ESPNOW_INTERNAL:
+        Serial.println(" (Internal error)");
+        break;
+      default:
+        Serial.printf(" (Unknown error: %d)\n", result);
+    }
+  }
+}
+
+// FIXED: Handle role assignment with WiFi priority
+void handleDiscoveryResponseFixed(const uint8_t *mac_addr, MeshMessage* msg) {
+  Serial.printf("Discovery response from: %s\n", msg->deviceName);
+  
+  addOrUpdateDevice(mac_addr, msg);
+  
+  // Enhanced role assignment logic
+  bool shouldBecomeMaster = false;
+  
+  // Priority 1: Device with WiFi connection becomes master
+  if (isConnectedToWiFi && currentRole != ROLE_MASTER) {
+    shouldBecomeMaster = true;
+    Serial.println("Becoming master - WiFi connected (highest priority)");
+  }
+  // Priority 2: Device with BLE connection becomes master (if no WiFi device)
+  else if (deviceConnected && currentRole != ROLE_MASTER && !hasWiFiMaster()) {
+    shouldBecomeMaster = true;
+    Serial.println("Becoming master - BLE connected");
+  }
+  // Priority 3: First device to see others becomes master (if no WiFi/BLE device)
+  else if (knownDeviceCount > 0 && currentRole == ROLE_DISCOVERY && !hasAnyMaster()) {
+    shouldBecomeMaster = true;
+    Serial.println("Becoming master - first to discover others");
+  }
+  
+  if (shouldBecomeMaster) {
+    becomeMaster();
+  } else if (currentRole == ROLE_DISCOVERY) {
+    // If we see a master, become a slave
+    for (int i = 0; i < knownDeviceCount; i++) {
+      if (knownDevices[i].role == ROLE_MASTER) {
+        becomeSlave(knownDevices[i].macAddress);
+        break;
+      }
+    }
+  }
+}
+
+// Helper functions
+bool hasWiFiMaster() {
+  // Check if any known device is a WiFi-connected master
+  for (int i = 0; i < knownDeviceCount; i++) {
+    if (knownDevices[i].role == ROLE_MASTER) {
+      // Assume master with server connection has WiFi
+      return true;
+    }
+  }
+  return false;
+}
+
+bool hasAnyMaster() {
+  for (int i = 0; i < knownDeviceCount; i++) {
+    if (knownDevices[i].role == ROLE_MASTER) {
+      return true;
+    }
+  }
+  return false;
+}
 // ESPNow Mesh Implementation
 void initMeshNetworking() {
   Serial.println("Initializing Mesh Networking...");
