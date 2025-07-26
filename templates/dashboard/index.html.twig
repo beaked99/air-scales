@@ -423,16 +423,18 @@ function getSignalStrengthIcon(rssi) {
 }
 
 function updateMeshStatus(status, message) {
-  const statusElement = document.getElementById('mesh-network-status');
-  const colors = {
-    'discovering': 'text-yellow-400',
-    'connected': 'text-green-400',
-    'no_devices': 'text-orange-400',
-    'error': 'text-red-400'
-  };
-  
-  statusElement.className = colors[status] || 'text-gray-400';
-  statusElement.textContent = message;
+    const statusElement = document.getElementById('mesh-network-status');
+    if (!statusElement) return;
+    
+    const colors = {
+        'discovering': 'text-yellow-400',
+        'connected': 'text-green-400',
+        'no_devices': 'text-orange-400',
+        'error': 'text-red-400'
+    };
+    
+    statusElement.className = colors[status] || 'text-gray-400';
+    statusElement.textContent = message;
 }
 
 function assignDeviceRole(mac) {
@@ -935,6 +937,7 @@ function detectModeAndConnect() {
         .then(available => {
             if (available) {
                 connectToESP32();
+                updateStatus('ap'); // Set status to AP mode when connecting to ESP32
             } else if (isOnline) {
                 updateStatus('online');
             } else {
@@ -962,7 +965,7 @@ function connectToESP32() {
     
     websocket.onopen = () => {
         console.log('Connected to ESP32');
-        updateStatus('connected');
+        updateStatus('connected'); // Only change to connected when actually connected
     };
     
     websocket.onmessage = handleWebSocketMessage;
@@ -1194,21 +1197,14 @@ function handleBLEData(event, deviceInfo) {
         deviceInfo.lastSeen = new Date();
         deviceInfo.dataCount++;
         
-        // ✅ ADD: Notify server using correct MAC from data (only once)
-        if (!deviceInfo.serverNotified) {
-            deviceInfo.serverNotified = true;
-            console.log('Notifying server with correct MAC:', data.mac_address);
-            notifyServerOfBLEConnection(data.mac_address); // Use data.mac_address instead of device name
+        // Check if this is aggregated mesh data
+        if (data.role === 'master' && data.slave_devices) {
+            console.log('Received aggregated mesh data from master device');
+            handleMeshAggregatedData(data, deviceInfo);
+        } else {
+            // Single device data
+            handleSingleDeviceData(data, deviceInfo);
         }
-        
-        // Add to unified device data with highest priority
-        allDeviceData.set(data.mac_address, {
-            ...data,
-            device_name: `BLE: ${deviceInfo.device.name}`,
-            source: 'bluetooth',
-            last_updated: new Date(),
-            priority: dataSourcePriority.bluetooth
-        });
         
         updateUnifiedTable();
         bufferDataForSync(data);
@@ -1219,6 +1215,7 @@ function handleBLEData(event, deviceInfo) {
         console.error('Error parsing BLE data:', error);
     }
 }
+
 
 function bufferDataForSync(data) {
     const now = Date.now();
@@ -1454,7 +1451,7 @@ async function initBLEIntegration() {
 // Initialize everything when page loads
 document.addEventListener('DOMContentLoaded', () => {
     detectModeAndConnect();
-    updateStatus();
+    updateStatus(); // Start with loading status
     initVehicleSorting();
     startLiveDataPolling();
     initBLEIntegration();
@@ -1470,7 +1467,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     window.addEventListener('offline', () => {
         isOnline = false;
-        updateStatus();
+        updateStatus('offline');
         stopLiveDataPolling();
     });
 });
@@ -1615,11 +1612,14 @@ function handleBLEData(event, deviceInfo) {
 }
 
 function handleMeshAggregatedData(data, deviceInfo) {
-    // Add master device to unified data
+    // Add master device to unified data with STABLE name
     const masterMac = data.mac_address;
+    const existingMaster = allDeviceData.get(masterMac);
+    const stableName = existingMaster?.device_name || deviceInfo.device.name;
+    
     allDeviceData.set(masterMac, {
         mac_address: masterMac,
-        device_name: `🎯 MASTER: ${deviceInfo.device.name}`,
+        device_name: stableName, // Keep the same name to prevent flickering
         main_air_pressure: data.master_device.main_air_pressure,
         temperature: data.master_device.temperature,
         weight: data.master_device.weight,
@@ -1634,9 +1634,12 @@ function handleMeshAggregatedData(data, deviceInfo) {
     // Add slave devices to unified data
     if (data.slave_devices && data.slave_devices.length > 0) {
         data.slave_devices.forEach(slave => {
+            const existingSlave = allDeviceData.get(slave.mac_address);
+            const slaveStableName = existingSlave?.device_name || slave.device_name;
+            
             allDeviceData.set(slave.mac_address, {
                 mac_address: slave.mac_address,
-                device_name: `📡 SLAVE: ${slave.device_name}`,
+                device_name: slaveStableName, // Keep stable name
                 main_air_pressure: slave.main_air_pressure,
                 temperature: slave.temperature,
                 weight: slave.weight,
@@ -1649,14 +1652,10 @@ function handleMeshAggregatedData(data, deviceInfo) {
         });
     }
     
-    // Update mesh status in UI
+    // Update mesh status in UI (but don't change main status)
     updateMeshStatus('connected', `${data.device_count} devices connected`);
     document.getElementById('connected-count').textContent = data.device_count;
-    document.getElementById('device-role').textContent = 'Master Connected';
-    
-    // Update total weight display with mesh data
-    document.getElementById('total-weight').textContent = `${data.total_weight.toFixed(1)} lbs`;
-    document.getElementById('device-count').textContent = data.device_count;
+    document.getElementById('device-role').textContent = 'Mesh Master Active';
 }
 
 function handleSingleDeviceData(data, deviceInfo) {
@@ -1667,9 +1666,13 @@ function handleSingleDeviceData(data, deviceInfo) {
         notifyServerOfBLEConnection(data.mac_address);
     }
     
+    // Keep existing name if we have one, prevent flickering
+    const existingDevice = allDeviceData.get(data.mac_address);
+    const stableName = existingDevice?.device_name || deviceInfo.device.name;
+    
     allDeviceData.set(data.mac_address, {
         ...data,
-        device_name: `📱 BLE: ${deviceInfo.device.name}`,
+        device_name: stableName, // Use stable name
         source: 'bluetooth',
         last_updated: new Date(),
         priority: dataSourcePriority.bluetooth
@@ -1704,39 +1707,67 @@ function updateUnifiedTable() {
             meshTotal = parseFloat(deviceInfo.total_weight);
         }
         
-        // Enhanced status with mesh info
+        // FIXED: Stable device name - no more flickering between "MASTER" and "BLE"
+        let deviceName = deviceInfo.device_name || mac.slice(-4);
+        
+        // Only add role prefix ONCE and keep it stable
+        if (deviceInfo.source === 'bluetooth' && deviceInfo.mesh_role === 'master') {
+            deviceName = deviceName.replace(/^(🎯 MASTER: |📱 BLE: )/, ''); // Remove any existing prefix
+            deviceName = `🎯 MESH MASTER: ${deviceName}`;
+        } else if (deviceInfo.source === 'bluetooth_mesh') {
+            deviceName = deviceName.replace(/^(📡 SLAVE: )/, ''); // Remove any existing prefix  
+            deviceName = `📡 MESH SLAVE: ${deviceName}`;
+        } else if (deviceInfo.source === 'bluetooth') {
+            deviceName = deviceName.replace(/^(📱 BLE: )/, ''); // Remove any existing prefix
+            deviceName = `📱 BLE: ${deviceName}`;
+        }
+        
+        // FIXED: Status logic - keep it simple and stable
         let statusColor = '#ef4444';
         let statusText = '● Unknown';
         
         if (deviceInfo.source === 'bluetooth') {
             statusColor = '#22c55e';
             statusText = '● BLE Connected';
-            if (deviceInfo.mesh_role === 'master') {
+            if (deviceInfo.mesh_role === 'master' && deviceInfo.device_count > 1) {
                 statusText += ` (${deviceInfo.device_count} devices)`;
             }
         } else if (deviceInfo.source === 'bluetooth_mesh') {
             statusColor = '#10b981';
-            statusText = `● Mesh Slave (${deviceInfo.last_seen_ms}ms ago)`;
+            statusText = `● Via Mesh`;
         } else if (deviceInfo.source === 'websocket') {
             statusColor = '#22c55e';
             statusText = '● WiFi Connected';
-        }
-        
-        // Mesh role indicator
-        let roleIndicator = '';
-        if (deviceInfo.mesh_role === 'master') {
-            roleIndicator = '<span style="background: #1d4ed8; color: white; padding: 2px 6px; border-radius: 4px; font-size: 10px;">MASTER</span>';
-        } else if (deviceInfo.mesh_role === 'slave') {
-            roleIndicator = '<span style="background: #059669; color: white; padding: 2px 6px; border-radius: 4px; font-size: 10px;">SLAVE</span>';
+        } else if (deviceInfo.source === 'server') {
+            if (deviceInfo.status === 'online') {
+                statusColor = '#22c55e';
+                statusText = '● Online';
+            } else if (deviceInfo.last_seen === 'just now') {
+                statusColor = '#22c55e';
+                statusText = '● Online';
+            } else if (deviceInfo.last_seen && deviceInfo.last_seen.includes('minute')) {
+                const minutes = parseInt(deviceInfo.last_seen.match(/\d+/)?.[0] || '999');
+                if (minutes <= 10) {
+                    statusColor = '#22c55e';
+                } else if (minutes <= 30) {
+                    statusColor = '#f59e0b';
+                }
+                statusText = `● ${deviceInfo.last_seen}`;
+            } else if (deviceInfo.last_seen && deviceInfo.last_seen.includes('hour')) {
+                statusColor = '#f59e0b';
+                statusText = `● ${deviceInfo.last_seen}`;
+            } else if (deviceInfo.last_seen) {
+                statusColor = '#f59e0b';
+                statusText = `● ${deviceInfo.last_seen}`;
+            }
         }
         
         html += `
             <tr style="border-bottom: 1px solid #374151;">
                 <td style="padding: 15px; color: #e2e8f0;">
-                    ${deviceInfo.device_name || mac.slice(-4)}
+                    ${deviceName}
                     ${deviceInfo.vehicle ? '<br><span style="font-size: 12px; color: #9ca3af;">' + deviceInfo.vehicle + '</span>' : ''}
                     <br><span style="font-size: 10px; color: #6b7280;">${deviceInfo.source?.toUpperCase() || 'UNKNOWN'}</span>
-                    ${roleIndicator ? '<br>' + roleIndicator : ''}
                 </td>
                 <td style="padding: 15px; text-align: right; color: #f1f5f9; font-weight: bold;">${weight.toFixed(1)}</td>
                 <td style="padding: 15px; text-align: right; color: #e2e8f0;">${deviceInfo.main_air_pressure || 'N/A'}</td>
@@ -1755,12 +1786,10 @@ function updateUnifiedTable() {
     
     // Show mesh indicator if we have mesh data
     if (meshTotal > 0) {
-        const meshIndicator = document.createElement('span');
-        meshIndicator.style.cssText = 'font-size: 12px; color: #10b981; margin-left: 8px;';
-        meshIndicator.textContent = '(mesh)';
-        totalWeight.appendChild(meshIndicator);
+        totalWeight.innerHTML += '<span style="font-size: 12px; color: #10b981; margin-left: 8px;">(mesh)</span>';
     }
 }
+
 
 // Enhanced BLE status for mesh
 function updateBLEDeviceList() {
