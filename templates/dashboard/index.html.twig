@@ -310,7 +310,6 @@
 </div>
 
 <script>
-// Truck Configuration Management
 // COMPLETE DASHBOARD JAVASCRIPT - REPLACE YOUR ENTIRE <script> SECTION WITH THIS
 
 // Unified device data management
@@ -374,14 +373,16 @@ function updateUnifiedTable() {
         // Strip ALL prefixes to get the clean name
         deviceName = deviceName.replace(/^(🎯 MESH MASTER: |📡 MESH SLAVE: |📱 BLE: |🎯 MASTER: |📡 SLAVE: )/, '');
         
-        // Add role badge separately so it doesn't affect the name
-        let roleBadge = '';
+        // FIXED: Static badge that NEVER changes size - prevents table reshaping
+        let roleBadge = '<span style="background: #374151; color: #9ca3af; padding: 2px 6px; border-radius: 4px; font-size: 10px; margin-left: 8px; width: 60px; display: inline-block; text-align: center;">CONN</span>';
+        
+        // Only change color, not size or text
         if (deviceInfo.source === 'bluetooth' && deviceInfo.mesh_role === 'master') {
-            roleBadge = '<span style="background: #1d4ed8; color: white; padding: 2px 6px; border-radius: 4px; font-size: 10px; margin-left: 8px;">MESH MASTER</span>';
+            roleBadge = '<span style="background: #1d4ed8; color: white; padding: 2px 6px; border-radius: 4px; font-size: 10px; margin-left: 8px; width: 60px; display: inline-block; text-align: center;">MASTER</span>';
         } else if (deviceInfo.source === 'bluetooth_mesh') {
-            roleBadge = '<span style="background: #059669; color: white; padding: 2px 6px; border-radius: 4px; font-size: 10px; margin-left: 8px;">MESH SLAVE</span>';
+            roleBadge = '<span style="background: #059669; color: white; padding: 2px 6px; border-radius: 4px; font-size: 10px; margin-left: 8px; width: 60px; display: inline-block; text-align: center;">SLAVE</span>';
         } else if (deviceInfo.source === 'bluetooth') {
-            roleBadge = '<span style="background: #7c3aed; color: white; padding: 2px 6px; border-radius: 4px; font-size: 10px; margin-left: 8px;">BLE</span>';
+            roleBadge = '<span style="background: #7c3aed; color: white; padding: 2px 6px; border-radius: 4px; font-size: 10px; margin-left: 8px; width: 60px; display: inline-block; text-align: center;">BLE</span>';
         }
         
         // Status logic - keep it simple and stable
