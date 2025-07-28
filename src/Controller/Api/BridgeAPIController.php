@@ -1,11 +1,11 @@
 <?php
-
+//this file takes care of data transfer between any ESP32 devices and the website via a bridge device like a cellphone in bluetooth or thru the PWA. 
 namespace App\Controller\Api;
 
 use App\Entity\Device;
 use App\Entity\DeviceAccess;
 use App\Entity\MicroData;
-use App\Entity\User; // ← Added missing import
+use App\Entity\User;
 use App\Entity\UserConnectedVehicle;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -13,10 +13,10 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Annotation\Route;
-use Psr\Log\LoggerInterface; // ← Added logger support
+use Psr\Log\LoggerInterface;
 
-#[Route('/api/esp32', name: 'api_esp32_')]
-class ESP32ApiController extends AbstractController
+#[Route('/api/bridge', name: 'api_bridge_')]
+class BridgeAPIController extends AbstractController
 {
     #[Route('/register', name: 'register', methods: ['POST'])]
     public function register(Request $request, EntityManagerInterface $em, LoggerInterface $logger): JsonResponse
@@ -26,7 +26,7 @@ class ESP32ApiController extends AbstractController
             
             // Add JSON parsing error check
             if (json_last_error() !== JSON_ERROR_NONE) {
-                $logger->error('Invalid JSON received at /api/esp32/register', ['error' => json_last_error_msg()]);
+                $logger->error('Invalid JSON received at /api/bridge/register', ['error' => json_last_error_msg()]);
                 return new JsonResponse(['error' => 'Invalid JSON'], 400);
             }
             
@@ -38,7 +38,7 @@ class ESP32ApiController extends AbstractController
                 return new JsonResponse(['error' => 'MAC address required'], 400);
             }
             
-            $logger->info('ESP32 registration request', ['mac_address' => $macAddress]);
+            $logger->info('ESP32 registration request via Bridge API', ['mac_address' => $macAddress]);
             
             // Find or create device
             $device = $em->getRepository(Device::class)->findOneBy(['macAddress' => $macAddress]);
@@ -114,7 +114,7 @@ class ESP32ApiController extends AbstractController
             
             // Add JSON parsing error check
             if (json_last_error() !== JSON_ERROR_NONE) {
-                $logger->error('Invalid JSON received at /api/esp32/connect', ['error' => json_last_error_msg()]);
+                $logger->error('Invalid JSON received at /api/bridge/connect', ['error' => json_last_error_msg()]);
                 return new JsonResponse(['error' => 'Invalid JSON'], 400);
             }
             
@@ -125,7 +125,7 @@ class ESP32ApiController extends AbstractController
                 return new JsonResponse(['error' => 'MAC address and user ID required'], 400);
             }
             
-            $logger->info('ESP32 connection request via PWA', [
+            $logger->info('ESP32 connection request via Bridge API', [
                 'mac_address' => $macAddress,
                 'user_id' => $userId
             ]);
@@ -135,7 +135,7 @@ class ESP32ApiController extends AbstractController
                 return new JsonResponse(['error' => 'Device not found'], 404);
             }
             
-            $user = $em->getRepository(User::class)->find($userId); // ← Now properly imported
+            $user = $em->getRepository(User::class)->find($userId);
             if (!$user) {
                 return new JsonResponse(['error' => 'User not found'], 404);
             }
@@ -150,7 +150,7 @@ class ESP32ApiController extends AbstractController
                 $access = new DeviceAccess();
                 $access->setDevice($device);
                 $access->setUser($user);
-                $access->setFirstSeenAt(new \DateTimeImmutable()); // Add this for new connections
+                $access->setFirstSeenAt(new \DateTimeImmutable());
             }
 
             
@@ -178,7 +178,7 @@ class ESP32ApiController extends AbstractController
             
             $em->flush();
             
-            $logger->info('ESP32 connected via PWA successfully', [
+            $logger->info('ESP32 connected via Bridge API successfully', [
                 'device_id' => $device->getId(),
                 'user_id' => $userId
             ]);
@@ -217,7 +217,7 @@ class ESP32ApiController extends AbstractController
             
             // Add error checking for JSON parsing
             if (json_last_error() !== JSON_ERROR_NONE) {
-                $logger->error('Invalid JSON received at /api/esp32/data', ['error' => json_last_error_msg()]);
+                $logger->error('Invalid JSON received at /api/bridge/data', ['error' => json_last_error_msg()]);
                 return new JsonResponse(['error' => 'Invalid JSON'], 400);
             }
             // Check if this is mesh aggregated data or single device data
@@ -230,12 +230,12 @@ class ESP32ApiController extends AbstractController
                 return new JsonResponse(['error' => 'MAC address required'], 400);
             }
             
-            $logger->info('Data received via PWA/phone', ['mac_address' => $macAddress]);
+            $logger->info('Data received via Bridge API', ['mac_address' => $macAddress]);
             
             $device = $em->getRepository(Device::class)->findOneBy(['macAddress' => $macAddress]);
             if (!$device) {
-                // Auto-provision device (same as MicroDataController)
-                $logger->info('Auto-provisioning device via PWA', ['mac_address' => $macAddress]);
+                // Auto-provision device (same as DirectAPIController)
+                $logger->info('Auto-provisioning device via Bridge API', ['mac_address' => $macAddress]);
                 $device = new Device();
                 $device->setMacAddress($macAddress);
                 $device->setDeviceType($data['device_type'] ?? 'ESP32');
@@ -281,22 +281,17 @@ class ESP32ApiController extends AbstractController
                     $microData->setTimestamp(new \DateTimeImmutable());
                 }
                 
-                // Calculate weight using regression coefficients
-                $lastWeight = $this->calculateWeight($device, $microData);
+                // OPTION C: Use ESP32 weight if provided, otherwise calculate server-side
+                $lastWeight = $this->calculateWeight($device, $microData, $point['weight'] ?? null);
                 $microData->setWeight($lastWeight);
                 
                 $em->persist($microData);
                 $processedCount++;
             }
             
-            // REMOVED: setLastSeen calls that were causing errors
-            // Note: Device and Vehicle entities don't have lastSeen properties
-            // Using TimestampableTrait updatedAt instead would be handled automatically
-            $logger->info('Skipping lastSeen updates - using TimestampableTrait updatedAt instead');
-            
             $em->flush();
             
-            $logger->info('Data processed via PWA successfully', [
+            $logger->info('Data processed via Bridge API successfully', [
                 'device_id' => $device->getId(),
                 'points_processed' => $processedCount,
                 'last_weight' => $lastWeight
@@ -325,7 +320,7 @@ class ESP32ApiController extends AbstractController
                     'ambient_pressure_coeff' => $device->getRegressionAmbientPressureCoeff() ?? 0.0,
                     'air_temp_coeff' => $device->getRegressionAirTempCoeff() ?? 0.0
                 ];
-                $logger->info('Sending regression coefficients via PWA', [
+                $logger->info('Sending regression coefficients via Bridge API', [
                     'device_id' => $device->getId()
                 ]);
             }
@@ -392,8 +387,13 @@ class ESP32ApiController extends AbstractController
         ]);
     }
     
-    private function calculateWeight(Device $device, MicroData $microData): float
+    private function calculateWeight(Device $device, MicroData $microData, ?float $providedWeight = null): float
     {
+        // OPTION C: Use ESP32 weight if provided, otherwise calculate server-side
+        if ($providedWeight !== null) {
+            return $providedWeight;
+        }
+        
         $intercept = $device->getRegressionIntercept() ?? 0.0;
         $airPressureCoeff = $device->getRegressionAirPressureCoeff() ?? 0.0;
         $ambientPressureCoeff = $device->getRegressionAmbientPressureCoeff() ?? 0.0;
@@ -412,7 +412,7 @@ class ESP32ApiController extends AbstractController
         return max(0, $weight); // Don't allow negative weights
     }
 
-    // Add these methods to your existing ESP32ApiController
+    // Mesh networking methods (keeping all existing functionality)
 
     #[Route('/mesh/register', name: 'mesh_register', methods: ['POST'])]
     public function meshRegister(Request $request, EntityManagerInterface $em, LoggerInterface $logger): JsonResponse
@@ -534,8 +534,8 @@ class ESP32ApiController extends AbstractController
                 $microData->setGpsLng($deviceData['gps_lng'] ?? 0.0);
                 $microData->setTimestamp(new \DateTimeImmutable());
                 
-                // Calculate weight
-                $weight = $this->calculateWeight($device, $microData);
+                // OPTION C: Calculate weight (ESP32 provides weight or server calculates)
+                $weight = $this->calculateWeight($device, $microData, $deviceData['weight'] ?? null);
                 $microData->setWeight($weight);
                 $totalWeight += $weight;
                 

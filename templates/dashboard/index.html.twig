@@ -835,7 +835,7 @@ function bufferDataForSync(data) {
 
 async function sendBLEDataToServer(data) {
     try {
-        const response = await fetch('/api/esp32/data', {
+        const response = await fetch('/api/bridge/data', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -1076,7 +1076,7 @@ async function notifyServerOfBLEConnection(macAddress) {
         const userId = getCurrentUserId();
         console.log('User ID:', userId);
         
-        const response = await fetch('/api/esp32/connect', {
+        const response = await fetch('/api/bridge/connect', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',

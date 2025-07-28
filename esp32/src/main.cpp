@@ -704,7 +704,7 @@ SensorData readSensors() {
 void registerDevice() {
   if (!isConnectedToWiFi) return;
   
-  http.begin(String(SERVER_URL) + "/api/esp32/register");
+  http.begin(String(SERVER_URL) + "/api/bridge/register");
   http.addHeader("Content-Type", "application/json");
   
   DynamicJsonDocument doc(512);

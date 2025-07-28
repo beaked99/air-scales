@@ -1,0 +1,205 @@
+{# templates/calibration/calibrate.html.twig #}
+{% extends 'base.html.twig' %}
+
+{% block title %}Calibrate Device{% endblock %}
+
+{% block body %}
+<div class="min-h-screen bg-gray-900 text-gray-100 p-6">
+  <h1 class="text-2xl font-bold text-green-400 mb-6">
+    Calibrate Device: {{ device.serialNumber ?: 'Device #' ~ device.id }}
+  </h1>
+
+  {% for message in app.flashes('success') %}
+    <div class="bg-green-600 text-white p-3 rounded mb-4">{{ message }}</div>
+  {% endfor %}
+
+  {% for message in app.flashes('warning') %}
+    <div class="bg-yellow-600 text-white p-3 rounded mb-4">{{ message }}</div>
+  {% endfor %}
+
+  {% for message in app.flashes('error') %}
+    <div class="bg-red-600 text-white p-3 rounded mb-4">{{ message }}</div>
+  {% endfor %}
+
+  <!-- Device Info -->
+  <div class="bg-gray-800 rounded-lg p-6 mb-8">
+    <h2 class="text-xl font-semibold text-white mb-4">Device Information</h2>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+      <div>
+        <span class="text-gray-400">Serial Number:</span>
+        <span class="text-gray-100 ml-2">{{ device.serialNumber ?: 'N/A' }}</span>
+      </div>
+      <div>
+        <span class="text-gray-400">MAC Address:</span>
+        <span class="text-gray-100 ml-2 font-mono">{{ device.macAddress ?: 'N/A' }}</span>
+      </div>
+      <div>
+        <span class="text-gray-400">Vehicle:</span>
+        <span class="text-gray-100 ml-2">{{ device.vehicle ?: 'Unassigned' }}</span>
+      </div>
+      <div>
+        <span class="text-gray-400">Calibrations:</span>
+        <span class="text-gray-100 ml-2">{{ calibrationCount }} point(s)</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Live Data -->
+  {% if latestData %}
+    <div class="bg-gray-800 rounded-lg p-6 mb-8">
+      <div class="flex justify-between items-center mb-4">
+        <h2 class="text-xl font-semibold text-white">Current Sensor Readings</h2>
+        <button id="refresh-data" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm">
+          Refresh
+        </button>
+      </div>
+      <div id="live-data" class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+        <div>
+          <span class="text-gray-400">Air Pressure:</span>
+          <span class="text-green-400 ml-2 font-bold">{{ latestData.mainAirPressure }} psi</span>
+        </div>
+        <div>
+          <span class="text-gray-400">Ambient Pressure:</span>
+          <span class="text-green-400 ml-2 font-bold">{{ latestData.atmosphericPressure }} psi</span>
+        </div>
+        <div>
+          <span class="text-gray-400">Temperature:</span>
+          <span class="text-green-400 ml-2 font-bold">{{ latestData.temperature }}°F</span>
+        </div>
+        <div>
+          <span class="text-gray-400">Elevation:</span>
+          <span class="text-green-400 ml-2 font-bold">{{ latestData.elevation }} ft</span>
+        </div>
+        <div>
+          <span class="text-gray-400">Current Weight:</span>
+          <span class="text-yellow-400 ml-2 font-bold">{{ latestData.weight }} lbs</span>
+        </div>
+        <div>
+          <span class="text-gray-400">Last Updated:</span>
+          <span class="text-gray-300 ml-2">{{ latestData.timestamp|date('H:i:s') }}</span>
+        </div>
+      </div>
+    </div>
+  {% else %}
+    <div class="bg-gray-800 rounded-lg p-6 text-center mb-8">
+      <p class="text-gray-400">No recent sensor data available. Make sure the device is connected and sending data.</p>
+    </div>
+  {% endif %}
+
+  <!-- Calibration Form -->
+  <div class="bg-gray-800 rounded-lg p-6 mb-8">
+    <h2 class="text-xl font-semibold text-white mb-4">Add Calibration Point</h2>
+    <p class="text-gray-400 text-sm mb-6">
+      Enter the actual scale weight for the current sensor conditions. The system will use this data to improve weight calculations.
+    </p>
+    
+    {{ form_start(form, { attr: { class: 'space-y-4' } }) }}
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          {{ form_label(form.scaleWeight, 'Actual Scale Weight (lbs)', { attr: { class: 'block text-sm font-medium text-gray-300 mb-2' } }) }}
+          {{ form_widget(form.scaleWeight, { attr: { class: 'w-full bg-gray-700 border border-gray-600 text-white rounded px-3 py-2', placeholder: 'Enter actual weight' } }) }}
+          {{ form_errors(form.scaleWeight) }}
+        </div>
+        
+        <div>
+          {{ form_label(form.airPressure, 'Air Pressure (psi)', { attr: { class: 'block text-sm font-medium text-gray-300 mb-2' } }) }}
+          {{ form_widget(form.airPressure, { attr: { class: 'w-full bg-gray-700 border border-gray-600 text-white rounded px-3 py-2', step: '0.1' } }) }}
+          {{ form_errors(form.airPressure) }}
+        </div>
+        
+        <div>
+          {{ form_label(form.ambientAirPressure, 'Ambient Air Pressure (psi)', { attr: { class: 'block text-sm font-medium text-gray-300 mb-2' } }) }}
+          {{ form_widget(form.ambientAirPressure, { attr: { class: 'w-full bg-gray-700 border border-gray-600 text-white rounded px-3 py-2', step: '0.1' } }) }}
+          {{ form_errors(form.ambientAirPressure) }}
+        </div>
+        
+        <div>
+          {{ form_label(form.airTemperature, 'Air Temperature (°F)', { attr: { class: 'block text-sm font-medium text-gray-300 mb-2' } }) }}
+          {{ form_widget(form.airTemperature, { attr: { class: 'w-full bg-gray-700 border border-gray-600 text-white rounded px-3 py-2', step: '0.1' } }) }}
+          {{ form_errors(form.airTemperature) }}
+        </div>
+        
+        <div>
+          {{ form_label(form.elevation, 'Elevation (ft)', { attr: { class: 'block text-sm font-medium text-gray-300 mb-2' } }) }}
+          {{ form_widget(form.elevation, { attr: { class: 'w-full bg-gray-700 border border-gray-600 text-white rounded px-3 py-2', step: '0.1' } }) }}
+          {{ form_errors(form.elevation) }}
+        </div>
+      </div>
+      
+      <div>
+        {{ form_label(form.comment, 'Comment (optional)', { attr: { class: 'block text-sm font-medium text-gray-300 mb-2' } }) }}
+        {{ form_widget(form.comment, { attr: { class: 'w-full bg-gray-700 border border-gray-600 text-white rounded px-3 py-2', rows: 3, placeholder: 'Add any notes about this calibration...' } }) }}
+        {{ form_errors(form.comment) }}
+      </div>
+      
+      <button type="submit" class="bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded">
+        Add Calibration Point
+      </button>
+    {{ form_end(form) }}
+  </div>
+
+  <!-- Navigation -->
+  <div class="text-center space-x-4">
+    <a href="{{ path('device_calibration_history', { id: device.id }) }}" 
+       class="text-blue-400 hover:text-blue-200">
+      View Calibration History
+    </a>
+    <a href="{{ path('app_dashboard') }}" 
+       class="text-blue-400 hover:text-blue-200">
+      ← Back to Dashboard
+    </a>
+  </div>
+</div>
+
+<script>
+document.getElementById('refresh-data')?.addEventListener('click', function() {
+  fetch('{{ path('api_device_live_data', { id: device.id }) }}')
+    .then(response => response.json())
+    .then(data => {
+      if (data.error) {
+        console.error('Error:', data.error);
+        return;
+      }
+      
+      // Update the live data display
+      const liveDataDiv = document.getElementById('live-data');
+      liveDataDiv.innerHTML = `
+        <div>
+          <span class="text-gray-400">Air Pressure:</span>
+          <span class="text-green-400 ml-2 font-bold">${data.main_air_pressure} psi</span>
+        </div>
+        <div>
+          <span class="text-gray-400">Ambient Pressure:</span>
+          <span class="text-green-400 ml-2 font-bold">${data.atmospheric_pressure} psi</span>
+        </div>
+        <div>
+          <span class="text-gray-400">Temperature:</span>
+          <span class="text-green-400 ml-2 font-bold">${data.temperature}°F</span>
+        </div>
+        <div>
+          <span class="text-gray-400">Elevation:</span>
+          <span class="text-green-400 ml-2 font-bold">${data.elevation} ft</span>
+        </div>
+        <div>
+          <span class="text-gray-400">Current Weight:</span>
+          <span class="text-yellow-400 ml-2 font-bold">${data.weight} lbs</span>
+        </div>
+        <div>
+          <span class="text-gray-400">Last Updated:</span>
+          <span class="text-gray-300 ml-2">${new Date(data.timestamp).toLocaleTimeString()}</span>
+        </div>
+      `;
+      
+      // Update form fields with new data
+      document.getElementById('calibration_airPressure').value = data.main_air_pressure;
+      document.getElementById('calibration_ambientAirPressure').value = data.atmospheric_pressure;
+      document.getElementById('calibration_airTemperature').value = data.temperature;
+      document.getElementById('calibration_elevation').value = data.elevation;
+    })
+    .catch(error => {
+      console.error('Error fetching live data:', error);
+      alert('Failed to refresh data. Please check your connection.');
+    });
+});
+</script>
+{% endblock %}
