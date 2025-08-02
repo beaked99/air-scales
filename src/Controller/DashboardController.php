@@ -146,23 +146,20 @@ class DashboardController extends AbstractController
         error_log("Timestamp: " . $timestamp->format('Y-m-d H:i:s'));
         error_log("Seconds diff: " . $secondsDiff);
 
-        if ($secondsDiff <= 60) {
-            error_log("Result: Connected");
-            return 'Connected';
-        } elseif ($secondsDiff <= 120) {
-            error_log("Result: Just now");
-            return 'Just now';
-        } elseif ($secondsDiff < 3600) { // Less than 1 hour
+        if ($secondsDiff < 120) {
+            error_log("timeAgo: {$secondsDiff} seconds ago (under 2 minutes)");
+            return $secondsDiff . ' sec ago';
+        } elseif ($secondsDiff < 180 * 60) { // less than 180 minutes
             $minutes = floor($secondsDiff / 60);
-            error_log("Result: {$minutes} min ago");
+            error_log("timeAgo: {$minutes} minutes ago (under 3 hours)");
             return $minutes . ' min ago';
-        } elseif ($secondsDiff < 86400) { // Less than 1 day
+        } elseif ($secondsDiff < 96 * 3600) { // less than 96 hours
             $hours = floor($secondsDiff / 3600);
-            error_log("Result: {$hours} hour(s) ago");
+            error_log("timeAgo: {$hours} hours ago (under 4 days)");
             return $hours . ' hour(s) ago';
         } else {
             $days = floor($secondsDiff / 86400);
-            error_log("Result: {$days} day(s) ago");
+            error_log("timeAgo: {$days} days ago (over 4 days)");
             return $days . ' day(s) ago';
         }
     }
@@ -228,14 +225,16 @@ class DashboardController extends AbstractController
                 $secondsDiff = $now->getTimestamp() - $timestamp->getTimestamp();
                 
                 // Enhanced status logic 
-                $status = 'offline';
                 $lastSeen = $this->formatTimeDifference($timestamp);
-                
-                if ($secondsDiff <= 120) {
-                    $status = 'online';
-                    $lastSeen = 'just now';
-                } elseif ($secondsDiff <= 300) {
-                    $status = 'recent';
+
+                if ($secondsDiff < 120) {
+                    $status = 'online'; // green
+                } elseif ($secondsDiff < 180 * 60) {
+                    $status = 'recent'; // orange
+                } elseif ($secondsDiff < 96 * 3600) {
+                    $status = 'offline'; // red
+                } else {
+                    $status = 'old'; // optional gray or faded
                 }
                 
                 $liveData[] = [

@@ -177,8 +177,11 @@ function updateLastSeenText(deviceElement, lastSeen, status) {
             textElement.classList.add('text-orange-400');
             break;
         case 'offline':
-        default:
             textElement.classList.add('text-red-500');
+            break;
+        case 'old':
+        default:
+            textElement.classList.add('text-gray-500');
             break;
     }
     
