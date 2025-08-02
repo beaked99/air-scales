@@ -678,15 +678,15 @@ SensorData readSensors() {
   static float basePressure = 35.0;
   static float baseTemp = 72.0;
   
-  float pressureVariation = (random(-50, 50) / 100.0);
-  float tempVariation = (random(-30, 30) / 10.0);
+  float pressureVariation = (random(-50, 50)/10);
+  float tempVariation = (random(-30, 30));
   
   data.mainAirPressure = basePressure + pressureVariation;
-  data.atmosphericPressure = 14.7 + (random(-10, 10) / 100.0);
+  data.atmosphericPressure = 14.7 + (random(-10, 10));
   data.temperature = baseTemp + tempVariation;
-  data.elevation = 1000 + random(-50, 50);
-  data.gpsLat = 40.7128 + (random(-100, 100) / 100000.0);
-  data.gpsLng = -74.0060 + (random(-100, 100) / 100000.0);
+  data.elevation = 1000 + random(-500, 500);
+  data.gpsLat = 40.7128 + (random(-100, 100));
+  data.gpsLng = -74.0060 + (random(-100, 100));
   
   // Calculate weight using regression coefficients
   data.weight = coeffs.intercept + 
@@ -733,6 +733,22 @@ void registerDevice() {
       coeffs.airPressureCoeff = regCoeffs["air_pressure_coeff"] | 0.0;
       coeffs.ambientPressureCoeff = regCoeffs["ambient_pressure_coeff"] | 0.0;
       coeffs.airTempCoeff = regCoeffs["air_temp_coeff"] | 0.0;
+
+      // Debug section to see wtf is going on
+      float newIntercept = regCoeffs["intercept"] | 0.0;
+      float newAirCoeff = regCoeffs["air_pressure_coeff"] | 0.0;
+      float newAmbientCoeff = regCoeffs["ambient_pressure_coeff"] | 0.0;
+      float newTempCoeff = regCoeffs["air_temp_coeff"] | 0.0;
+      
+      Serial.printf("🔄 OLD COEFFS: intercept=%.4f, air=%.4f, ambient=%.4f, temp=%.4f\n", 
+                   coeffs.intercept, coeffs.airPressureCoeff, coeffs.ambientPressureCoeff, coeffs.airTempCoeff);
+      Serial.printf("🆕 NEW COEFFS: intercept=%.4f, air=%.4f, ambient=%.4f, temp=%.4f\n", 
+                   newIntercept, newAirCoeff, newAmbientCoeff, newTempCoeff);
+      
+      coeffs.intercept = newIntercept;
+      coeffs.airPressureCoeff = newAirCoeff;
+      coeffs.ambientPressureCoeff = newAmbientCoeff;
+      coeffs.airTempCoeff = newTempCoeff;
       
       // Save coefficients
       preferences.putFloat("intercept", coeffs.intercept);
