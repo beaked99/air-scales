@@ -263,21 +263,22 @@ class DashboardController extends AbstractController
     }
 
     private function formatTimeDifference($timestamp): string
-    {
-        $now = new \DateTime();
-        $secondsDiff = $now->getTimestamp() - $timestamp->getTimestamp();
+{
+    $now = new \DateTime();
+    $secondsDiff = $now->getTimestamp() - $timestamp->getTimestamp();
 
-        if ($secondsDiff <= 60) {
-            return 'just now';
-        } elseif ($secondsDiff < 3600) { // Less than 1 hour
-            $minutes = floor($secondsDiff / 60);
-            return $minutes . ' min ago';
-        } elseif ($secondsDiff < 86400) { // Less than 1 day
-            $hours = floor($secondsDiff / 3600);
-            return $hours . ' hour(s) ago';
-        } else {
-            $days = floor($secondsDiff / 86400);
-            return $days . ' day(s) ago';
-        }
+    if ($secondsDiff < 60) {
+        return 'Connected';
+    } elseif ($secondsDiff < 180 * 60) {
+        $minutes = floor($secondsDiff / 60);
+        return $minutes . ' mins ago';
+    } elseif ($secondsDiff < 96 * 3600) {
+        $hours = floor($secondsDiff / 3600);
+        return $hours . ' hours ago';
+    } else {
+        $days = floor($secondsDiff / 86400);
+        return $days . ' days ago';
     }
+}
+
 }
