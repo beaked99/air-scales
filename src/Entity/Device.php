@@ -220,4 +220,54 @@ class Device
     {
         return $this->vehicle ? $this->vehicle->__toString() : 'No Vehicle Assigned';
     }
+
+    /**
+     * Transient property to hold latest micro data
+     */
+    public ?MicroData $latestMicroData = null;
+
+    /**
+     * Transient property to hold connection status
+     */
+    public ?string $connectionStatus = null;
+
+    /**
+     * Transient property to hold last seen text
+     */
+    public ?string $lastSeenText = null;
+
+    // Add these getter/setter methods at the bottom of your Device class
+
+    public function getLatestMicroData(): ?MicroData 
+    { 
+        return $this->latestMicroData; 
+    }
+
+    public function setLatestMicroData(?MicroData $latestMicroData): self 
+    { 
+        $this->latestMicroData = $latestMicroData; 
+        return $this; 
+    }
+
+    public function getConnectionStatus(): ?string 
+    { 
+        return $this->connectionStatus; 
+    }
+
+    public function setConnectionStatus(?string $connectionStatus): self 
+    { 
+        $this->connectionStatus = $connectionStatus; 
+        return $this; 
+    }
+
+    public function getLastSeenText(): ?string 
+    { 
+        return $this->lastSeenText; 
+    }
+
+    public function setLastSeenText(?string $lastSeenText): self 
+    { 
+        $this->lastSeenText = $lastSeenText; 
+        return $this; 
+    }
 }
