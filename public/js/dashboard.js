@@ -308,18 +308,20 @@ async function connectToDevice(device, rssi, btnEl) {
   const originalHTML = connectBtn.innerHTML;
 
   try {
-    // All the connection code goes here
     connectBtn.disabled = true;
     connectBtn.innerHTML = '<i class="fas fa-spinner animate-spin"></i> Connecting...';
 
     console.log('🔗 Starting connection to device:', device.name);
+    console.log('🔗 Device ID (full MAC):', device.id);
 
+    // Step 1: Connect to GATT
     const server = await device.gatt.connect();
     BLE.device = device;
     BLE.server = server;
     
     console.log('✅ GATT connected successfully');
 
+    // Step 2: Set up disconnect handler
     device.addEventListener('gattserverdisconnected', () => {
       console.log('❌ Bluetooth disconnected');
       showBluetoothError('Bluetooth disconnected.');
@@ -327,12 +329,24 @@ async function connectToDevice(device, rssi, btnEl) {
       BLE.server = null;
     });
 
-    let macAddress = device.id;
-    if (device.name && device.name.includes('AirScales-')) {
-      macAddress = device.name.replace('AirScales-', '');
+    // Step 3: USE DEVICE.ID AS MAC (it's the full MAC address)
+    let macAddress = device.id; // This is the full MAC address from Bluetooth
+    
+    // Convert to uppercase and ensure proper format
+    if (macAddress && macAddress.includes(':')) {
+      macAddress = macAddress.toUpperCase();
+      console.log('✅ Using device.id as MAC:', macAddress);
+    } else {
+      // If device.id doesn't look like a MAC, try extracting from name as fallback
+      console.warn('⚠️ device.id does not look like MAC, trying name extraction');
+      if (device.name && device.name.includes('AirScales-')) {
+        macAddress = device.name.replace('AirScales-', '').toUpperCase();
+      }
     }
-    console.log('📱 Using MAC address:', macAddress);
+    
+    console.log('📱 Final MAC address to send:', macAddress);
 
+    // Step 4: Get user ID
     const userId = window.currentUserId;
     console.log('👤 Using user ID:', userId);
     
@@ -340,7 +354,13 @@ async function connectToDevice(device, rssi, btnEl) {
       throw new Error('No user ID available');
     }
 
-    console.log('📡 Notifying server...');
+    // Step 5: Notify server
+    console.log('📡 Notifying server with data:', {
+      mac_address: macAddress,
+      user_id: userId,
+      device_name: device.name
+    });
+    
     const response = await fetch('/api/bridge/connect', {
       method: 'POST',
       headers: { 
@@ -349,14 +369,17 @@ async function connectToDevice(device, rssi, btnEl) {
       body: JSON.stringify({
         mac_address: macAddress,
         user_id: userId,
-        device_name: device.name
+        device_name: device.name,
+        device_type: 'ESP32'
       })
     });
 
+    console.log('📡 Server response status:', response.status);
+
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('❌ Server error:', errorText);
-      throw new Error(`Server responded with ${response.status}`);
+      console.error('❌ Server error details:', errorText);
+      throw new Error(`Server responded with ${response.status}: ${errorText}`);
     }
 
     const result = await response.json();
@@ -366,16 +389,18 @@ async function connectToDevice(device, rssi, btnEl) {
       throw new Error(result.error || 'Connection failed');
     }
 
+    // Step 6: Success!
     connectBtn.innerHTML = '✓ Connected';
     showSuccessToast(`Connected to ${device.name}`);
     hideDiscoverySection();
 
+    // Refresh data
     setTimeout(() => fetchLiveData(), 1000);
 
   } catch (err) {
-    // Error handling code goes here
     console.error('❌ Connection failed:', err);
     
+    // Clean up
     if (BLE.device?.gatt?.connected) {
       BLE.device.gatt.disconnect();
     }
