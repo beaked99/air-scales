@@ -241,8 +241,28 @@ function stopUpdates() {
 }
 
 // Initialize when page loads
+document.addEventListener('turbo:load', function() {
+    console.log('📄 Dashboard JavaScript loaded via Turbo');
+    
+    // Initialize device scanning
+    initializeDeviceScanning();
+    
+    // Wait a bit for API URL to be set
+    setTimeout(() => {
+        if (API_URL) {
+            console.log('🔗 Starting live DOM updates...');
+            startUpdates();
+        } else {
+            console.error('❌ API URL not initialized');
+        }
+    }, 100);
+});
+
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('📄 Dashboard JavaScript loaded');
+    console.log('📄 Dashboard JavaScript loaded via DOMContentLoaded');
+    
+    // Initialize device scanning
+    initializeDeviceScanning();
     
     // Wait a bit for API URL to be set
     setTimeout(() => {

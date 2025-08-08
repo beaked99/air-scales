@@ -104,17 +104,22 @@ class UserCrudController extends AbstractCrudController
     }
 
 
-    public function createIndexQueryBuilder(SearchDto $searchDto, EntityDto $entityDto, FieldCollection $fields, FilterCollection $filters): QueryBuilder
-    {
-        $qb = parent::createIndexQueryBuilder($searchDto, $entityDto, $fields, $filters);
+public function createIndexQueryBuilder(SearchDto $searchDto, EntityDto $entityDto, FieldCollection $fields, FilterCollection $filters): QueryBuilder
+{
+    $qb = parent::createIndexQueryBuilder($searchDto, $entityDto, $fields, $filters);
 
-        if (!$this->isGranted('ROLE_ADMIN')) {
+    if (!$this->isGranted('ROLE_ADMIN')) {
+        $user = $this->getUser();
+        
+        // Make sure we have a User entity with getId() method
+        if ($user instanceof \App\Entity\User) {
             $qb->andWhere('entity.id = :id')
-            ->setParameter('id', $this->getUser()->getId());
+               ->setParameter('id', $user->getId());
         }
-
-        return $qb;
     }
+
+    return $qb;
+}
     public function configureActions(Actions $actions): Actions
     {
         if (!$this->isGranted('ROLE_ADMIN')) {
