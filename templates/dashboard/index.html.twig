@@ -65,6 +65,39 @@
       {% endif %}
     </div>
 
+    <!-- Device Discovery Section -->
+    <section class="p-4 bg-gray-800 border-b border-gray-700">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-lg font-medium text-white">Device Discovery</h2>
+        <button id="scan-devices-btn" class="flex items-center gap-2 px-4 py-2 text-white transition-colors rounded-lg bg-sky-600 hover:bg-sky-700">
+          <i class="fas fa-bluetooth-b"></i>
+          <span>Scan for Devices</span>
+        </button>
+      </div>
+      
+      <!-- Scanning indicator -->
+      <div id="scanning-indicator" class="hidden p-3 mb-4 border border-blue-600 rounded-lg bg-blue-600/20">
+        <div class="flex items-center">
+          <div class="w-4 h-4 mr-3 border-2 border-blue-400 rounded-full animate-spin border-t-transparent"></div>
+          <span class="text-blue-300">Scanning for Air Scales devices...</span>
+        </div>
+      </div>
+
+      <!-- Discovered devices -->
+      <div id="discovered-devices" class="hidden space-y-2">
+        <h3 class="text-sm font-medium text-gray-300">Found Devices:</h3>
+        <div id="discovered-devices-list" class="space-y-2">
+          <!-- Discovered devices will appear here -->
+        </div>
+      </div>
+
+      <!-- No devices found message -->
+      <div id="no-devices-found" class="hidden p-3 text-center border border-gray-600 rounded-lg bg-gray-700/50">
+        <p class="text-gray-400">No Air Scales devices found nearby.</p>
+        <p class="text-sm text-gray-500">Make sure your devices are powered on and in pairing mode.</p>
+      </div>
+    </section>
+
     <!-- Device Status List -->
     <section class="bg-gray-900 border-gray-800">
       <div class="p-4 border-b border-gray-800">

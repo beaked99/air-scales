@@ -280,5 +280,25 @@ class DashboardController extends AbstractController
         return $days . ' days ago';
     }
 }
+// In your DashboardController.php
+#[Route('/api/current-user', name: 'api_current_user', methods: ['GET'])]
+public function getCurrentUser(): JsonResponse
+{
+    // Check for authenticated user
+    $user = $this->getUser();
+    
+    if (!$user) {
+        // If no user is authenticated, return a 401 error
+        return new JsonResponse(['error' => 'Not authenticated'], 401);
+    }
+
+    // Return the current user's data in JSON format
+    return new JsonResponse([
+        'id' => $user->getId(),
+        'email' => $user->getEmail(),
+        'name' => $user->getFullName(),
+    ]);
+}
+
 
 }
