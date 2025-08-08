@@ -1,0 +1,397 @@
+{# templates/device/index.html.twig #}
+{% extends 'base.html.twig' %}
+
+{% block title %}Device {{ device.serialNumber ?: device.id }}{% endblock %}
+
+{% block stylesheets %}
+    {{ parent() }}
+    {# Add any device-specific CSS here if needed #}
+{% endblock %}
+
+{% block javascripts %}
+    {{ parent() }}
+    <script src="{{ asset('js/device.js') }}"></script>
+    <script>
+        // Initialize the API URL for the device detail page
+        initializeDeviceDetailApi('{{ path("device_api_live_data", {id: device.id}) }}', {{ device.id }});
+    </script>
+{% endblock %}
+
+{% block body %}
+<div class="min-h-screen text-white bg-gray-900">
+
+  <!-- Header -->
+  <header class="sticky top-0 z-50 px-4 py-3 bg-gray-800 border-b border-gray-700 shadow-md">
+    <div class="flex items-center justify-between">
+      <div class="w-1/3">
+        <h1 class="text-xl font-semibold leading-tight text-white">Device</h1>
+      </div>
+
+      <!-- Center section -->
+      <div class="w-1/3 text-center">
+        <h1 class="text-2xl font-semibold text-sky-400">{{ device.serialNumber ?: ('AS25-' ~ device.id) }}</h1>
+      </div>
+
+      <!-- Right side -->
+      <div class="flex items-center justify-end w-1/3 space-x-3">
+        <div class="text-gray-300 fas fa-user"></div>
+        <div class="text-sm text-gray-300">{{ app.user.fullName ?: app.user.email }}</div>
+      </div>
+    </div>
+  </header>
+
+  <main class="pb-20 divide-y divide-gray-700">
+    <!-- Section: Current Readings -->
+    <section class="p-6 bg-gray-800">
+      <div class="flex items-center justify-between mb-6">
+        <h2 class="text-xl font-semibold text-white">Current Readings</h2>
+        <p id="last-updated" class="text-sm text-gray-400">
+          {% if device.latestMicroData %}
+            Updated {{ device.lastSeenText }}
+          {% else %}
+            No data available
+          {% endif %}
+        </p>
+      </div>
+
+      <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div>
+          <label class="block mb-2 text-sm text-gray-400">Weight</label>
+          <div id="weight-display" class="px-4 py-3 text-lg font-semibold text-gray-200 bg-gray-700 rounded-lg">
+            {% if device.latestMicroData %}
+              {{ device.latestMicroData.weight|number_format(0) }} lbs
+            {% else %}
+              -- lbs
+            {% endif %}
+          </div>
+        </div>
+        <div>
+          <label class="block mb-2 text-sm text-gray-400">Main Air Bag Pressure</label>
+          <div id="pressure-display" class="px-4 py-3 text-gray-200 bg-gray-700 rounded-lg">
+            {% if device.latestMicroData %}
+              {{ device.latestMicroData.mainAirPressure|number_format(1) }} psi
+            {% else %}
+              -- psi
+            {% endif %}
+          </div>
+        </div>
+        <div>
+          <label class="block mb-2 text-sm text-gray-400">Ambient Temperature</label>
+          <div id="temperature-display" class="px-4 py-3 text-gray-200 bg-gray-700 rounded-lg">
+            {% if device.latestMicroData %}
+              {{ device.latestMicroData.temperature|number_format(0) }}°F
+            {% else %}
+              --°F
+            {% endif %}
+          </div>
+        </div>
+        <div>
+          <label class="block mb-2 text-sm text-gray-400">Ambient Pressure</label>
+          <div id="atmospheric-pressure-display" class="px-4 py-3 text-gray-200 bg-gray-700 rounded-lg">
+            {% if device.latestMicroData %}
+              {{ device.latestMicroData.atmosphericPressure|number_format(1) }} psi
+            {% else %}
+              -- psi
+            {% endif %}
+          </div>
+        </div>
+        <div>
+          <label class="block mb-2 text-sm text-gray-400">GPS Location</label>
+          <div id="gps-display" class="px-4 py-3 font-mono text-sm text-gray-200 bg-gray-700 rounded-lg">
+            {% if device.latestMicroData %}
+              {{ device.latestMicroData.gpsLat|number_format(3) }}, {{ device.latestMicroData.gpsLng|number_format(3) }}
+            {% else %}
+              --, --
+            {% endif %}
+          </div>
+        </div>
+        <div>
+          <label class="block mb-2 text-sm text-gray-400">Signal Strength</label>
+          <div id="signal-display" class="px-4 py-3 text-gray-200 bg-gray-700 rounded-lg">
+            {% if device.signalStrength %}
+              {{ device.signalStrength }} dBm
+            {% else %}
+              -- dBm
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Section: Device Assignment -->
+    <section class="p-6 bg-gray-800">
+      <h2 class="mb-6 text-xl font-semibold text-white">Device Assignment</h2>
+
+      <!-- Current Assignment -->
+      {% if device.vehicle %}
+      <div class="p-4 mb-6 border border-gray-600 rounded-lg bg-gray-700/50">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="font-medium text-white">Currently Assigned</p>
+            <p class="text-gray-300">{{ device.vehicle }} - {{ device.vehicle.axleGroup ?: 'No Axle Group' }}</p>
+            <p class="text-sm text-gray-400">VIN: {{ device.vehicle.vin }} • Plate: {{ device.vehicle.licensePlate ?: 'None' }}</p>
+          </div>
+          <button id="unassign-btn" class="text-sm text-orange-400 hover:text-red-500">
+            <i class="mr-1 fas fa-unlink"></i>Unassign
+          </button>
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- VIN Search -->
+      <div class="mb-6">
+        <label class="block mb-2 text-sm text-gray-400">Vehicle VIN</label>
+        <div class="relative">
+          <input
+            type="text"
+            id="vin-search"
+            placeholder="Search by VIN number..."
+            class="w-full px-4 py-3 pr-12 text-white placeholder-gray-400 transition-colors bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:border-sky-400"
+          />
+          <div class="absolute transform -translate-y-1/2 right-3 top-1/2">
+            <i class="text-gray-400 fas fa-search"></i>
+          </div>
+        </div>
+        <p class="mt-2 text-xs text-gray-400">
+          Start typing to search existing vehicles or enter full VIN for new vehicle
+        </p>
+        <!-- Search results dropdown -->
+        <div id="search-results" class="hidden mt-2 bg-gray-700 border border-gray-600 rounded-lg"></div>
+      </div>
+
+      <!-- Vehicle Details Form -->
+      <div id="vehicle-form">
+        <div class="grid grid-cols-1 gap-4 mb-6 sm:grid-cols-2 lg:grid-cols-4">
+          <div>
+            <label class="block mb-2 text-sm text-gray-400">Year</label>
+            <input
+              type="text"
+              id="vehicle-year"
+              {% if device.vehicle %}value="{{ device.vehicle.year }}"{% endif %}
+              class="w-full px-4 py-3 text-white bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:border-sky-400"
+            />
+          </div>
+          <div>
+            <label class="block mb-2 text-sm text-gray-400">Make</label>
+            <input
+              type="text"
+              id="vehicle-make"
+              {% if device.vehicle %}value="{{ device.vehicle.make }}"{% endif %}
+              class="w-full px-4 py-3 text-white bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:border-sky-400"
+            />
+          </div>
+          <div>
+            <label class="block mb-2 text-sm text-gray-400">Model</label>
+            <input
+              type="text"
+              id="vehicle-model"
+              {% if device.vehicle %}value="{{ device.vehicle.model }}"{% endif %}
+              class="w-full px-4 py-3 text-white bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:border-sky-400"
+            />
+          </div>
+          <div>
+            <label class="block mb-2 text-sm text-gray-400">License Plate</label>
+            <input
+              type="text"
+              id="vehicle-license"
+              {% if device.vehicle %}value="{{ device.vehicle.licensePlate }}"{% endif %}
+              class="w-full px-4 py-3 text-white bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:border-sky-400"
+            />
+          </div>
+        </div>
+
+        <!-- Axle Position Selection -->
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div>
+            <label class="block mb-2 text-sm text-gray-400">Axle Position</label>
+            <select
+              id="axle-position"
+              class="w-full px-4 py-3 text-white transition-colors bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:border-sky-400"
+            >
+              <option value="">Select Position</option>
+              {% for axleGroup in axleGroups %}
+                <option value="{{ axleGroup.id }}"
+                  {% if device.vehicle and device.vehicle.axleGroup and device.vehicle.axleGroup.id == axleGroup.id %}selected{% endif %}>
+                  {{ axleGroup.label }}
+                </option>
+              {% endfor %}
+            </select>
+          </div>
+          <div>
+            <label class="block mb-2 text-sm text-gray-400">Weight Limit (lbs)</label>
+            <input
+              type="number"
+              id="weight-limit"
+              placeholder="e.g. 34000"
+              class="w-full px-4 py-3 text-white placeholder-gray-400 transition-colors bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:border-sky-400"
+            />
+          </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="flex flex-col mt-6 sm:flex-row sm:justify-evenly sm:w-full sm:gap-3">
+          <button id="assign-btn" class="flex items-center justify-center w-full gap-2 px-6 py-3 mb-2 font-semibold text-black transition-colors bg-orange-400 rounded-lg sm:w-full hover:bg-orange-700 sm:mb-0">
+            <i class="fas fa-link"></i>
+            <span>Assign Device</span>
+          </button>
+          <button id="create-btn" class="flex items-center justify-center w-full gap-2 px-6 py-3 font-medium text-black transition-colors bg-green-400 rounded-lg sm:w-full hover:bg-green-700">
+            <i class="fas fa-plus"></i>
+            <span>Create New Vehicle</span>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Section: Connections -->
+    <section class="p-6 bg-gray-800">
+      <h2 class="mb-6 text-xl font-semibold text-white">Connections</h2>
+      <div class="grid grid-cols-1 gap-8 lg:grid-cols-2">
+        <!-- WiFi -->
+        <div>
+          <h3 class="mb-4 text-lg font-medium text-gray-200">WiFi Networks</h3>
+          <ul id="wifi-networks" class="space-y-3">
+            {# TODO: Load from device.meshConfiguration or separate entity #}
+            <li class="flex items-center justify-between px-4 py-3 bg-gray-700 rounded-lg">
+              <div>
+                <span class="text-gray-200">TruckStop_WiFi</span>
+              </div>
+              <span class="text-sm font-medium text-green-400">Connected</span>
+            </li>
+          </ul>
+          <button class="mt-4 text-sm font-medium transition-colors text-sky-400 hover:text-sky-300">
+            <i class="mr-2 fas fa-plus"></i>Add Network
+          </button>
+        </div>
+
+        <!-- Bluetooth -->
+        <div>
+          <h3 class="mb-4 text-lg font-medium text-gray-200">Bluetooth Devices</h3>
+          <ul id="bluetooth-devices" class="space-y-3">
+            {# TODO: Load from device connections or separate entity #}
+            <li class="flex items-center justify-between px-4 py-3 bg-gray-700 rounded-lg">
+              <div>
+                <span class="text-gray-200">{{ app.user.fullName }}'s Device</span>
+                <div class="mt-1 text-xs text-gray-400">Last connected: {{ device.lastSeenText }}</div>
+              </div>
+              <span class="text-sm font-medium {% if device.connectionStatus == 'connected' %}text-green-400{% else %}text-gray-400{% endif %}">
+                {% if device.connectionStatus == 'connected' %}Active{% else %}Inactive{% endif %}
+              </span>
+            </li>
+          </ul>
+          <button class="mt-4 text-sm font-medium transition-colors text-sky-400 hover:text-sky-300">
+            <i class="mr-2 fas fa-plus"></i>Pair Device
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Section: Device Management -->
+    <section class="p-6 bg-gray-800">
+      <h2 class="mb-6 text-xl font-semibold text-white">Device Management</h2>
+
+      <!-- Device Info -->
+      <div class="mb-6">
+        <h3 class="mb-3 text-lg font-medium text-gray-200">Hardware Information</h3>
+        <div class="grid grid-cols-1 text-sm sm:grid-cols-2 gap-x-8 gap-y-2">
+          <div class="flex justify-between">
+            <span class="text-gray-400">Serial Number</span>
+            <span class="text-gray-300">{{ device.serialNumber ?: ('AS25-' ~ device.id) }}</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-gray-400">MAC Address</span>
+            <span class="font-mono text-gray-300">{{ device.macAddress ?: 'Unknown' }}</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-gray-400">Current Firmware</span>
+            <span class="text-gray-300">{{ device.firmwareVersion ?: 'Unknown' }}</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-gray-400">Available Update</span>
+            <span class="font-medium text-green-400">v0.0.8</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-gray-400">Calibrations</span>
+            <span class="text-gray-300">{{ device.calibrations|length }} completed</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-gray-400">Last Calibration</span>
+            <span class="text-gray-300">
+              {% if device.calibrations|length > 0 %}
+                {% set lastCalibration = device.calibrations|last %}
+                {{ lastCalibration.createdAt|date('M j, Y') }}
+              {% else %}
+                Never
+              {% endif %}
+            </span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-gray-400">Last Seen</span>
+            <span class="text-gray-300">{{ device.lastSeenText ?: 'Never' }}</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-gray-400">Uptime</span>
+            <span id="uptime-display" class="text-gray-300">
+              {% if device.latestMicroData %}
+                {# Calculate uptime based on latest data - placeholder #}
+                Active
+              {% else %}
+                Offline
+              {% endif %}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Management Actions -->
+      <div class="flex flex-col sm:flex-row sm:justify-evenly sm:w-full sm:gap-3">
+        <button id="update-firmware-btn" class="flex items-center justify-center w-full gap-2 px-4 py-3 mb-2 font-semibold text-black transition-colors rounded-lg sm:w-full bg-sky-600 hover:bg-sky-700">
+          <i class="text-sm fas fa-wrench"></i>
+          <span>Update Firmware</span>
+        </button>
+        <button id="restart-device-btn" class="flex items-center justify-center w-full gap-2 px-4 py-3 mb-2 font-semibold text-black transition-colors bg-orange-400 rounded-lg sm:w-full hover:bg-orange-600">
+          <i class="text-sm fas fa-sync"></i>
+          <span>Restart Device</span>
+        </button>
+        <button id="factory-reset-btn" class="flex items-center justify-center w-full gap-2 px-4 py-3 mb-2 font-semibold text-black transition-colors bg-red-600 rounded-lg sm:w-full hover:bg-red-700">
+          <i class="text-sm fas fa-undo"></i>
+          <span>Factory Reset</span>
+        </button>
+      </div>
+    </section>
+  </main>
+
+  <!-- Bottom Navigation -->
+  <nav class="fixed bottom-0 left-0 right-0 bg-gray-900 border-t border-gray-800">
+    <div class="flex items-center justify-around py-3">
+      <a href="{{ path('app_dashboard') }}" class="flex flex-col items-center px-4 py-2 space-y-1 tab-btn">
+        <div class="flex items-center justify-center w-6 h-6 bg-gray-700 rounded-lg tab-icon">
+          <i class="text-sm text-gray-400 fas fa-tachometer-alt"></i>
+        </div>
+        <span class="text-xs text-gray-400 tab-label">Dashboard</span>
+      </a>
+      <a href="{{ path('device_calibration', {id: device.id}) }}" class="flex flex-col items-center px-4 py-2 space-y-1 tab-btn">
+        <div class="flex items-center justify-center w-6 h-6 bg-gray-700 rounded-lg tab-icon">
+          <i class="text-sm text-gray-400 fas fa-balance-scale"></i>
+        </div>
+        <span class="text-xs text-gray-400 tab-label">Calibrate</span>
+      </a>
+      <button class="flex flex-col items-center px-4 py-2 space-y-1 tab-btn">
+        <div class="flex items-center justify-center w-6 h-6 rounded-lg tab-icon bg-sky-400">
+          <i class="text-sm text-gray-900 fas fa-cog"></i>
+        </div>
+        <span class="text-xs font-medium tab-label text-sky-400">Setup</span>
+      </button>
+      <button class="flex flex-col items-center px-4 py-2 space-y-1 tab-btn">
+        <div class="flex items-center justify-center w-6 h-6 bg-gray-700 rounded-lg tab-icon">
+          <i class="text-sm text-gray-400 fas fa-user"></i>
+        </div>
+        <span class="text-xs text-gray-400 tab-label">Profile</span>
+      </button>
+    </div>
+  </nav>
+</div>
+
+<!-- Loading/Success Messages -->
+<div id="toast-container" class="fixed z-50 space-y-2 top-4 right-4"></div>
+
+{% endblock %}

@@ -271,7 +271,7 @@ class DashboardController extends AbstractController
         return 'Connected';
     } elseif ($secondsDiff < 180 * 60) {
         $minutes = floor($secondsDiff / 60);
-        return $minutes . ' mins ago';
+        return $minutes . ' min ago';
     } elseif ($secondsDiff < 96 * 3600) {
         $hours = floor($secondsDiff / 3600);
         return $hours . ' hours ago';

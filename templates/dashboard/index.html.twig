@@ -80,7 +80,7 @@
         {% else %}
             <!-- Loop through real devices -->
             {% for device in devices %}
-      <div class="flex items-center justify-between p-4">
+      <a href="{{ path('device_detail', {id: device.id}) }}" class="flex items-center justify-between block p-4 transition-colors hover:bg-gray-800/50">
         <div class="flex items-center space-x-3">
           {# Connection status indicator #}
           {% if device.connectionStatus == 'connected' %}
@@ -116,7 +116,7 @@
             <div class="text-sm text-gray-500">-- psi</div>
           {% endif %}
         </div>
-      </div>
+      </a>
     {% endfor %}
         {% endif %}
         </div>
