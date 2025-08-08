@@ -270,7 +270,7 @@ async function scanForBluetoothDevices() {
     // fallback-friendly single device selection (most reliable across browsers)
     const device = await navigator.bluetooth.requestDevice({
       filters: [{ namePrefix: 'AirScales' }, { namePrefix: 'AS25-' }, { namePrefix: 'ESP32' }],
-      optionalServices: ['battery_service', '12345678-1234-1234-1234-1234567890ab'],
+      optionalServices: ['battery_service', '12345678-1234-1234-1234-1234567890abc'],
     });
 
     // display one result
