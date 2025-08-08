@@ -31,6 +31,26 @@ const BLE = {
   },
 };
 
+// =============== TRANSFERRED FROM OLD WORKING CODE ===============
+
+// Unified device data management (from old code)
+let allDeviceData = new Map(); // Combined data from all sources
+let dataSourcePriority = {
+    'bluetooth': 3,    // Highest priority (most current)
+    'websocket': 2,    // Medium priority
+    'server': 1        // Lowest priority (cached data)
+};
+
+// BLE Configuration (from old code)
+const BLE_SERVICE_UUID = '12345678-1234-1234-1234-123456789abc';
+const BLE_SENSOR_CHAR_UUID = '87654321-4321-4321-4321-cba987654321';
+const BLE_COEFFS_CHAR_UUID = '11111111-2222-3333-4444-555555555555';
+
+// BLE State Management (from old code)
+let bleDevices = new Map(); // Connected BLE devices
+let dbInstance = null;
+let lastServerSync = 0;
+
 /****************************
  * API URL init (Twig calls this)
  ****************************/
@@ -296,138 +316,324 @@ function displayDiscoveredDevices(items) {
       </div>
     `;
     const btn = card.querySelector('.connect-device-btn');
-    btn.addEventListener('click', (e) => connectToDevice(device, null, e.currentTarget));
+    btn.addEventListener('click', (e) => connectToBLEDevice(device, null, e.currentTarget));
     devicesList.appendChild(card);
   });
 
   if (CONFIG.debug) console.log(`📱 Displayed ${items.length} device(s)`);
 }
-async function connectToDevice(device, rssi, btnEl) {
-  if (!btnEl) return;
-  const connectBtn = btnEl;
-  const originalHTML = connectBtn.innerHTML;
 
-  try {
-    connectBtn.disabled = true;
-    connectBtn.innerHTML = '<i class="fas fa-spinner animate-spin"></i> Connecting...';
+// =============== TRANSFERRED OLD WORKING BLE FUNCTIONS ===============
 
-    console.log('🔗 Starting connection to device:', device.name);
-    console.log('🔗 Device ID (full MAC):', device.id);
-
-    // Step 1: Connect to GATT
-    const server = await device.gatt.connect();
-    BLE.device = device;
-    BLE.server = server;
-    
-    console.log('✅ GATT connected successfully');
-
-    // Step 2: Set up disconnect handler
-    device.addEventListener('gattserverdisconnected', () => {
-      console.log('❌ Bluetooth disconnected');
-      showBluetoothError('Bluetooth disconnected.');
-      BLE.device = null;
-      BLE.server = null;
+// BLE Functions (from old working code)
+async function initDB() {
+    return new Promise((resolve, reject) => {
+        const request = indexedDB.open('AirScalesDB', 1);
+        
+        request.onerror = () => reject(request.error);
+        request.onsuccess = () => {
+            dbInstance = request.result;
+            resolve(dbInstance);
+        };
+        
+        request.onupgradeneeded = (event) => {
+            const db = event.target.result;
+            
+            if (!db.objectStoreNames.contains('sensorData')) {
+                const store = db.createObjectStore('sensorData', { 
+                    keyPath: 'id', 
+                    autoIncrement: true 
+                });
+                store.createIndex('mac_address', 'mac_address', { unique: false });
+                store.createIndex('timestamp', 'timestamp', { unique: false });
+            }
+            
+            if (!db.objectStoreNames.contains('devices')) {
+                const deviceStore = db.createObjectStore('devices', { 
+                    keyPath: 'mac_address' 
+                });
+            }
+        };
     });
-
-    // Step 3: USE DEVICE.ID AS MAC (it's the full MAC address)
-    let macAddress = device.id; // This is the full MAC address from Bluetooth
-    
-    // Convert to uppercase and ensure proper format
-    if (macAddress && macAddress.includes(':')) {
-      macAddress = macAddress.toUpperCase();
-      console.log('✅ Using device.id as MAC:', macAddress);
-    } else {
-      // If device.id doesn't look like a MAC, try extracting from name as fallback
-      console.warn('⚠️ device.id does not look like MAC, trying name extraction');
-      if (device.name && device.name.includes('AirScales-')) {
-        macAddress = device.name.replace('AirScales-', '').toUpperCase();
-      }
-    }
-    
-    console.log('📱 Final MAC address to send:', macAddress);
-
-    // Step 4: Get user ID
-    const userId = window.currentUserId;
-    console.log('👤 Using user ID:', userId);
-    
-    if (!userId) {
-      throw new Error('No user ID available');
-    }
-
-    // Step 5: Notify server
-    console.log('📡 Notifying server with data:', {
-      mac_address: macAddress,
-      user_id: userId,
-      device_name: device.name
-    });
-    
-    const response = await fetch('/api/bridge/connect', {
-      method: 'POST',
-      headers: { 
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        mac_address: macAddress,
-        user_id: userId,
-        device_name: device.name,
-        device_type: 'ESP32'
-      })
-    });
-
-    console.log('📡 Server response status:', response.status);
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('❌ Server error details:', errorText);
-      throw new Error(`Server responded with ${response.status}: ${errorText}`);
-    }
-
-    const result = await response.json();
-    console.log('✅ Server response:', result);
-
-    if (result.status !== 'connected') {
-      throw new Error(result.error || 'Connection failed');
-    }
-
-    // Step 6: Success!
-    connectBtn.innerHTML = '✓ Connected';
-    showSuccessToast(`Connected to ${device.name}`);
-    hideDiscoverySection();
-
-    // Refresh data
-    setTimeout(() => fetchLiveData(), 1000);
-
-  } catch (err) {
-    console.error('❌ Connection failed:', err);
-    
-    // Clean up
-    if (BLE.device?.gatt?.connected) {
-      BLE.device.gatt.disconnect();
-    }
-    BLE.device = null;
-    BLE.server = null;
-    
-    connectBtn.innerHTML = 'Failed';
-    showBluetoothError(`Connection failed: ${err.message}`);
-    
-    setTimeout(() => {
-      connectBtn.disabled = false;
-      connectBtn.innerHTML = originalHTML;
-    }, 3000);
-  }
 }
 
+function isBluetoothSupported() {
+    return 'bluetooth' in navigator;
+}
 
-async function getCurrentUserId() {
-  try {
-    const response = await fetch('/api/current-user', { method: 'GET', credentials: 'same-origin' });
-    if (!response.ok) throw new Error('Not authenticated');
-    const userData = await response.json();
-    return userData.id;
-  } catch (error) {
-    console.error('Failed to get current user:', error);
-    return null;
-  }
+async function connectToBLEDevice(device) {
+    try {
+        console.log(`Connecting to ${device.name}...`);
+        
+        const server = await device.gatt.connect();
+        const service = await server.getPrimaryService(BLE_SERVICE_UUID);
+        const sensorCharacteristic = await service.getCharacteristic(BLE_SENSOR_CHAR_UUID);
+        const coeffsCharacteristic = await service.getCharacteristic(BLE_COEFFS_CHAR_UUID);
+        
+        const deviceInfo = {
+            device,
+            server,
+            sensorCharacteristic,
+            coeffsCharacteristic,
+            mac_address: device.id, // USE DEVICE.ID AS MAC (the working approach!)
+            lastSeen: new Date(),
+            dataCount: 0
+        };
+        
+        bleDevices.set(device.id, deviceInfo);
+        
+        await sensorCharacteristic.startNotifications();
+        sensorCharacteristic.addEventListener('characteristicvaluechanged', 
+            (event) => handleBLEData(event, deviceInfo));
+        
+        device.addEventListener('gattserverdisconnected', 
+            () => handleBLEDisconnection(device));
+        
+        console.log('BLE device connected:', device.name);
+        showSuccessToast(`Connected to ${device.name}`);
+        hideDiscoverySection();
+        
+        // Notify server of connection (from old working code)
+        if (!deviceInfo.serverNotified) {
+            deviceInfo.serverNotified = true;
+            console.log('Notifying server with MAC:', deviceInfo.mac_address);
+            notifyServerOfBLEConnection(deviceInfo.mac_address);
+        }
+        
+    } catch (error) {
+        console.error('BLE connection error:', error);
+        showBluetoothError('Connection failed: ' + error.message);
+    }
+}
+
+// TRANSFERRED: BLE Data Handler (from old working code)
+function handleBLEData(event, deviceInfo) {
+    const decoder = new TextDecoder();
+    const jsonString = decoder.decode(event.target.value);
+    
+    try {
+        const data = JSON.parse(jsonString);
+        console.log('BLE data received:', data);
+        
+        deviceInfo.lastSeen = new Date();
+        deviceInfo.dataCount++;
+        
+        // Check if this is aggregated mesh data
+        if (data.role === 'master' && data.slave_devices) {
+            console.log('Received aggregated mesh data from master device');
+            handleMeshAggregatedData(data, deviceInfo);
+        } else {
+            // Single device data
+            handleSingleDeviceData(data, deviceInfo);
+        }
+        
+        bufferDataForSync(data);
+        storeDataInDB(data);
+        
+    } catch (error) {
+        console.error('Error parsing BLE data:', error);
+    }
+}
+
+// TRANSFERRED: Mesh aggregated data handler (from old working code)
+function handleMeshAggregatedData(data, deviceInfo) {
+    // Add master device to unified data with ORIGINAL name (no changes!)
+    const masterMac = data.mac_address;
+    const originalName = deviceInfo.device.name;
+    
+    allDeviceData.set(masterMac, {
+        mac_address: masterMac,
+        device_name: originalName, // KEEP ORIGINAL NAME FOREVER
+        main_air_pressure: data.master_device.main_air_pressure,
+        temperature: data.master_device.temperature,
+        weight: data.master_device.weight,
+        source: 'bluetooth',
+        last_updated: new Date(),
+        priority: dataSourcePriority.bluetooth,
+        mesh_role: 'master',
+        device_count: data.device_count,
+        total_weight: data.total_weight
+    });
+    
+    // Add slave devices to unified data
+    if (data.slave_devices && data.slave_devices.length > 0) {
+        data.slave_devices.forEach(slave => {
+            const existingSlave = allDeviceData.get(slave.mac_address);
+            const originalSlaveName = existingSlave?.device_name || slave.device_name;
+            
+            allDeviceData.set(slave.mac_address, {
+                mac_address: slave.mac_address,
+                device_name: originalSlaveName, // KEEP ORIGINAL NAME
+                main_air_pressure: slave.main_air_pressure,
+                temperature: slave.temperature,
+                weight: slave.weight,
+                source: 'bluetooth_mesh',
+                last_updated: new Date(),
+                priority: dataSourcePriority.bluetooth,
+                mesh_role: 'slave',
+                last_seen_ms: slave.last_seen
+            });
+        });
+    }
+}
+
+// TRANSFERRED: Single device data handler (from old working code)  
+function handleSingleDeviceData(data, deviceInfo) {
+    // ALWAYS use the original BLE device name - NEVER change it
+    const originalName = deviceInfo.device.name;
+    
+    allDeviceData.set(data.mac_address, {
+        ...data,
+        device_name: originalName, // ORIGINAL BLE NAME ONLY
+        source: 'bluetooth',
+        last_updated: new Date(),
+        priority: dataSourcePriority.bluetooth
+    });
+}
+
+// TRANSFERRED: Server notification (from old working code)
+async function notifyServerOfBLEConnection(macAddress) {
+    const userId = getCurrentUserId();
+    console.log('User ID:', userId);
+    
+    if (!userId) {
+        console.error('No user ID available!');
+        return;
+    }
+    console.log('Sending MAC to server:', macAddress);
+    try {
+        const response = await fetch('/api/bridge/connect', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                mac_address: macAddress,
+                user_id: userId,
+                device_name: BLE.device?.name || 'Unknown Device'
+            })
+        });
+        console.log('Response status:', response.status);
+
+        const responseText = await response.text();
+        console.log('Raw response:', responseText);
+
+        if (responseText.startsWith('{')) {
+            const result = JSON.parse(responseText);
+            console.log('Parsed JSON:', result);
+            if (result.status === 'connected') {
+                console.log('✅ Server notified of BLE connection successfully');
+                // Refresh dashboard data
+                setTimeout(() => fetchLiveData(), 1000);
+            }
+        } else {
+            console.log('Response is HTML/text, not JSON');
+        }
+        
+    } catch (error) {
+        console.error('Error notifying server of BLE connection:', error);
+    }
+}
+
+// TRANSFERRED: Data sync functions (from old working code)
+function bufferDataForSync(data) {
+    const now = Date.now();
+    
+    if (now - lastServerSync > 30000) {
+        sendBLEDataToServer(data);
+        lastServerSync = now;
+    }
+}
+
+async function sendBLEDataToServer(data) {
+    try {
+        const response = await fetch('/api/bridge/data', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                ...data,
+                source: 'bluetooth_pwa'
+            })
+        });
+        
+        if (response.ok) {
+            const result = await response.json();
+            console.log('BLE data sent to server:', result);
+            
+            if (result.regression_coefficients) {
+                await sendCoefficientsViaBLE(data.mac_address, result.regression_coefficients);
+            }
+        } else {
+            console.error('Server sync failed:', response.status);
+        }
+    } catch (error) {
+        console.error('Server sync error:', error);
+    }
+}
+
+async function sendCoefficientsViaBLE(macAddress, coefficients) {
+    const deviceInfo = Array.from(bleDevices.values())
+        .find(d => d.mac_address === macAddress);
+    
+    if (!deviceInfo || !deviceInfo.coeffsCharacteristic) return;
+    
+    try {
+        const encoder = new TextEncoder();
+        const data = encoder.encode(JSON.stringify(coefficients));
+        
+        await deviceInfo.coeffsCharacteristic.writeValue(data);
+        console.log('Coefficients sent to ESP32:', coefficients);
+    } catch (error) {
+        console.error('Error sending coefficients:', error);
+    }
+}
+
+async function storeDataInDB(data) {
+    if (!dbInstance) return;
+    
+    const transaction = dbInstance.transaction(['sensorData'], 'readwrite');
+    const store = transaction.objectStore('sensorData');
+    
+    const record = {
+        ...data,
+        timestamp: new Date().toISOString(),
+        synced: false
+    };
+    
+    await store.add(record);
+}
+
+function handleBLEDisconnection(device) {
+    console.log('BLE device disconnected:', device.name);
+    
+    bleDevices.delete(device.id);
+    
+    // Remove from unified data
+    allDeviceData.forEach((deviceInfo, mac) => {
+        if (deviceInfo.source === 'bluetooth' && deviceInfo.device_name.includes(device.name)) {
+            allDeviceData.delete(mac);
+        }
+    });
+    
+    showBluetoothError('Device disconnected');
+}
+
+// HELPER FUNCTION: Get current user ID
+function getCurrentUserId() {
+    return window.currentUserId;
+}
+
+// Initialize BLE integration (from old working code)
+async function initBLEIntegration() {
+    if (!isBluetoothSupported()) {
+        console.log('Web Bluetooth not supported');
+        return;
+    }
+    
+    await initDB();
+    console.log('BLE integration initialized');
 }
 
 /****************************
@@ -474,7 +680,7 @@ function guardDeviceLinksWhileConnected() {
     a.addEventListener('click', (e) => {
       if (BLE.isConnected()) {
         e.preventDefault();
-        showBluetoothError('You’re connected over Bluetooth. Disconnect first, or open device details in a new tab.');
+        showBluetoothError("You're connected over Bluetooth. Disconnect first, or open device details in a new tab.");
       }
     });
   });
@@ -489,6 +695,7 @@ document.addEventListener('turbo:load', () => {
 
   if (CONFIG.debug) console.log('📄 Dashboard boot (turbo:load)');
   initializeDeviceScanning();
+  initBLEIntegration(); // Initialize BLE from old working code
 
   // wait a tick for Twig to call initializeApiUrl()
   setTimeout(() => {
