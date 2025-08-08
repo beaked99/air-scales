@@ -302,74 +302,96 @@ function displayDiscoveredDevices(items) {
 
   if (CONFIG.debug) console.log(`📱 Displayed ${items.length} device(s)`);
 }
-
 async function connectToDevice(device, rssi, btnEl) {
   if (!btnEl) return;
   const connectBtn = btnEl;
   const originalHTML = connectBtn.innerHTML;
 
   try {
+    // All the connection code goes here
     connectBtn.disabled = true;
     connectBtn.innerHTML = '<i class="fas fa-spinner animate-spin"></i> Connecting...';
 
-    // MAC extraction (best-effort based on current name format)
-    let macAddress = device.id;
-    if (device.name && device.name.includes('AirScales-')) {
-      const macPart = device.name.replace('AirScales-', '');
-      if (macPart.includes(':')) {
-        macAddress = macPart;
-        if (macAddress.endsWith(':8')) macAddress = macAddress + '4';
-      }
-    }
-    if (CONFIG.debug) console.log('Using MAC address:', macAddress);
+    console.log('🔗 Starting connection to device:', device.name);
 
-    // Connect to GATT
     const server = await device.gatt.connect();
     BLE.device = device;
     BLE.server = server;
+    
+    console.log('✅ GATT connected successfully');
+
     device.addEventListener('gattserverdisconnected', () => {
+      console.log('❌ Bluetooth disconnected');
       showBluetoothError('Bluetooth disconnected.');
+      BLE.device = null;
+      BLE.server = null;
     });
-    if (CONFIG.debug) console.log('✅ Bluetooth GATT connected');
 
-    // fetch current user
-    const userId = await getCurrentUserId();
-    if (!userId) throw new Error('User not authenticated');
+    let macAddress = device.id;
+    if (device.name && device.name.includes('AirScales-')) {
+      macAddress = device.name.replace('AirScales-', '');
+    }
+    console.log('📱 Using MAC address:', macAddress);
 
-    // notify backend bridge
-    const res = await fetch('/api/bridge/connect', {
+    const userId = window.currentUserId;
+    console.log('👤 Using user ID:', userId);
+    
+    if (!userId) {
+      throw new Error('No user ID available');
+    }
+
+    console.log('📡 Notifying server...');
+    const response = await fetch('/api/bridge/connect', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 
+        'Content-Type': 'application/json'
+      },
       body: JSON.stringify({
         mac_address: macAddress,
         user_id: userId,
-        signal_strength: rssi,
-        device_name: device.name,
-      }),
+        device_name: device.name
+      })
     });
-    const result = await res.json();
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('❌ Server error:', errorText);
+      throw new Error(`Server responded with ${response.status}`);
+    }
+
+    const result = await response.json();
+    console.log('✅ Server response:', result);
 
     if (result.status !== 'connected') {
       throw new Error(result.error || 'Connection failed');
     }
 
     connectBtn.innerHTML = '✓ Connected';
-    showSuccessToast(`Connected to ${device.name} - Keep Bluetooth connection active!`);
+    showSuccessToast(`Connected to ${device.name}`);
     hideDiscoverySection();
-    guardDeviceLinksWhileConnected();
 
-    // refresh UI shortly after
-    setTimeout(() => fetchLiveData(), 1200);
+    setTimeout(() => fetchLiveData(), 1000);
+
   } catch (err) {
-    console.error('❌ Connection error:', err);
+    // Error handling code goes here
+    console.error('❌ Connection failed:', err);
+    
+    if (BLE.device?.gatt?.connected) {
+      BLE.device.gatt.disconnect();
+    }
+    BLE.device = null;
+    BLE.server = null;
+    
     connectBtn.innerHTML = 'Failed';
-    showBluetoothError(`Failed to connect: ${err.message}`);
+    showBluetoothError(`Connection failed: ${err.message}`);
+    
     setTimeout(() => {
       connectBtn.disabled = false;
       connectBtn.innerHTML = originalHTML;
-    }, 2500);
+    }, 3000);
   }
 }
+
 
 async function getCurrentUserId() {
   try {
