@@ -509,70 +509,72 @@ async function connectToDevice(device, rssi) {
     const originalText = connectBtn.innerHTML;
     
     try {
-        // Show connecting state
         connectBtn.disabled = true;
         connectBtn.innerHTML = '<i class="fas fa-spinner animate-spin"></i> Connecting...';
         
-        // Connect to the Bluetooth device
+        // Extract MAC address from device name
+        let macAddress = device.id; // Default to Bluetooth ID
+        
+        if (device.name && device.name.includes('AirScales-')) {
+            // Extract MAC from device name: "AirScales-EC:DA:3B:5C:19:8" -> "EC:DA:3B:5C:19:84"
+            const macPart = device.name.replace('AirScales-', '');
+            if (macPart.includes(':')) {
+                macAddress = macPart;
+                // Add the last digit if it's truncated (your example shows "19:8" instead of "19:84")
+                if (macAddress.endsWith(':8')) {
+                    macAddress = macAddress + '4'; // or however your MAC addresses end
+                }
+            }
+        }
+        
+        console.log('Using MAC address:', macAddress);
+        
+        // Connect to Bluetooth
         await device.gatt.connect();
         console.log('✅ Bluetooth GATT connected');
         
-        // Get current user ID
+        // Get user ID
         const userId = await getCurrentUserId();
         if (!userId) {
             throw new Error('User not authenticated');
         }
         
-        // Call your bridge API to register the connection
+        // Connect via Bridge API with correct MAC
         const response = await fetch('/api/bridge/connect', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                mac_address: device.id, // Use Bluetooth ID as MAC for now
+                mac_address: macAddress, // Use extracted MAC, not Bluetooth ID
                 user_id: userId,
-                signal_strength: rssi, // Include signal strength
+                signal_strength: rssi,
                 device_name: device.name
             })
         });
         
+        console.log('Request sent with MAC:', macAddress);
+        
         const result = await response.json();
+        console.log('Bridge API response:', result);
         
         if (result.status === 'connected') {
-            console.log('✅ Device connected via Bridge API');
-            
-            // Show success with signal info
-            connectBtn.className = 'px-3 py-1 text-sm text-white bg-green-600 rounded';
+            console.log('✅ Device connected successfully');
             connectBtn.innerHTML = '✓ Connected';
-            
-            // Show success toast with signal strength
-            showSuccessToast(`Connected to ${device.name}${rssi ? ` (${rssi} dBm)` : ''}`);
-            
-            // Refresh the dashboard to show the new device
-            setTimeout(() => {
-                location.reload();
-            }, 1500);
-            
+            showSuccessToast(`Connected to ${device.name}`);
+            setTimeout(() => location.reload(), 1500);
         } else {
             throw new Error(result.error || 'Connection failed');
         }
         
     } catch (error) {
         console.error('❌ Connection error:', error);
-        
-        // Show error state
-        connectBtn.className = 'px-3 py-1 text-sm text-white bg-red-600 rounded';
         connectBtn.innerHTML = 'Failed';
+        showBluetoothError(`Failed to connect: ${error.message}`);
         
-        // Reset after delay
         setTimeout(() => {
             connectBtn.disabled = false;
             connectBtn.className = 'px-3 py-1 text-sm text-white transition-colors bg-green-600 rounded connect-device-btn hover:bg-green-700';
             connectBtn.innerHTML = originalText;
         }, 3000);
-        
-        showBluetoothError(`Failed to connect: ${error.message}`);
     }
 }
 
