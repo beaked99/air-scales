@@ -513,16 +513,13 @@ async function connectToDevice(device, rssi) {
         connectBtn.innerHTML = '<i class="fas fa-spinner animate-spin"></i> Connecting...';
         
         // Extract MAC address from device name
-        let macAddress = device.id; // Default to Bluetooth ID
-        
+        let macAddress = device.id;
         if (device.name && device.name.includes('AirScales-')) {
-            // Extract MAC from device name: "AirScales-EC:DA:3B:5C:19:8" -> "EC:DA:3B:5C:19:84"
             const macPart = device.name.replace('AirScales-', '');
             if (macPart.includes(':')) {
                 macAddress = macPart;
-                // Add the last digit if it's truncated (your example shows "19:8" instead of "19:84")
                 if (macAddress.endsWith(':8')) {
-                    macAddress = macAddress + '4'; // or however your MAC addresses end
+                    macAddress = macAddress + '4';
                 }
             }
         }
@@ -533,34 +530,35 @@ async function connectToDevice(device, rssi) {
         await device.gatt.connect();
         console.log('✅ Bluetooth GATT connected');
         
-        // Get user ID
         const userId = await getCurrentUserId();
         if (!userId) {
             throw new Error('User not authenticated');
         }
         
-        // Connect via Bridge API with correct MAC
         const response = await fetch('/api/bridge/connect', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                mac_address: macAddress, // Use extracted MAC, not Bluetooth ID
+                mac_address: macAddress,
                 user_id: userId,
                 signal_strength: rssi,
                 device_name: device.name
             })
         });
         
-        console.log('Request sent with MAC:', macAddress);
-        
         const result = await response.json();
-        console.log('Bridge API response:', result);
         
         if (result.status === 'connected') {
             console.log('✅ Device connected successfully');
             connectBtn.innerHTML = '✓ Connected';
-            showSuccessToast(`Connected to ${device.name}`);
-            setTimeout(() => location.reload(), 1500);
+            showSuccessToast(`Connected to ${device.name} - Keep Bluetooth connection active!`);
+            
+            // Update dashboard without reloading
+            setTimeout(() => {
+                fetchLiveData(); // Refresh the device list
+                hideDiscoverySection(); // Clean up the UI
+            }, 1500);
+            
         } else {
             throw new Error(result.error || 'Connection failed');
         }
@@ -710,3 +708,25 @@ window.DashboardDebug = {
         }
     }
 };
+
+function hideDiscoverySection() {
+    const discoverySection = document.querySelector('#discovered-devices');
+    if (discoverySection) {
+        discoverySection.classList.add('hidden');
+    }
+    
+    // Optionally show a success message in the discovery area
+    const scanBtn = document.getElementById('scan-devices-btn');
+    if (scanBtn) {
+        scanBtn.innerHTML = '<i class="fas fa-check text-green-400"></i> <span>Device Connected</span>';
+        scanBtn.disabled = true;
+        scanBtn.className = 'flex items-center gap-2 px-4 py-2 text-white bg-green-600 rounded-lg';
+        
+        // Re-enable scanning after 5 seconds
+        setTimeout(() => {
+            scanBtn.innerHTML = '<i class="fas fa-bluetooth-b"></i> <span>Scan for Devices</span>';
+            scanBtn.disabled = false;
+            scanBtn.className = 'flex items-center gap-2 px-4 py-2 text-white transition-colors rounded-lg bg-sky-600 hover:bg-sky-700';
+        }, 5000);
+    }
+}
