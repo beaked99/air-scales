@@ -3,6 +3,7 @@
 namespace App\Controller;
 
 use App\Entity\Device;
+use App\Entity\User;
 use App\Entity\DeviceAccess;
 use App\Entity\MicroData;
 use Doctrine\ORM\EntityManagerInterface;
@@ -284,15 +285,12 @@ class DashboardController extends AbstractController
 #[Route('/api/current-user', name: 'api_current_user', methods: ['GET'])]
 public function getCurrentUser(): JsonResponse
 {
-    // Check for authenticated user
     $user = $this->getUser();
     
-    if (!$user) {
-        // If no user is authenticated, return a 401 error
+    if (!$user instanceof User) {
         return new JsonResponse(['error' => 'Not authenticated'], 401);
     }
 
-    // Return the current user's data in JSON format
     return new JsonResponse([
         'id' => $user->getId(),
         'email' => $user->getEmail(),
