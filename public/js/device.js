@@ -1,12 +1,24 @@
-// Device Detail Page JavaScript
+// Device Detail Page JavaScript - Enhanced Live Updates
 
 let deviceApiUrl = null;
 let deviceId = null;
 let updateInterval = null;
+let isUpdating = false;
+let retryCount = 0;
+
+// Configuration (matching dashboard pattern)
+const CONFIG = {
+    updateIntervalMs: 5000, // 5 seconds (same as dashboard)
+    debug: true,
+    maxRetries: 3,
+    retryDelay: 2000 // 2 seconds
+};
 
 function initializeDeviceDetailApi(apiUrl, id) {
     deviceApiUrl = apiUrl;
     deviceId = id;
+    
+    if (CONFIG.debug) console.log('Device Detail API URL set to:', deviceApiUrl);
     
     // Start live data updates
     startLiveDataUpdates();
@@ -16,46 +28,185 @@ function initializeDeviceDetailApi(apiUrl, id) {
 }
 
 function startLiveDataUpdates() {
-    // Update immediately
+    if (isUpdating) return;
+    
+    isUpdating = true;
+    console.log(`🚀 Starting device live updates every ${CONFIG.updateIntervalMs / 1000} seconds`);
+    
+    // Initial fetch
     updateLiveData();
     
-    // Then update every 30 seconds
-    updateInterval = setInterval(updateLiveData, 30000);
+    // Set up interval (same frequency as dashboard)
+    updateInterval = setInterval(updateLiveData, CONFIG.updateIntervalMs);
 }
 
-function updateLiveData() {
-    if (!deviceApiUrl) return;
+function stopLiveDataUpdates() {
+    if (updateInterval) {
+        clearInterval(updateInterval);
+        updateInterval = null;
+    }
+    isUpdating = false;
+    console.log('⏹️ Stopped device live updates');
+}
+
+async function updateLiveData() {
+    if (!deviceApiUrl) {
+        console.error('Device API URL not set');
+        return;
+    }
     
-    fetch(deviceApiUrl)
-        .then(response => response.json())
-        .then(data => {
-            if (data.error) {
-                console.error('Error fetching live data:', data.error);
-                return;
-            }
-            
-            // Update current readings
-            updateElement('weight-display', `${Math.round(data.weight).toLocaleString()} lbs`);
-            updateElement('pressure-display', `${data.main_air_pressure.toFixed(1)} psi`);
-            updateElement('temperature-display', `${Math.round(data.temperature)}°F`);
-            updateElement('atmospheric-pressure-display', `${data.atmospheric_pressure.toFixed(1)} psi`);
-            updateElement('gps-display', `${data.gps_lat.toFixed(3)}, ${data.gps_lng.toFixed(3)}`);
-            updateElement('signal-display', data.signal_strength ? `${data.signal_strength} dBm` : '-- dBm');
-            
-            // Update last seen
-            updateElement('last-updated', `Updated ${data.last_seen}`);
-            
-        })
-        .catch(error => {
-            console.error('Failed to fetch live data:', error);
+    try {
+        if (CONFIG.debug) console.log(`Fetching device live data from: ${deviceApiUrl}`);
+        
+        const response = await fetch(deviceApiUrl, {
+            method: 'GET',
+            headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+            },
+            credentials: 'same-origin'
         });
+        
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error('HTTP Error:', {
+                status: response.status,
+                statusText: response.statusText,
+                body: errorText
+            });
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        
+        const data = await response.json();
+        
+        // Reset retry count on successful request
+        retryCount = 0;
+        
+        if (CONFIG.debug) {
+            console.log('✅ Device live data received:', data);
+            console.log(`📊 Weight: ${data.weight} lbs, Pressure: ${data.main_air_pressure} psi`);
+        }
+        
+        // Update the DOM with live data
+        updateDeviceDisplayWithLiveData(data);
+        
+    } catch (error) {
+        retryCount++;
+        console.error(`❌ Device API Error (attempt ${retryCount}/${CONFIG.maxRetries}):`, error.message);
+        
+        if (retryCount < CONFIG.maxRetries) {
+            console.log(`🔄 Retrying in ${CONFIG.retryDelay / 1000} seconds...`);
+            setTimeout(updateLiveData, CONFIG.retryDelay);
+        } else {
+            console.error('❌ Max retries reached, stopping updates');
+            stopLiveDataUpdates();
+        }
+    }
 }
 
-function updateElement(id, value) {
+// Enhanced DOM update function (matching dashboard pattern)
+function updateDeviceDisplayWithLiveData(data) {
+    if (CONFIG.debug) console.log('🔄 Updating device detail DOM with live data...');
+    
+    // Update current readings section
+    updateCurrentReadings(data);
+    
+    // Update last seen timestamp
+    updateLastSeenTimestamp(data.last_seen);
+    
+    // Update connection status in bluetooth section
+    updateConnectionStatus(data.connection_status);
+    
+    if (CONFIG.debug) console.log('✅ Device detail DOM updated successfully');
+}
+
+// Update all sensor readings
+function updateCurrentReadings(data) {
+    // Weight with enhanced formatting
+    updateElementWithClass('weight-display', `${Math.round(data.weight).toLocaleString()} lbs`);
+    
+    // Pressures
+    updateElementWithClass('pressure-display', `${data.main_air_pressure.toFixed(1)} psi`);
+    updateElementWithClass('atmospheric-pressure-display', `${data.atmospheric_pressure.toFixed(1)} psi`);
+    
+    // Temperature 
+    updateElementWithClass('temperature-display', `${Math.round(data.temperature)}°F`);
+    
+    // GPS coordinates
+    updateElementWithClass('gps-display', `${data.gps_lat.toFixed(3)}, ${data.gps_lng.toFixed(3)}`);
+    
+    // Signal strength
+    const signalText = data.signal_strength ? `${data.signal_strength} dBm` : '-- dBm';
+    updateElementWithClass('signal-display', signalText);
+    
+    if (CONFIG.debug) console.log('📊 Updated all sensor readings');
+}
+
+// Update last seen with enhanced styling
+function updateLastSeenTimestamp(lastSeen) {
+    const element = document.getElementById('last-updated');
+    if (element) {
+        element.textContent = `Updated ${lastSeen}`;
+        
+        // Add visual feedback for fresh data
+        element.classList.add('text-sky-400');
+        setTimeout(() => {
+            element.classList.remove('text-sky-400');
+        }, 1000);
+        
+        if (CONFIG.debug) console.log(`📝 Updated timestamp: ${lastSeen}`);
+    }
+}
+
+// Update connection status in bluetooth section
+function updateConnectionStatus(status) {
+    const bluetoothStatus = document.querySelector('#bluetooth-devices .text-sm.font-medium');
+    if (bluetoothStatus) {
+        // Remove existing classes
+        bluetoothStatus.classList.remove('text-green-400', 'text-gray-400', 'text-red-500');
+        
+        // Update text and color based on status
+        switch(status) {
+            case 'connected':
+                bluetoothStatus.textContent = 'Active';
+                bluetoothStatus.classList.add('text-green-400');
+                break;
+            case 'recent':
+                bluetoothStatus.textContent = 'Recent';
+                bluetoothStatus.classList.add('text-orange-400');
+                break;
+            case 'offline':
+            default:
+                bluetoothStatus.textContent = 'Inactive';
+                bluetoothStatus.classList.add('text-gray-400');
+                break;
+        }
+        
+        if (CONFIG.debug) console.log(`🔗 Updated connection status: ${status}`);
+    }
+}
+
+// Enhanced element update with error handling
+function updateElementWithClass(id, value) {
     const element = document.getElementById(id);
     if (element) {
         element.textContent = value;
+        
+        // Add brief highlight effect for visual feedback
+        element.classList.add('transition-colors');
+        element.style.backgroundColor = 'rgba(56, 189, 248, 0.1)'; // sky blue tint
+        setTimeout(() => {
+            element.style.backgroundColor = '';
+        }, 500);
+        
+    } else if (CONFIG.debug) {
+        console.warn(`Element not found: ${id}`);
     }
+}
+
+// Simple element update (legacy support)
+function updateElement(id, value) {
+    updateElementWithClass(id, value);
 }
 
 function initializeEventListeners() {
