@@ -1,4 +1,4 @@
-// Dashboard Live Updates - Step 2: DOM Updates
+// Dashboard Live Updates + Bluetooth Device Discovery
 // File: public/js/dashboard.js
 
 let updateInterval;
@@ -240,7 +240,405 @@ function stopUpdates() {
     console.log('⏹️ Stopped live updates');
 }
 
-// Initialize when page loads
+// BLUETOOTH DEVICE DISCOVERY FUNCTIONS
+function initializeDeviceScanning() {
+    const scanBtn = document.getElementById('scan-devices-btn');
+    if (scanBtn) {
+        scanBtn.addEventListener('click', scanForBluetoothDevices);
+        console.log('🔍 Device scanning initialized');
+    }
+}
+
+async function scanForBluetoothDevices() {
+    console.log('🔍 Starting Bluetooth scan for Air Scales devices...');
+    
+    const scanBtn = document.getElementById('scan-devices-btn');
+    const scanningIndicator = document.getElementById('scanning-indicator');
+    const discoveredDevices = document.getElementById('discovered-devices');
+    const noDevicesFound = document.getElementById('no-devices-found');
+    const devicesList = document.getElementById('discovered-devices-list');
+    
+    // Check if Web Bluetooth is supported
+    if (!navigator.bluetooth) {
+        showBluetoothError('Bluetooth is not supported in this browser. Please use Chrome, Edge, or another Chromium-based browser.');
+        return;
+    }
+    
+    try {
+        // Disable scan button and show scanning indicator
+        scanBtn.disabled = true;
+        scanBtn.innerHTML = '<i class="fas fa-spinner animate-spin"></i> <span>Scanning...</span>';
+        scanningIndicator.classList.remove('hidden');
+        discoveredDevices.classList.add('hidden');
+        noDevicesFound.classList.add('hidden');
+        
+        // Clear previous results
+        devicesList.innerHTML = '';
+        
+        // Use the newer scan API for multiple devices and RSSI
+        const devices = [];
+        
+        try {
+            // Method 1: Try experimental scan API for multiple devices
+            const scan = await navigator.bluetooth.requestLEScan({
+                filters: [
+                    { namePrefix: 'AirScales' },
+                    { namePrefix: 'AS25-' },
+                    { namePrefix: 'ESP32' }
+                ]
+            });
+            
+            // Listen for advertisements
+            let scanTimeout;
+            const foundDevices = new Map();
+            
+            navigator.bluetooth.addEventListener('advertisementreceived', event => {
+                const device = event.device;
+                const rssi = event.rssi;
+                
+                console.log(`📡 Found device: ${device.name} (RSSI: ${rssi} dBm)`);
+                
+                // Update or add device with signal strength
+                foundDevices.set(device.id, {
+                    device: device,
+                    rssi: rssi,
+                    lastSeen: Date.now()
+                });
+                
+                // Update UI immediately
+                displayDiscoveredDevicesWithSignal(Array.from(foundDevices.values()));
+            });
+            
+            // Scan for 10 seconds
+            scanTimeout = setTimeout(() => {
+                scan.stop();
+                console.log(`🔍 Scan completed. Found ${foundDevices.size} devices`);
+                
+                if (foundDevices.size === 0) {
+                    noDevicesFound.classList.remove('hidden');
+                }
+            }, 10000);
+            
+        } catch (scanError) {
+            console.log('⚠️ Advanced scan not available, falling back to single device selection');
+            
+            // Fallback: Single device selection (no RSSI available)
+            const device = await navigator.bluetooth.requestDevice({
+                filters: [
+                    { namePrefix: 'AirScales' },
+                    { namePrefix: 'AS25-' },
+                    { namePrefix: 'ESP32' }
+                ],
+                optionalServices: [
+                    'battery_service',
+                    '12345678-1234-1234-1234-1234567890ab'
+                ]
+            });
+            
+            console.log('✅ Found device (no RSSI):', device.name, device.id);
+            
+            // Show single device without signal strength
+            displayDiscoveredDevicesWithSignal([{
+                device: device,
+                rssi: null,
+                lastSeen: Date.now()
+            }]);
+        }
+        
+    } catch (error) {
+        console.log('❌ Bluetooth scan error:', error);
+        
+        // Hide scanning indicator
+        scanningIndicator.classList.add('hidden');
+        
+        if (error.name === 'NotFoundError') {
+            noDevicesFound.classList.remove('hidden');
+        } else {
+            showBluetoothError(`Bluetooth error: ${error.message}`);
+        }
+    } finally {
+        // Hide scanning indicator
+        scanningIndicator.classList.add('hidden');
+        
+        // Re-enable scan button
+        scanBtn.disabled = false;
+        scanBtn.innerHTML = '<i class="fas fa-bluetooth-b"></i> <span>Scan for Devices</span>';
+    }
+}
+
+function displayDiscoveredDevicesWithSignal(deviceData) {
+    const discoveredDevices = document.getElementById('discovered-devices');
+    const devicesList = document.getElementById('discovered-devices-list');
+    
+    // Show discovered devices section
+    discoveredDevices.classList.remove('hidden');
+    
+    // Sort devices by signal strength (strongest first)
+    deviceData.sort((a, b) => {
+        if (a.rssi === null && b.rssi === null) return 0;
+        if (a.rssi === null) return 1;
+        if (b.rssi === null) return -1;
+        return b.rssi - a.rssi; // Higher RSSI = stronger signal
+    });
+    
+    // Clear existing devices
+    devicesList.innerHTML = '';
+    
+    deviceData.forEach((item, index) => {
+        const { device, rssi } = item;
+        
+        // Determine signal strength category and styling
+        const signalInfo = getSignalStrengthInfo(rssi);
+        
+        // Create device card with signal strength
+        const deviceCard = document.createElement('div');
+        deviceCard.className = `p-3 border rounded-lg transition-all ${signalInfo.cardClass}`;
+        
+        // Add "CLOSEST" badge for strongest signal
+        const closestBadge = index === 0 && rssi !== null ? 
+            '<span class="px-2 py-1 text-xs font-bold text-white bg-green-500 rounded-full">CLOSEST</span>' : '';
+        
+        deviceCard.innerHTML = `
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-3">
+                    <div class="w-3 h-3 ${signalInfo.dotClass} rounded-full ${signalInfo.animation}"></div>
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <span class="font-medium text-white">${device.name || 'Air Scales Device'}</span>
+                            ${closestBadge}
+                        </div>
+                        <div class="text-sm ${signalInfo.textClass}">
+                            ${rssi !== null ? 
+                                `Signal: ${rssi} dBm (${signalInfo.label})` : 
+                                'Bluetooth ID: ' + device.id
+                            }
+                        </div>
+                        ${rssi !== null ? 
+                            `<div class="text-xs text-gray-400">ID: ${device.id}</div>` : 
+                            ''
+                        }
+                    </div>
+                </div>
+                <div class="flex flex-col items-end gap-2">
+                    ${rssi !== null ? `
+                    <div class="flex items-center gap-1">
+                        <span class="text-xs font-mono">${signalInfo.bars}</span>
+                    </div>
+                    ` : ''}
+                    <button class="connect-device-btn px-3 py-1 text-sm text-white transition-colors rounded bg-green-600 hover:bg-green-700" 
+                            data-device-name="${device.name}" 
+                            data-device-id="${device.id}"
+                            data-signal="${rssi}">
+                        Connect
+                    </button>
+                </div>
+            </div>
+        `;
+        
+        // Add connect button handler
+        const connectBtn = deviceCard.querySelector('.connect-device-btn');
+        connectBtn.addEventListener('click', () => connectToDevice(device, rssi));
+        
+        devicesList.appendChild(deviceCard);
+    });
+    
+    console.log(`📱 Displayed ${deviceData.length} devices with signal strength`);
+}
+
+function getSignalStrengthInfo(rssi) {
+    if (rssi === null) {
+        return {
+            label: 'Unknown',
+            cardClass: 'border-gray-600 bg-gray-600/20',
+            dotClass: 'bg-gray-400',
+            textClass: 'text-gray-300',
+            animation: '',
+            bars: ''
+        };
+    }
+    
+    // RSSI interpretation for Bluetooth LE:
+    // > -40 dBm: Excellent (very close, < 3 feet)
+    // -40 to -55 dBm: Good (close, 3-15 feet) 
+    // -55 to -70 dBm: Fair (medium distance, 15-30 feet)
+    // < -70 dBm: Poor (far away, > 30 feet)
+    
+    if (rssi > -40) {
+        return {
+            label: 'Excellent - Very Close',
+            cardClass: 'border-green-500 bg-green-500/20',
+            dotClass: 'bg-green-400',
+            textClass: 'text-green-300',
+            animation: 'animate-pulse',
+            bars: '█████'
+        };
+    } else if (rssi > -55) {
+        return {
+            label: 'Good - Close',
+            cardClass: 'border-sky-500 bg-sky-500/20',
+            dotClass: 'bg-sky-400',
+            textClass: 'text-sky-300',
+            animation: 'animate-pulse',
+            bars: '████░'
+        };
+    } else if (rssi > -70) {
+        return {
+            label: 'Fair - Medium Distance',
+            cardClass: 'border-orange-500 bg-orange-500/20',
+            dotClass: 'bg-orange-400',
+            textClass: 'text-orange-300',
+            animation: '',
+            bars: '███░░'
+        };
+    } else {
+        return {
+            label: 'Poor - Far Away',
+            cardClass: 'border-red-500 bg-red-500/20',
+            dotClass: 'bg-red-400',
+            textClass: 'text-red-300',
+            animation: '',
+            bars: '██░░░'
+        };
+    }
+}
+
+async function connectToDevice(device, rssi) {
+    console.log('🔗 Connecting to device:', device.name, 'Signal:', rssi);
+    
+    const connectBtn = event.target;
+    const originalText = connectBtn.innerHTML;
+    
+    try {
+        // Show connecting state
+        connectBtn.disabled = true;
+        connectBtn.innerHTML = '<i class="fas fa-spinner animate-spin"></i> Connecting...';
+        
+        // Connect to the Bluetooth device
+        await device.gatt.connect();
+        console.log('✅ Bluetooth GATT connected');
+        
+        // Get current user ID
+        const userId = await getCurrentUserId();
+        if (!userId) {
+            throw new Error('User not authenticated');
+        }
+        
+        // Call your bridge API to register the connection
+        const response = await fetch('/api/bridge/connect', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                mac_address: device.id, // Use Bluetooth ID as MAC for now
+                user_id: userId,
+                signal_strength: rssi, // Include signal strength
+                device_name: device.name
+            })
+        });
+        
+        const result = await response.json();
+        
+        if (result.status === 'connected') {
+            console.log('✅ Device connected via Bridge API');
+            
+            // Show success with signal info
+            connectBtn.className = 'px-3 py-1 text-sm text-white bg-green-600 rounded';
+            connectBtn.innerHTML = '✓ Connected';
+            
+            // Show success toast with signal strength
+            showSuccessToast(`Connected to ${device.name}${rssi ? ` (${rssi} dBm)` : ''}`);
+            
+            // Refresh the dashboard to show the new device
+            setTimeout(() => {
+                location.reload();
+            }, 1500);
+            
+        } else {
+            throw new Error(result.error || 'Connection failed');
+        }
+        
+    } catch (error) {
+        console.error('❌ Connection error:', error);
+        
+        // Show error state
+        connectBtn.className = 'px-3 py-1 text-sm text-white bg-red-600 rounded';
+        connectBtn.innerHTML = 'Failed';
+        
+        // Reset after delay
+        setTimeout(() => {
+            connectBtn.disabled = false;
+            connectBtn.className = 'px-3 py-1 text-sm text-white transition-colors bg-green-600 rounded connect-device-btn hover:bg-green-700';
+            connectBtn.innerHTML = originalText;
+        }, 3000);
+        
+        showBluetoothError(`Failed to connect: ${error.message}`);
+    }
+}
+
+// Get current user ID via API
+async function getCurrentUserId() {
+    try {
+        const response = await fetch('/api/current-user', {
+            method: 'GET',
+            credentials: 'same-origin'
+        });
+        
+        if (!response.ok) {
+            throw new Error('Not authenticated');
+        }
+        
+        const userData = await response.json();
+        return userData.id;
+        
+    } catch (error) {
+        console.error('Failed to get current user:', error);
+        return null;
+    }
+}
+
+// Utility functions for UI feedback
+function showBluetoothError(message) {
+    // Create toast notification
+    const toast = document.createElement('div');
+    toast.className = 'fixed z-50 p-4 text-white bg-red-600 rounded-lg shadow-lg top-4 right-4';
+    toast.innerHTML = `
+        <div class="flex items-center">
+            <i class="fas fa-exclamation-triangle mr-2"></i>
+            <span>${message}</span>
+        </div>
+    `;
+    
+    document.body.appendChild(toast);
+    
+    // Remove after 5 seconds
+    setTimeout(() => {
+        if (toast.parentNode) {
+            toast.parentNode.removeChild(toast);
+        }
+    }, 5000);
+}
+
+function showSuccessToast(message) {
+    const toast = document.createElement('div');
+    toast.className = 'fixed z-50 p-4 text-white bg-green-600 rounded-lg shadow-lg top-4 right-4';
+    toast.innerHTML = `
+        <div class="flex items-center">
+            <i class="fas fa-check-circle mr-2"></i>
+            <span>${message}</span>
+        </div>
+    `;
+    
+    document.body.appendChild(toast);
+    
+    setTimeout(() => {
+        if (toast.parentNode) {
+            toast.parentNode.removeChild(toast);
+        }
+    }, 5000);
+}
+
+// Initialize when page loads (Turbo-compatible)
 document.addEventListener('turbo:load', function() {
     console.log('📄 Dashboard JavaScript loaded via Turbo');
     
@@ -258,6 +656,7 @@ document.addEventListener('turbo:load', function() {
     }, 100);
 });
 
+// Fallback for non-Turbo environments
 document.addEventListener('DOMContentLoaded', function() {
     console.log('📄 Dashboard JavaScript loaded via DOMContentLoaded');
     
@@ -280,7 +679,7 @@ window.addEventListener('beforeunload', function() {
     stopUpdates();
 });
 
-// Enhanced debugging functions
+// Enhanced debugging functions (matching dashboard pattern)
 window.DashboardDebug = {
     start: startUpdates,
     stop: stopUpdates,
@@ -298,6 +697,14 @@ window.DashboardDebug = {
         const data = await fetchLiveData();
         if (data) {
             updateDashboardWithLiveData(data);
+        }
+    },
+    // Test Bluetooth scanning
+    testBluetooth: () => {
+        console.log('🧪 Testing Bluetooth...');
+        console.log('Bluetooth supported:', !!navigator.bluetooth);
+        if (navigator.bluetooth) {
+            scanForBluetoothDevices();
         }
     }
 };

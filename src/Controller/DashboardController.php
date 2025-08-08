@@ -3,15 +3,14 @@
 namespace App\Controller;
 
 use App\Entity\Device;
-use App\Entity\User;
 use App\Entity\DeviceAccess;
 use App\Entity\MicroData;
+use App\Entity\User;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\HttpFoundation\JsonResponse;
-
 
 class DashboardController extends AbstractController
 {
@@ -76,21 +75,6 @@ class DashboardController extends AbstractController
             $device->setLatestMicroData($latestData);
             $device->setConnectionStatus($this->getDeviceConnectionStatus($latestData));
             $device->setLastSeenText($this->getLastSeenText($latestData));
-            
-            // Debug: Log device info for device 11 specifically
-            if ($device->getId() == 11 && $latestData) {
-                error_log("=== DEVICE 11 DEBUG ===");
-                error_log("Device 11 timestamp: " . $latestData->getTimestamp()->format('Y-m-d H:i:s'));
-                error_log("Current PHP time: " . (new \DateTime())->format('Y-m-d H:i:s'));
-                error_log("Connection status: " . $device->connectionStatus);
-                error_log("Last seen text: " . $device->lastSeenText);
-                error_log("======================");
-            }
-            
-            // Debug: Log device info
-            if ($latestData) {
-                error_log("Device " . $device->getSerialNumber() . " - Timestamp: " . $latestData->getTimestamp()->format('Y-m-d H:i:s'));
-            }
         }
         
         return array_values($userDevices);
@@ -106,28 +90,16 @@ class DashboardController extends AbstractController
         $timestamp = $latestData->getTimestamp();
         $secondsDiff = $now->getTimestamp() - $timestamp->getTimestamp();
 
-        // DEBUG: Log the actual calculation
-        error_log("=== CONNECTION STATUS DEBUG ===");
-        error_log("Device timestamp: " . $timestamp->format('Y-m-d H:i:s'));
-        error_log("Current time: " . $now->format('Y-m-d H:i:s'));
-        error_log("Seconds difference: " . $secondsDiff);
-        error_log("Minutes difference: " . round($secondsDiff / 60, 2));
-        error_log("Days difference: " . round($secondsDiff / 86400, 2));
-
         // Handle corrupted future timestamps
         if ($secondsDiff < 0) {
-            error_log("Status: CORRUPTED DATA (negative time difference)");
             return 'corrupted';
         }
 
         if ($secondsDiff <= 120) { // 2 minutes
-            error_log("Status: CONNECTED (≤120 seconds)");
             return 'connected';
         } elseif ($secondsDiff <= 300) { // 5 minutes
-            error_log("Status: RECENT (≤300 seconds)");
             return 'recent';
         } else {
-            error_log("Status: OFFLINE (>300 seconds)");
             return 'offline';
         }
     }
@@ -142,25 +114,16 @@ class DashboardController extends AbstractController
         $timestamp = $latestData->getTimestamp();
         $secondsDiff = $now->getTimestamp() - $timestamp->getTimestamp();
 
-        // DEBUG: Log the calculation
-        error_log("=== LAST SEEN DEBUG ===");
-        error_log("Timestamp: " . $timestamp->format('Y-m-d H:i:s'));
-        error_log("Seconds diff: " . $secondsDiff);
-
         if ($secondsDiff < 120) {
-            error_log("timeAgo: {$secondsDiff} seconds ago (under 2 minutes)");
             return $secondsDiff . ' sec ago';
         } elseif ($secondsDiff < 180 * 60) { // less than 180 minutes
             $minutes = floor($secondsDiff / 60);
-            error_log("timeAgo: {$minutes} minutes ago (under 3 hours)");
             return $minutes . ' min ago';
         } elseif ($secondsDiff < 96 * 3600) { // less than 96 hours
             $hours = floor($secondsDiff / 3600);
-            error_log("timeAgo: {$hours} hours ago (under 4 days)");
             return $hours . ' hour(s) ago';
         } else {
             $days = floor($secondsDiff / 86400);
-            error_log("timeAgo: {$days} days ago (over 4 days)");
             return $days . ' day(s) ago';
         }
     }
@@ -263,40 +226,38 @@ class DashboardController extends AbstractController
         ]);
     }
 
+    #[Route('/api/current-user', name: 'api_current_user', methods: ['GET'])]
+    public function getCurrentUser(): JsonResponse
+    {
+        $user = $this->getUser();
+        
+        if (!$user instanceof User) {
+            return new JsonResponse(['error' => 'Not authenticated'], 401);
+        }
+
+        return new JsonResponse([
+            'id' => $user->getId(),
+            'email' => $user->getEmail(),
+            'name' => $user->getFullName(),
+        ]);
+    }
+
     private function formatTimeDifference($timestamp): string
-{
-    $now = new \DateTime();
-    $secondsDiff = $now->getTimestamp() - $timestamp->getTimestamp();
+    {
+        $now = new \DateTime();
+        $secondsDiff = $now->getTimestamp() - $timestamp->getTimestamp();
 
-    if ($secondsDiff < 60) {
-        return 'Connected';
-    } elseif ($secondsDiff < 180 * 60) {
-        $minutes = floor($secondsDiff / 60);
-        return $minutes . ' min ago';
-    } elseif ($secondsDiff < 96 * 3600) {
-        $hours = floor($secondsDiff / 3600);
-        return $hours . ' hours ago';
-    } else {
-        $days = floor($secondsDiff / 86400);
-        return $days . ' days ago';
+        if ($secondsDiff < 60) {
+            return 'Connected';
+        } elseif ($secondsDiff < 180 * 60) {
+            $minutes = floor($secondsDiff / 60);
+            return $minutes . ' min ago';
+        } elseif ($secondsDiff < 96 * 3600) {
+            $hours = floor($secondsDiff / 3600);
+            return $hours . ' hours ago';
+        } else {
+            $days = floor($secondsDiff / 86400);
+            return $days . ' days ago';
+        }
     }
 }
-// In your DashboardController.php
-#[Route('/api/current-user', name: 'api_current_user', methods: ['GET'])]
-public function getCurrentUser(): JsonResponse
-{
-    $user = $this->getUser();
-    
-    if (!$user instanceof User) {
-        return new JsonResponse(['error' => 'Not authenticated'], 401);
-    }
-
-    return new JsonResponse([
-        'id' => $user->getId(),
-        'email' => $user->getEmail(),
-        'name' => $user->getFullName(),
-    ]);
-}
-
-
-} 

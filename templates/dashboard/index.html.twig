@@ -14,6 +14,9 @@
     <script>
         // Initialize the API URL for the dashboard
         initializeApiUrl('{{ path("dashboard_api_devices_live_data") }}');
+        
+        // Set global user ID for Bluetooth connections
+        window.currentUserId = {{ app.user.id }};
     </script>
 {% endblock %}
 
@@ -233,4 +236,8 @@
     </div>
   </nav>
 </div>
+
+<!-- Loading/Success Messages -->
+<div id="toast-container" class="fixed z-50 space-y-2 top-4 right-4"></div>
+
 {% endblock %}
