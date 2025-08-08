@@ -6,14 +6,19 @@
     <title>{% block title %}Air Scales{% endblock %}</title>
 
     {{ encore_entry_link_tags('app') }}
+
     {% block stylesheets %}
-        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+      <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     {% endblock %}
+
+    {# Load app bundle in HEAD, deferred, and tracked for Turbo #}
+    {{ encore_entry_script_tags('app', { defer: true, 'data-turbo-track': 'reload' }) }}
+
+    {# Also put page-specific scripts in HEAD so Turbo doesn't re-eval them on each visit #}
+    {% block javascripts %}{% endblock %}
   </head>
+
   <body>
     {% block body %}{% endblock %}
-
-    {{ encore_entry_script_tags('app') }}
-    {% block javascripts %}{% endblock %}
   </body>
 </html>
