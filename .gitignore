@@ -43,8 +43,8 @@ hardware/**/plots/
 /webapp/package-lock.json
 
 # Root-level Composer + Symfony runtime (created earlier by accident)
- /vendor/
- /var/
+/vendor/
+/var/
 
 # Front-end build outputs we don't track
 /webapp/assets/vendor/
