@@ -33,10 +33,6 @@ prod-dump.sql
 hardware/**/out/
 hardware/**/build/
 hardware/**/plots/
-*.step
-*.stl
-*.3mf
-*.zip
 
 # --- Composer & NPM caches ---
 /webapp/composer.lock
