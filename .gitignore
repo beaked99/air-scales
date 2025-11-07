@@ -41,3 +41,11 @@ hardware/**/plots/
 # --- Composer & NPM caches ---
 /webapp/composer.lock
 /webapp/package-lock.json
+
+# Root-level Composer + Symfony runtime (created earlier by accident)
+ /vendor/
+ /var/
+
+# Front-end build outputs we don't track
+/webapp/assets/vendor/
+/webapp/public/bundles/
