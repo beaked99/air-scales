@@ -1,27 +1,43 @@
+# --- General ---
+.DS_Store
+*.log
+node_modules/
+dist/
+build/
+.idea/
+.vscode/
+.env.local
+.phpunit.result.cache
 
-###> symfony/framework-bundle ###
-/.env.local
-/.env.local.php
-/.env.*.local
-/config/secrets/prod/prod.decrypt.private.php
-/public/bundles/
-/var/
-/vendor/
-###< symfony/framework-bundle ###
+# --- Database Dumps ---
+prod-dump.sql
+*.sql
 
-###> phpunit/phpunit ###
-/phpunit.xml
-/.phpunit.cache/
-###< phpunit/phpunit ###
+# --- webapp (Symfony/PHP/Node) ---
+/webapp/vendor/
+/webapp/var/
+/webapp/node_modules/
+/webapp/dist/
+/webapp/build/
+/webapp/.env.local
+/webapp/.phpunit.result.cache
 
-###> symfony/asset-mapper ###
-/public/assets/
-/assets/vendor/
-###< symfony/asset-mapper ###
+# --- esp32 (PlatformIO/Arduino) ---
+/esp32/.pio/
+/esp32/.vscode/
+*.bin
+*.elf
+*.map
 
-###> symfony/webpack-encore-bundle ###
-/node_modules/
-/public/build/
-npm-debug.log
-yarn-error.log
-###< symfony/webpack-encore-bundle ###
+# --- hardware (KiCad) ---
+hardware/**/out/
+hardware/**/build/
+hardware/**/plots/
+*.step
+*.stl
+*.3mf
+*.zip
+
+# --- Composer & NPM caches ---
+/webapp/composer.lock
+/webapp/package-lock.json
