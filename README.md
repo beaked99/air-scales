@@ -1,0 +1,1 @@
+Seth - everything for the KiCad is in the /hardware page. the project *should* open up at /hardware/air-scales. let me know if it doesnt work for you. At this stage all that is there is a big schematic, and ya... i went outside the fucking page border because i dont know how to update that either. fml. 
