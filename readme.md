@@ -1,0 +1,2 @@
+2025-11-16. SETH. 
+lots of changes to the schematic. i think its a lot more understandable now for you. I am not sure if VBus needs a TVS or not??? Maybe it does, although I noticed unexpected maker doesnt use it. Maybe i'll put it in. Otherwise I think this schematic is a wrap, and all thats left is to build out the board. Let me know what you think!!!
