@@ -1,2 +1,2 @@
-2025-11-16. SETH. 
-lots of changes to the schematic. i think its a lot more understandable now for you. I am not sure if VBus needs a TVS or not??? Maybe it does, although I noticed unexpected maker doesnt use it. Maybe i'll put it in. Otherwise I think this schematic is a wrap, and all thats left is to build out the board. Let me know what you think!!!
+2025-11-20. Updated all the footprints and symbols to their proper layouts. no more fkn errors. Hallefuckinglujah. Fucked up with LM74610 not using the right footprint. minor fix. 
+2025-11-16. lots of changes to the schematic. i think its a lot more understandable now for you Seth. I am not sure if VBus needs a TVS or not??? Maybe it does, although I noticed unexpected maker doesnt use it. Maybe i'll put it in. Otherwise I think this schematic is a wrap, and all thats left is to build out the board. Let me know what you think!!!
