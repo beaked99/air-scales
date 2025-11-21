@@ -7364,7 +7364,7 @@
 		(property "Reference" "U5"
 			(at 0.21 0.375 0)
 			(layer "F.SilkS")
-			(uuid "6e60d348-af6c-4e7e-9146-5fe8a87c302d")
+			(uuid "a03ee345-c0b2-459a-afb8-cf2d823ef3d8")
 			(effects
 				(font
 					(size 1 1)
@@ -7375,7 +7375,7 @@
 		(property "Value" "LM74610"
 			(at -7.09 1.375 180)
 			(layer "F.Fab")
-			(uuid "659e3f37-8946-4b7a-bcaa-7362acae440d")
+			(uuid "b6ec52b5-03b6-4712-9693-6591fdbfc391")
 			(effects
 				(font
 					(size 1 1)
@@ -7387,7 +7387,7 @@
 			(at 0 0 0)
 			(layer "F.Fab")
 			(hide yes)
-			(uuid "e635918e-a685-4705-8eaa-70a85b42d580")
+			(uuid "1ea5eda7-7fa4-472e-b5ae-b2fb86ce54db")
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -7399,7 +7399,7 @@
 			(at 0 0 0)
 			(layer "F.Fab")
 			(hide yes)
-			(uuid "0c01e33d-bbd9-4053-80c7-ef77cc09fb97")
+			(uuid "27417d12-09b5-4ac0-85a0-51a850a4fcd9")
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -10955,7 +10955,7 @@
 			(net 71 "GND")
 			(pinfunction "PAD")
 			(pintype "power_in")
-			(uuid "184530d6-5127-48a8-a135-4aa16edfa84e")
+			(uuid "08643834-523f-4092-b442-59a783d4a200")
 		)
 		(pad "9" smd rect
 			(at 0 0 270)
@@ -10964,7 +10964,7 @@
 			(net 71 "GND")
 			(pinfunction "PAD")
 			(pintype "power_in")
-			(uuid "184530d6-5127-48a8-a135-4aa16edfa84e")
+			(uuid "469c91af-ba44-4f55-a210-f8776c40e4c2")
 		)
 		(pad "9" thru_hole circle
 			(at 0 0.5 270)
@@ -10976,7 +10976,7 @@
 			(net 71 "GND")
 			(pinfunction "PAD")
 			(pintype "power_in")
-			(uuid "184530d6-5127-48a8-a135-4aa16edfa84e")
+			(uuid "bbdc7504-afe4-4ea5-b6f5-c5ca3053448b")
 		)
 		(embedded_fonts no)
 		(model "${KICAD9_3DMODEL_DIR}/Package_SON.3dshapes/WSON-8-1EP_2x2mm_P0.5mm_EP0.9x1.6mm.step"
@@ -17965,7 +17965,7 @@
 	(footprint "PCM_JLCPCB:L_0805"
 		(layer "F.Cu")
 		(uuid "97987cfd-67b8-4f19-ba65-1f3df76a397f")
-		(at 68.99 93.11 -90)
+		(at 68.9 93.11 -90)
 		(descr "Inductor SMD 0805 (2012 Metric), square (rectangular) end terminal, IPC_7351 nominal, (Body size source: IPC-SM-782 page 80, https://www.pcb-3d.com/wordpress/wp-content/uploads/ipc-sm-782a_amendment_1_and_2.pdf), generated with kicad-footprint-generator")
 		(tags "inductor")
 		(property "Reference" "L1"
@@ -26550,7 +26550,7 @@
 			(net 71 "GND")
 			(pinfunction "SHIELD")
 			(pintype "passive")
-			(uuid "2cd665bc-519f-4e44-8fb7-7435c48a45f1")
+			(uuid "b13ae16c-925e-4ef5-a14c-875508e227f9")
 		)
 		(pad "S1" thru_hole circle
 			(at -2 1 90)
@@ -26562,7 +26562,7 @@
 			(pinfunction "SHIELD")
 			(pintype "passive")
 			(thermal_bridge_angle 90)
-			(uuid "2cd665bc-519f-4e44-8fb7-7435c48a45f1")
+			(uuid "e50dc8b3-2b6c-4ca2-89f0-0349707a164e")
 		)
 		(pad "S1" thru_hole circle
 			(at -2 3 90)
@@ -26574,7 +26574,7 @@
 			(pinfunction "SHIELD")
 			(pintype "passive")
 			(thermal_bridge_angle 90)
-			(uuid "2cd665bc-519f-4e44-8fb7-7435c48a45f1")
+			(uuid "a800a23f-52d3-4538-944e-b3c86931cd00")
 		)
 		(pad "S1" smd roundrect
 			(at 0 2 90)
@@ -26585,7 +26585,7 @@
 			(pinfunction "SHIELD")
 			(pintype "passive")
 			(zone_connect 2)
-			(uuid "2cd665bc-519f-4e44-8fb7-7435c48a45f1")
+			(uuid "f913e769-3a8e-448f-b68f-063c9423ef83")
 		)
 		(pad "S1" thru_hole circle
 			(at 2 1 90)
@@ -26597,7 +26597,7 @@
 			(pinfunction "SHIELD")
 			(pintype "passive")
 			(thermal_bridge_angle 90)
-			(uuid "2cd665bc-519f-4e44-8fb7-7435c48a45f1")
+			(uuid "77c905f3-d2f0-4dbb-9404-632f7f2a6aaf")
 		)
 		(pad "S1" thru_hole circle
 			(at 2 3 90)
@@ -26609,7 +26609,7 @@
 			(pinfunction "SHIELD")
 			(pintype "passive")
 			(thermal_bridge_angle 90)
-			(uuid "2cd665bc-519f-4e44-8fb7-7435c48a45f1")
+			(uuid "ed0fca93-ea30-4b41-914a-b55e52bc9a50")
 		)
 		(pad "S1" thru_hole oval
 			(at 4.33 -1.82 90)
@@ -26620,7 +26620,7 @@
 			(net 71 "GND")
 			(pinfunction "SHIELD")
 			(pintype "passive")
-			(uuid "2cd665bc-519f-4e44-8fb7-7435c48a45f1")
+			(uuid "60969deb-32a9-427c-b9f3-7c3399e98a2e")
 		)
 		(pad "S1" thru_hole oval
 			(at 4.33 2.38 90)
@@ -26631,7 +26631,7 @@
 			(net 71 "GND")
 			(pinfunction "SHIELD")
 			(pintype "passive")
-			(uuid "2cd665bc-519f-4e44-8fb7-7435c48a45f1")
+			(uuid "5a1cd63f-5f3e-4807-a9fa-99874f0741c7")
 		)
 		(embedded_fonts no)
 		(model "${KICAD8_3RD_PARTY}/3dmodels/com_github_CDFER_JLCPCB-Kicad-Library/JLCPCB.3dshapes/TYPE-C-SMD_HX-TYPE-C-16PIN.step"
@@ -33471,20 +33471,12 @@
 		(uuid "d76b8ba1-b4fe-4f2c-92c6-b1769dd33117")
 	)
 	(segment
-		(start 77.14 109.5)
-		(end 77.14 125.8)
+		(start 78.2 126.86)
+		(end 79.44 128.1)
 		(width 0.5)
 		(layer "B.Cu")
 		(net 35)
-		(uuid "007d8e7b-a4ac-4e72-a88c-68011a7ed3a5")
-	)
-	(segment
-		(start 57.44 107.3)
-		(end 74.94 107.3)
-		(width 0.5)
-		(layer "B.Cu")
-		(net 35)
-		(uuid "54853a13-3a73-4692-bdbe-bde96aad250a")
+		(uuid "48c68622-3a8d-4180-b609-987e4cf76629")
 	)
 	(segment
 		(start 56.24 108.5)
@@ -33492,23 +33484,31 @@
 		(width 0.5)
 		(layer "B.Cu")
 		(net 35)
-		(uuid "7c95ed37-e5aa-453d-9407-8f7fe280b15d")
+		(uuid "6af80b9a-31fd-4846-bff1-3a5ee4586f44")
 	)
 	(segment
-		(start 77.14 125.8)
-		(end 79.44 128.1)
+		(start 57.44 107.3)
+		(end 74.94 107.3)
 		(width 0.5)
 		(layer "B.Cu")
 		(net 35)
-		(uuid "94e26abc-b678-4433-9bc8-aa4646a6f1a7")
+		(uuid "a3ec069b-8bb7-442c-a36c-6ea7de74b4d3")
 	)
 	(segment
 		(start 74.94 107.3)
-		(end 77.14 109.5)
+		(end 78.2 110.56)
 		(width 0.5)
 		(layer "B.Cu")
 		(net 35)
-		(uuid "f49600f5-c8cd-4b34-b023-a58860a0f88d")
+		(uuid "ad640837-6e8b-4671-a560-66733d92ee6b")
+	)
+	(segment
+		(start 78.2 110.56)
+		(end 78.2 126.86)
+		(width 0.5)
+		(layer "B.Cu")
+		(net 35)
+		(uuid "c8ed79bc-5014-4f44-8578-3dd0ea58b58f")
 	)
 	(segment
 		(start 72.01 112.465)
