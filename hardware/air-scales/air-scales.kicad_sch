@@ -12486,12 +12486,6 @@
 		(uuid "175d9023-40c2-4833-b437-7cd88b2ef4f9")
 	)
 	(junction
-		(at 219.71 137.16)
-		(diameter 0)
-		(color 0 0 0 0)
-		(uuid "17ae8aa0-d1f6-483c-aa59-07e95fb1804f")
-	)
-	(junction
 		(at 379.73 34.29)
 		(diameter 0)
 		(color 0 0 0 0)
@@ -12538,6 +12532,12 @@
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "1d11f104-0096-4c33-b038-7ee8e2c49a61")
+	)
+	(junction
+		(at 215.9 137.16)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "1db76a57-9bb8-4b44-970b-d1eaf4b3c87f")
 	)
 	(junction
 		(at 137.16 31.75)
@@ -12606,12 +12606,6 @@
 		(uuid "2f6c1f08-e9a3-42bf-81fb-a6498501cd7d")
 	)
 	(junction
-		(at 132.08 229.87)
-		(diameter 0)
-		(color 0 0 0 0)
-		(uuid "2ff1c75d-ada8-493f-89e4-394834d1a15d")
-	)
-	(junction
 		(at 87.63 137.16)
 		(diameter 0)
 		(color 0 0 0 0)
@@ -12664,6 +12658,12 @@
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "437c209f-3361-412f-9a12-0d9ab4994d57")
+	)
+	(junction
+		(at 88.9 31.75)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "46283a94-e99f-4997-85cf-576233aae43f")
 	)
 	(junction
 		(at 373.38 190.5)
@@ -12828,6 +12828,12 @@
 		(uuid "8bcc4fd0-3b05-4763-ac55-4d199ecdf32c")
 	)
 	(junction
+		(at 128.27 229.87)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "8dd3ed10-3cf4-4465-8413-40d3cac3b44f")
+	)
+	(junction
 		(at 179.07 31.75)
 		(diameter 0)
 		(color 0 0 0 0)
@@ -12868,6 +12874,12 @@
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "98218117-a13e-4506-9115-3e60ebc00905")
+	)
+	(junction
+		(at 88.9 81.28)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "9faf508c-bf60-42fd-9b26-62fd9dccb202")
 	)
 	(junction
 		(at 175.26 196.85)
@@ -12982,12 +12994,6 @@
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "c83ad916-0510-42fd-9575-3969a21a89cd")
-	)
-	(junction
-		(at 91.44 81.28)
-		(diameter 0)
-		(color 0 0 0 0)
-		(uuid "c93ecbca-8d39-4180-846a-c368c70005e9")
 	)
 	(junction
 		(at 175.26 205.74)
@@ -13114,12 +13120,6 @@
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "ef3e382b-41ba-4796-914a-308295557a0a")
-	)
-	(junction
-		(at 91.44 31.75)
-		(diameter 0)
-		(color 0 0 0 0)
-		(uuid "ef8bc746-d4ab-4b4f-ba19-b53c8da84db0")
 	)
 	(junction
 		(at 262.89 39.37)
@@ -13537,7 +13537,7 @@
 	)
 	(wire
 		(pts
-			(xy 209.55 137.16) (xy 219.71 137.16)
+			(xy 209.55 137.16) (xy 215.9 137.16)
 		)
 		(stroke
 			(width 0)
@@ -13757,7 +13757,17 @@
 	)
 	(wire
 		(pts
-			(xy 132.08 220.98) (xy 132.08 229.87)
+			(xy 88.9 46.99) (xy 88.9 52.07)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "2d93f2a9-3381-4c70-a017-7e5d7a1524f8")
+	)
+	(wire
+		(pts
+			(xy 128.27 226.06) (xy 128.27 229.87)
 		)
 		(stroke
 			(width 0)
@@ -13777,7 +13787,7 @@
 	)
 	(wire
 		(pts
-			(xy 91.44 31.75) (xy 91.44 38.1)
+			(xy 88.9 31.75) (xy 88.9 39.37)
 		)
 		(stroke
 			(width 0)
@@ -13904,6 +13914,16 @@
 			(type default)
 		)
 		(uuid "3c63a937-b687-45f5-a4d1-c4b9df06ab13")
+	)
+	(wire
+		(pts
+			(xy 45.72 217.17) (xy 45.72 213.36)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "3e682065-4a5b-4d76-91b7-c6ade03330da")
 	)
 	(wire
 		(pts
@@ -14047,16 +14067,6 @@
 	)
 	(wire
 		(pts
-			(xy 91.44 45.72) (xy 91.44 49.53)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "4cf2dc1b-0021-45ce-a537-387a818f1d5f")
-	)
-	(wire
-		(pts
 			(xy 373.38 185.42) (xy 373.38 187.96)
 		)
 		(stroke
@@ -14117,7 +14127,7 @@
 	)
 	(wire
 		(pts
-			(xy 91.44 81.28) (xy 77.47 81.28)
+			(xy 88.9 81.28) (xy 99.06 81.28)
 		)
 		(stroke
 			(width 0)
@@ -14297,16 +14307,6 @@
 	)
 	(wire
 		(pts
-			(xy 132.08 229.87) (xy 121.92 229.87)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "5b6fc079-e035-4395-bb7e-3493723c4f2f")
-	)
-	(wire
-		(pts
 			(xy 222.25 196.85) (xy 231.14 196.85)
 		)
 		(stroke
@@ -14454,6 +14454,16 @@
 			(type default)
 		)
 		(uuid "63c8fbce-ed96-4a28-a5b1-a972c83a4f8e")
+	)
+	(wire
+		(pts
+			(xy 128.27 229.87) (xy 121.92 229.87)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "63f8894a-1ad4-4a43-b65b-b6cf888c129a")
 	)
 	(wire
 		(pts
@@ -14667,6 +14677,16 @@
 	)
 	(wire
 		(pts
+			(xy 128.27 229.87) (xy 139.7 229.87)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "77ea5402-6c14-4278-a322-22b297c9589b")
+	)
+	(wire
+		(pts
 			(xy 52.07 76.2) (xy 52.07 81.28)
 		)
 		(stroke
@@ -14797,16 +14817,6 @@
 	)
 	(wire
 		(pts
-			(xy 219.71 137.16) (xy 222.25 137.16)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "7f3769c7-ef3c-47d3-a9da-e5b8d7e169c0")
-	)
-	(wire
-		(pts
 			(xy 184.15 196.85) (xy 184.15 198.12)
 		)
 		(stroke
@@ -14857,7 +14867,7 @@
 	)
 	(wire
 		(pts
-			(xy 45.72 220.98) (xy 45.72 229.87)
+			(xy 45.72 224.79) (xy 45.72 229.87)
 		)
 		(stroke
 			(width 0)
@@ -15067,7 +15077,7 @@
 	)
 	(wire
 		(pts
-			(xy 219.71 137.16) (xy 219.71 142.24)
+			(xy 215.9 137.16) (xy 215.9 146.05)
 		)
 		(stroke
 			(width 0)
@@ -15094,6 +15104,16 @@
 			(type default)
 		)
 		(uuid "9d83c76d-c3c8-4d7e-b01a-83ce1d4455a3")
+	)
+	(wire
+		(pts
+			(xy 88.9 31.75) (xy 99.06 31.75)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "9ddb0b82-5aab-4107-a6a4-7b4cb8ccd95f")
 	)
 	(wire
 		(pts
@@ -15157,6 +15177,16 @@
 	)
 	(wire
 		(pts
+			(xy 128.27 218.44) (xy 128.27 214.63)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "a43006c8-8fa5-4393-b92f-77aa47e361ee")
+	)
+	(wire
+		(pts
 			(xy 330.2 85.09) (xy 322.58 85.09)
 		)
 		(stroke
@@ -15187,16 +15217,6 @@
 	)
 	(wire
 		(pts
-			(xy 99.06 81.28) (xy 91.44 81.28)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "a6331452-0b06-4bb5-bf13-db4ed789df40")
-	)
-	(wire
-		(pts
 			(xy 256.54 83.82) (xy 275.59 83.82)
 		)
 		(stroke
@@ -15217,7 +15237,7 @@
 	)
 	(wire
 		(pts
-			(xy 91.44 57.15) (xy 91.44 81.28)
+			(xy 88.9 59.69) (xy 88.9 81.28)
 		)
 		(stroke
 			(width 0)
@@ -15327,7 +15347,7 @@
 	)
 	(wire
 		(pts
-			(xy 219.71 165.1) (xy 209.55 165.1)
+			(xy 215.9 165.1) (xy 209.55 165.1)
 		)
 		(stroke
 			(width 0)
@@ -15367,7 +15387,7 @@
 	)
 	(wire
 		(pts
-			(xy 219.71 157.48) (xy 219.71 165.1)
+			(xy 215.9 161.29) (xy 215.9 165.1)
 		)
 		(stroke
 			(width 0)
@@ -15437,6 +15457,16 @@
 	)
 	(wire
 		(pts
+			(xy 128.27 214.63) (xy 132.08 214.63)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "bc695881-ce37-4938-adc1-89b9b505689f")
+	)
+	(wire
+		(pts
 			(xy 326.39 201.93) (xy 326.39 207.01)
 		)
 		(stroke
@@ -15484,16 +15514,6 @@
 			(type default)
 		)
 		(uuid "c014b738-1b72-40ee-8410-5b749c827fe8")
-	)
-	(wire
-		(pts
-			(xy 139.7 229.87) (xy 132.08 229.87)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "c11f121c-6b89-4f62-b02e-e870d9d5d7b4")
 	)
 	(wire
 		(pts
@@ -15827,7 +15847,7 @@
 	)
 	(wire
 		(pts
-			(xy 77.47 31.75) (xy 91.44 31.75)
+			(xy 77.47 31.75) (xy 88.9 31.75)
 		)
 		(stroke
 			(width 0)
@@ -15864,6 +15884,16 @@
 			(type default)
 		)
 		(uuid "debeb9fe-c145-47c5-9cba-b563eb6d4736")
+	)
+	(wire
+		(pts
+			(xy 132.08 214.63) (xy 132.08 213.36)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "e185b8fd-38f8-4afc-8a63-6169748710dd")
 	)
 	(wire
 		(pts
@@ -16097,6 +16127,16 @@
 	)
 	(wire
 		(pts
+			(xy 215.9 137.16) (xy 222.25 137.16)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "f15c87db-961d-445f-bbc2-431cceaa0715")
+	)
+	(wire
+		(pts
 			(xy 152.4 142.24) (xy 152.4 152.4)
 		)
 		(stroke
@@ -16227,16 +16267,6 @@
 	)
 	(wire
 		(pts
-			(xy 99.06 31.75) (xy 91.44 31.75)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "fad2fa04-8862-42bb-b4ee-ee020dbdcfe8")
-	)
-	(wire
-		(pts
 			(xy 139.7 229.87) (xy 139.7 213.36)
 		)
 		(stroke
@@ -16284,6 +16314,16 @@
 			(type default)
 		)
 		(uuid "fcf41ae1-04dd-41c6-bbe0-22c74016a65b")
+	)
+	(wire
+		(pts
+			(xy 88.9 81.28) (xy 77.47 81.28)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "fe75b0af-e4e3-4d5a-9cdb-c1c96ecd6d85")
 	)
 	(wire
 		(pts
@@ -16883,7 +16923,7 @@
 	)
 	(symbol
 		(lib_id "PCM_JLCPCB-Diodes:LED,0603,Red")
-		(at 45.72 217.17 0)
+		(at 45.72 220.98 180)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -16892,25 +16932,25 @@
 		(fields_autoplaced yes)
 		(uuid "082bee71-04eb-4041-a7cf-9539efde119f")
 		(property "Reference" "D6"
-			(at 48.26 216.4396 0)
+			(at 50.8 220.4401 0)
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
-				(justify left)
+				(justify right)
 			)
 		)
 		(property "Value" "GREEN"
-			(at 48.26 218.3447 0)
+			(at 50.8 222.3452 0)
 			(effects
 				(font
 					(size 0.8 0.8)
 				)
-				(justify left)
+				(justify right)
 			)
 		)
 		(property "Footprint" "PCM_JLCPCB:D_0603"
-			(at 43.942 217.17 90)
+			(at 47.498 220.98 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -16919,7 +16959,7 @@
 			)
 		)
 		(property "Datasheet" "https://www.lcsc.com/datasheet/lcsc_datasheet_1810231112_Hubei-KENTO-Elec-KT-0603R_C2286.pdf"
-			(at 45.72 217.17 0)
+			(at 45.72 220.98 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -16928,7 +16968,7 @@
 			)
 		)
 		(property "Description" "-40°C~+85°C Red 0603 LED Indication - Discrete ROHS"
-			(at 45.72 217.17 0)
+			(at 45.72 220.98 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -16937,7 +16977,7 @@
 			)
 		)
 		(property "LCSC" "C2286"
-			(at 45.72 217.17 0)
+			(at 45.72 220.98 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -16946,7 +16986,7 @@
 			)
 		)
 		(property "Stock" "5373336"
-			(at 45.72 217.17 0)
+			(at 45.72 220.98 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -16955,7 +16995,7 @@
 			)
 		)
 		(property "Price" "0.009USD"
-			(at 45.72 217.17 0)
+			(at 45.72 220.98 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -16964,7 +17004,7 @@
 			)
 		)
 		(property "Process" "SMT"
-			(at 45.72 217.17 0)
+			(at 45.72 220.98 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -16973,7 +17013,7 @@
 			)
 		)
 		(property "Minimum Qty" "20"
-			(at 45.72 217.17 0)
+			(at 45.72 220.98 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -16982,7 +17022,7 @@
 			)
 		)
 		(property "Attrition Qty" "10"
-			(at 45.72 217.17 0)
+			(at 45.72 220.98 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -16991,7 +17031,7 @@
 			)
 		)
 		(property "Class" "Basic Component"
-			(at 45.72 217.17 0)
+			(at 45.72 220.98 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -17000,7 +17040,7 @@
 			)
 		)
 		(property "Category" "Optocouplers & LEDs & Infrared,Light Emitting Diodes (LED)"
-			(at 45.72 217.17 0)
+			(at 45.72 220.98 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -17009,7 +17049,7 @@
 			)
 		)
 		(property "Manufacturer" "Hubei KENTO Elec"
-			(at 45.72 217.17 0)
+			(at 45.72 220.98 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -17018,7 +17058,7 @@
 			)
 		)
 		(property "Part" "KT-0603R"
-			(at 45.72 217.17 0)
+			(at 45.72 220.98 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -19470,7 +19510,7 @@
 	)
 	(symbol
 		(lib_id "PCM_JLCPCB-Resistors:0603,10kΩ")
-		(at 91.44 41.91 0)
+		(at 88.9 43.18 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -19479,7 +19519,7 @@
 		(fields_autoplaced yes)
 		(uuid "3c8e0828-7d99-495a-a616-8b0ac94ff280")
 		(property "Reference" "R16"
-			(at 93.98 41.9099 0)
+			(at 91.44 43.1799 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -19488,7 +19528,7 @@
 			)
 		)
 		(property "Value" "10kΩ"
-			(at 91.44 41.91 90)
+			(at 88.9 43.18 90)
 			(do_not_autoplace yes)
 			(effects
 				(font
@@ -19497,7 +19537,7 @@
 			)
 		)
 		(property "Footprint" "PCM_JLCPCB:R_0603"
-			(at 89.662 41.91 90)
+			(at 87.122 43.18 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -19506,7 +19546,7 @@
 			)
 		)
 		(property "Datasheet" "https://www.lcsc.com/datasheet/lcsc_datasheet_2206010045_UNI-ROYAL-Uniroyal-Elec-0603WAF1002T5E_C25804.pdf"
-			(at 91.44 41.91 0)
+			(at 88.9 43.18 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -19515,7 +19555,7 @@
 			)
 		)
 		(property "Description" "100mW Thick Film Resistors 75V ±100ppm/°C ±1% 10kΩ 0603 Chip Resistor - Surface Mount ROHS"
-			(at 91.44 41.91 0)
+			(at 88.9 43.18 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -19524,7 +19564,7 @@
 			)
 		)
 		(property "LCSC" "C25804"
-			(at 91.44 41.91 0)
+			(at 88.9 43.18 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -19533,7 +19573,7 @@
 			)
 		)
 		(property "Stock" "51181774"
-			(at 91.44 41.91 0)
+			(at 88.9 43.18 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -19542,7 +19582,7 @@
 			)
 		)
 		(property "Price" "0.004USD"
-			(at 91.44 41.91 0)
+			(at 88.9 43.18 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -19551,7 +19591,7 @@
 			)
 		)
 		(property "Process" "SMT"
-			(at 91.44 41.91 0)
+			(at 88.9 43.18 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -19560,7 +19600,7 @@
 			)
 		)
 		(property "Minimum Qty" "20"
-			(at 91.44 41.91 0)
+			(at 88.9 43.18 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -19569,7 +19609,7 @@
 			)
 		)
 		(property "Attrition Qty" "10"
-			(at 91.44 41.91 0)
+			(at 88.9 43.18 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -19578,7 +19618,7 @@
 			)
 		)
 		(property "Class" "Basic Component"
-			(at 91.44 41.91 0)
+			(at 88.9 43.18 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -19587,7 +19627,7 @@
 			)
 		)
 		(property "Category" "Resistors,Chip Resistor - Surface Mount"
-			(at 91.44 41.91 0)
+			(at 88.9 43.18 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -19596,7 +19636,7 @@
 			)
 		)
 		(property "Manufacturer" "UNI-ROYAL(Uniroyal Elec)"
-			(at 91.44 41.91 0)
+			(at 88.9 43.18 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -19605,7 +19645,7 @@
 			)
 		)
 		(property "Part" "0603WAF1002T5E"
-			(at 91.44 41.91 0)
+			(at 88.9 43.18 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -19614,7 +19654,7 @@
 			)
 		)
 		(property "Resistance" "10kΩ"
-			(at 91.44 41.91 0)
+			(at 88.9 43.18 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -19623,7 +19663,7 @@
 			)
 		)
 		(property "Power(Watts)" "100mW"
-			(at 91.44 41.91 0)
+			(at 88.9 43.18 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -19632,7 +19672,7 @@
 			)
 		)
 		(property "Type" "Thick Film Resistors"
-			(at 91.44 41.91 0)
+			(at 88.9 43.18 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -19641,7 +19681,7 @@
 			)
 		)
 		(property "Overload Voltage (Max)" "75V"
-			(at 91.44 41.91 0)
+			(at 88.9 43.18 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -19650,7 +19690,7 @@
 			)
 		)
 		(property "Operating Temperature Range" "-55°C~+155°C"
-			(at 91.44 41.91 0)
+			(at 88.9 43.18 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -19659,7 +19699,7 @@
 			)
 		)
 		(property "Tolerance" "±1%"
-			(at 91.44 41.91 0)
+			(at 88.9 43.18 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -19668,7 +19708,7 @@
 			)
 		)
 		(property "Temperature Coefficient" "±100ppm/°C"
-			(at 91.44 41.91 0)
+			(at 88.9 43.18 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -23135,7 +23175,7 @@
 	)
 	(symbol
 		(lib_id "PCM_JLCPCB-Resistors:0603,3.3kΩ")
-		(at 219.71 146.05 0)
+		(at 215.9 149.86 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -23144,7 +23184,7 @@
 		(fields_autoplaced yes)
 		(uuid "84f56b26-7e59-4877-b344-5cdc51d52620")
 		(property "Reference" "R20"
-			(at 222.25 146.0499 0)
+			(at 218.44 149.8599 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -23153,7 +23193,7 @@
 			)
 		)
 		(property "Value" "1kΩ"
-			(at 219.71 146.05 90)
+			(at 215.9 149.86 90)
 			(do_not_autoplace yes)
 			(effects
 				(font
@@ -23162,7 +23202,7 @@
 			)
 		)
 		(property "Footprint" "PCM_JLCPCB:R_0603"
-			(at 217.932 146.05 90)
+			(at 214.122 149.86 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -23171,7 +23211,7 @@
 			)
 		)
 		(property "Datasheet" "https://www.lcsc.com/datasheet/lcsc_datasheet_2206010116_UNI-ROYAL-Uniroyal-Elec-0603WAF3301T5E_C22978.pdf"
-			(at 219.71 146.05 0)
+			(at 215.9 149.86 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -23180,7 +23220,7 @@
 			)
 		)
 		(property "Description" "100mW Thick Film Resistors 75V ±100ppm/°C ±1% 1kΩ 0603 Chip Resistor - Surface Mount ROHS"
-			(at 219.71 146.05 0)
+			(at 215.9 149.86 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -23189,7 +23229,7 @@
 			)
 		)
 		(property "LCSC" ""
-			(at 219.71 146.05 0)
+			(at 215.9 149.86 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -23198,7 +23238,7 @@
 			)
 		)
 		(property "Stock" ""
-			(at 219.71 146.05 0)
+			(at 215.9 149.86 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -23207,7 +23247,7 @@
 			)
 		)
 		(property "Price" ""
-			(at 219.71 146.05 0)
+			(at 215.9 149.86 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -23216,7 +23256,7 @@
 			)
 		)
 		(property "Process" ""
-			(at 219.71 146.05 0)
+			(at 215.9 149.86 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -23225,7 +23265,7 @@
 			)
 		)
 		(property "Minimum Qty" ""
-			(at 219.71 146.05 0)
+			(at 215.9 149.86 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -23234,7 +23274,7 @@
 			)
 		)
 		(property "Attrition Qty" ""
-			(at 219.71 146.05 0)
+			(at 215.9 149.86 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -23243,7 +23283,7 @@
 			)
 		)
 		(property "Class" "Basic Component"
-			(at 219.71 146.05 0)
+			(at 215.9 149.86 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -23252,7 +23292,7 @@
 			)
 		)
 		(property "Category" "Resistors,Chip Resistor - Surface Mount"
-			(at 219.71 146.05 0)
+			(at 215.9 149.86 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -23261,7 +23301,7 @@
 			)
 		)
 		(property "Manufacturer" "UNI-ROYAL(Uniroyal Elec)"
-			(at 219.71 146.05 0)
+			(at 215.9 149.86 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -23270,7 +23310,7 @@
 			)
 		)
 		(property "Part" "0603WAF3301T5E"
-			(at 219.71 146.05 0)
+			(at 215.9 149.86 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -23279,7 +23319,7 @@
 			)
 		)
 		(property "Resistance" "1kΩ"
-			(at 219.71 146.05 0)
+			(at 215.9 149.86 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -23288,7 +23328,7 @@
 			)
 		)
 		(property "Power(Watts)" "100mW"
-			(at 219.71 146.05 0)
+			(at 215.9 149.86 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -23297,7 +23337,7 @@
 			)
 		)
 		(property "Type" "Thick Film Resistors"
-			(at 219.71 146.05 0)
+			(at 215.9 149.86 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -23306,7 +23346,7 @@
 			)
 		)
 		(property "Overload Voltage (Max)" "75V"
-			(at 219.71 146.05 0)
+			(at 215.9 149.86 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -23315,7 +23355,7 @@
 			)
 		)
 		(property "Operating Temperature Range" "-55°C~+155°C"
-			(at 219.71 146.05 0)
+			(at 215.9 149.86 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -23324,7 +23364,7 @@
 			)
 		)
 		(property "Tolerance" "±1%"
-			(at 219.71 146.05 0)
+			(at 215.9 149.86 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -23333,7 +23373,7 @@
 			)
 		)
 		(property "Temperature Coefficient" "±100ppm/°C"
-			(at 219.71 146.05 0)
+			(at 215.9 149.86 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -23684,7 +23724,7 @@
 	)
 	(symbol
 		(lib_id "PCM_JLCPCB-Diodes:LED,0603,Red")
-		(at 132.08 217.17 0)
+		(at 128.27 222.25 180)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -23693,25 +23733,25 @@
 		(fields_autoplaced yes)
 		(uuid "8b24a459-71d8-42af-9160-f0049bd44e32")
 		(property "Reference" "D7"
-			(at 134.62 216.4396 0)
+			(at 133.35 221.7101 0)
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
-				(justify left)
+				(justify right)
 			)
 		)
 		(property "Value" "YELLOW"
-			(at 134.62 218.3447 0)
+			(at 133.35 223.6152 0)
 			(effects
 				(font
 					(size 0.8 0.8)
 				)
-				(justify left)
+				(justify right)
 			)
 		)
 		(property "Footprint" "PCM_JLCPCB:D_0603"
-			(at 130.302 217.17 90)
+			(at 130.048 222.25 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -23720,7 +23760,7 @@
 			)
 		)
 		(property "Datasheet" "https://www.lcsc.com/datasheet/lcsc_datasheet_1810231112_Hubei-KENTO-Elec-KT-0603R_C2286.pdf"
-			(at 132.08 217.17 0)
+			(at 128.27 222.25 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -23729,7 +23769,7 @@
 			)
 		)
 		(property "Description" "-40°C~+85°C Red 0603 LED Indication - Discrete ROHS"
-			(at 132.08 217.17 0)
+			(at 128.27 222.25 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -23738,7 +23778,7 @@
 			)
 		)
 		(property "LCSC" "C2286"
-			(at 132.08 217.17 0)
+			(at 128.27 222.25 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -23747,7 +23787,7 @@
 			)
 		)
 		(property "Stock" "5373336"
-			(at 132.08 217.17 0)
+			(at 128.27 222.25 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -23756,7 +23796,7 @@
 			)
 		)
 		(property "Price" "0.009USD"
-			(at 132.08 217.17 0)
+			(at 128.27 222.25 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -23765,7 +23805,7 @@
 			)
 		)
 		(property "Process" "SMT"
-			(at 132.08 217.17 0)
+			(at 128.27 222.25 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -23774,7 +23814,7 @@
 			)
 		)
 		(property "Minimum Qty" "20"
-			(at 132.08 217.17 0)
+			(at 128.27 222.25 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -23783,7 +23823,7 @@
 			)
 		)
 		(property "Attrition Qty" "10"
-			(at 132.08 217.17 0)
+			(at 128.27 222.25 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -23792,7 +23832,7 @@
 			)
 		)
 		(property "Class" "Basic Component"
-			(at 132.08 217.17 0)
+			(at 128.27 222.25 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -23801,7 +23841,7 @@
 			)
 		)
 		(property "Category" "Optocouplers & LEDs & Infrared,Light Emitting Diodes (LED)"
-			(at 132.08 217.17 0)
+			(at 128.27 222.25 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -23810,7 +23850,7 @@
 			)
 		)
 		(property "Manufacturer" "Hubei KENTO Elec"
-			(at 132.08 217.17 0)
+			(at 128.27 222.25 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -23819,7 +23859,7 @@
 			)
 		)
 		(property "Part" "KT-0603R"
-			(at 132.08 217.17 0)
+			(at 128.27 222.25 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -27510,7 +27550,7 @@
 	)
 	(symbol
 		(lib_id "PCM_JLCPCB-Diodes:LED,0603,Red")
-		(at 219.71 153.67 0)
+		(at 215.9 157.48 180)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -27519,25 +27559,25 @@
 		(fields_autoplaced yes)
 		(uuid "beed794a-ae35-4d93-bd62-841d3451a925")
 		(property "Reference" "D8"
-			(at 222.25 152.9396 0)
+			(at 220.98 156.9401 0)
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
-				(justify left)
+				(justify right)
 			)
 		)
 		(property "Value" "ORANGE"
-			(at 222.25 154.8447 0)
+			(at 220.98 158.8452 0)
 			(effects
 				(font
 					(size 0.8 0.8)
 				)
-				(justify left)
+				(justify right)
 			)
 		)
 		(property "Footprint" "PCM_JLCPCB:D_0603"
-			(at 217.932 153.67 90)
+			(at 217.678 157.48 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -27546,7 +27586,7 @@
 			)
 		)
 		(property "Datasheet" "https://www.lcsc.com/datasheet/lcsc_datasheet_1810231112_Hubei-KENTO-Elec-KT-0603R_C2286.pdf"
-			(at 219.71 153.67 0)
+			(at 215.9 157.48 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -27555,7 +27595,7 @@
 			)
 		)
 		(property "Description" "-40°C~+85°C Red 0603 LED Indication - Discrete ROHS"
-			(at 219.71 153.67 0)
+			(at 215.9 157.48 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -27564,7 +27604,7 @@
 			)
 		)
 		(property "LCSC" "C2286"
-			(at 219.71 153.67 0)
+			(at 215.9 157.48 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -27573,7 +27613,7 @@
 			)
 		)
 		(property "Stock" "5373336"
-			(at 219.71 153.67 0)
+			(at 215.9 157.48 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -27582,7 +27622,7 @@
 			)
 		)
 		(property "Price" "0.009USD"
-			(at 219.71 153.67 0)
+			(at 215.9 157.48 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -27591,7 +27631,7 @@
 			)
 		)
 		(property "Process" "SMT"
-			(at 219.71 153.67 0)
+			(at 215.9 157.48 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -27600,7 +27640,7 @@
 			)
 		)
 		(property "Minimum Qty" "20"
-			(at 219.71 153.67 0)
+			(at 215.9 157.48 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -27609,7 +27649,7 @@
 			)
 		)
 		(property "Attrition Qty" "10"
-			(at 219.71 153.67 0)
+			(at 215.9 157.48 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -27618,7 +27658,7 @@
 			)
 		)
 		(property "Class" "Basic Component"
-			(at 219.71 153.67 0)
+			(at 215.9 157.48 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -27627,7 +27667,7 @@
 			)
 		)
 		(property "Category" "Optocouplers & LEDs & Infrared,Light Emitting Diodes (LED)"
-			(at 219.71 153.67 0)
+			(at 215.9 157.48 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -27636,7 +27676,7 @@
 			)
 		)
 		(property "Manufacturer" "Hubei KENTO Elec"
-			(at 219.71 153.67 0)
+			(at 215.9 157.48 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -27645,7 +27685,7 @@
 			)
 		)
 		(property "Part" "KT-0603R"
-			(at 219.71 153.67 0)
+			(at 215.9 157.48 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -29234,7 +29274,7 @@
 	)
 	(symbol
 		(lib_id "PCM_JLCPCB-Diodes:LED,0603,Red")
-		(at 91.44 53.34 0)
+		(at 88.9 55.88 180)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -29243,25 +29283,25 @@
 		(fields_autoplaced yes)
 		(uuid "d32d4776-c594-45bc-8398-6cd961e9ee7f")
 		(property "Reference" "D5"
-			(at 93.98 52.6096 0)
+			(at 93.98 55.3401 0)
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
-				(justify left)
+				(justify right)
 			)
 		)
 		(property "Value" "Red"
-			(at 93.98 54.5147 0)
+			(at 93.98 57.2452 0)
 			(effects
 				(font
 					(size 0.8 0.8)
 				)
-				(justify left)
+				(justify right)
 			)
 		)
 		(property "Footprint" "PCM_JLCPCB:D_0603"
-			(at 89.662 53.34 90)
+			(at 90.678 55.88 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -29270,7 +29310,7 @@
 			)
 		)
 		(property "Datasheet" "https://www.lcsc.com/datasheet/lcsc_datasheet_1810231112_Hubei-KENTO-Elec-KT-0603R_C2286.pdf"
-			(at 91.44 53.34 0)
+			(at 88.9 55.88 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -29279,7 +29319,7 @@
 			)
 		)
 		(property "Description" "-40°C~+85°C Red 0603 LED Indication - Discrete ROHS"
-			(at 91.44 53.34 0)
+			(at 88.9 55.88 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -29288,7 +29328,7 @@
 			)
 		)
 		(property "LCSC" "C2286"
-			(at 91.44 53.34 0)
+			(at 88.9 55.88 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -29297,7 +29337,7 @@
 			)
 		)
 		(property "Stock" "5373336"
-			(at 91.44 53.34 0)
+			(at 88.9 55.88 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -29306,7 +29346,7 @@
 			)
 		)
 		(property "Price" "0.009USD"
-			(at 91.44 53.34 0)
+			(at 88.9 55.88 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -29315,7 +29355,7 @@
 			)
 		)
 		(property "Process" "SMT"
-			(at 91.44 53.34 0)
+			(at 88.9 55.88 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -29324,7 +29364,7 @@
 			)
 		)
 		(property "Minimum Qty" "20"
-			(at 91.44 53.34 0)
+			(at 88.9 55.88 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -29333,7 +29373,7 @@
 			)
 		)
 		(property "Attrition Qty" "10"
-			(at 91.44 53.34 0)
+			(at 88.9 55.88 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -29342,7 +29382,7 @@
 			)
 		)
 		(property "Class" "Basic Component"
-			(at 91.44 53.34 0)
+			(at 88.9 55.88 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -29351,7 +29391,7 @@
 			)
 		)
 		(property "Category" "Optocouplers & LEDs & Infrared,Light Emitting Diodes (LED)"
-			(at 91.44 53.34 0)
+			(at 88.9 55.88 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -29360,7 +29400,7 @@
 			)
 		)
 		(property "Manufacturer" "Hubei KENTO Elec"
-			(at 91.44 53.34 0)
+			(at 88.9 55.88 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -29369,7 +29409,7 @@
 			)
 		)
 		(property "Part" "KT-0603R"
-			(at 91.44 53.34 0)
+			(at 88.9 55.88 0)
 			(effects
 				(font
 					(size 1.27 1.27)
