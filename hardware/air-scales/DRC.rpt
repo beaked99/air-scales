@@ -1,0 +1,785 @@
+** Drc report for air-scales.kicad_pcb **
+** Created on 2025-11-22T10:28:19-0800 **
+
+** Found 208 DRC violations **
+[track_dangling]: Track has unconnected end
+    Local override; warning
+    @(74.6000 mm, 121.7000 mm): Track [+3.3V] on B.Cu, length 0.6364 mm
+[clearance]: Clearance violation (netclass 'Default' clearance 0.2000 mm; actual 0.3754 mm)
+    Rule: netclass 'Default'; error
+    @(71.8254 mm, 66.5250 mm): Pad 17 [GND] of U6 on F.Cu
+    @(72.9000 mm, 67.1250 mm): PTH pad 18 [<no net>] of U6
+[clearance]: Clearance violation (netclass 'Default' clearance 0.2000 mm; actual 0.3754 mm)
+    Rule: netclass 'Default'; error
+    @(71.8254 mm, 66.5250 mm): Pad 17 [GND] of U6 on F.Cu
+    @(72.9000 mm, 65.9250 mm): PTH pad 19 [<no net>] of U6
+[clearance]: Clearance violation (netclass 'Default' clearance 0.2000 mm; actual 0.3754 mm)
+    Rule: netclass 'Default'; error
+    @(71.8254 mm, 66.5250 mm): Pad 17 [GND] of U6 on F.Cu
+    @(72.9000 mm, 68.3250 mm): PTH pad 24 [<no net>] of U6
+[clearance]: Clearance violation (netclass 'Default' clearance 0.2000 mm; actual 0.4500 mm)
+    Rule: netclass 'Default'; error
+    @(71.8254 mm, 66.5250 mm): Pad 17 [GND] of U6 on F.Cu
+    @(71.8000 mm, 68.3250 mm): PTH pad 25 [<no net>] of U6
+[clearance]: Clearance violation (netclass 'Default' clearance 0.2000 mm; actual 0.3246 mm)
+    Rule: netclass 'Default'; error
+    @(71.8254 mm, 66.5250 mm): Pad 17 [GND] of U6 on F.Cu
+    @(70.7000 mm, 68.3250 mm): PTH pad 26 [<no net>] of U6
+[clearance]: Clearance violation (netclass 'Default' clearance 0.2000 mm; actual 0.3754 mm)
+    Rule: netclass 'Default'; error
+    @(71.8254 mm, 66.5250 mm): Pad 17 [GND] of U6 on F.Cu
+    @(72.9000 mm, 64.7250 mm): PTH pad 27 [<no net>] of U6
+[clearance]: Clearance violation (netclass 'Default' clearance 0.2000 mm; actual 0.3246 mm)
+    Rule: netclass 'Default'; error
+    @(71.8254 mm, 66.5250 mm): Pad 17 [GND] of U6 on F.Cu
+    @(70.7000 mm, 65.9250 mm): PTH pad 21 [<no net>] of U6
+[clearance]: Clearance violation (netclass 'Default' clearance 0.2000 mm; actual 1.4246 mm)
+    Rule: netclass 'Default'; error
+    @(71.8254 mm, 66.5250 mm): Pad 17 [GND] of U6 on F.Cu
+    @(71.8000 mm, 65.9250 mm): PTH pad 23 [<no net>] of U6
+[clearance]: Clearance violation (netclass 'Default' clearance 0.2000 mm; actual 0.3246 mm)
+    Rule: netclass 'Default'; error
+    @(71.8254 mm, 66.5250 mm): Pad 17 [GND] of U6 on F.Cu
+    @(70.7000 mm, 67.1250 mm): PTH pad 20 [<no net>] of U6
+[clearance]: Clearance violation (netclass 'Default' clearance 0.2000 mm; actual 1.4246 mm)
+    Rule: netclass 'Default'; error
+    @(71.8254 mm, 66.5250 mm): Pad 17 [GND] of U6 on F.Cu
+    @(71.8000 mm, 67.1250 mm): PTH pad 22 [<no net>] of U6
+[clearance]: Clearance violation (netclass 'Default' clearance 0.2000 mm; actual 0.3246 mm)
+    Rule: netclass 'Default'; error
+    @(71.8254 mm, 66.5250 mm): Pad 17 [GND] of U6 on F.Cu
+    @(70.7000 mm, 64.7250 mm): PTH pad 28 [<no net>] of U6
+[clearance]: Clearance violation (netclass 'Default' clearance 0.2000 mm; actual 0.4500 mm)
+    Rule: netclass 'Default'; error
+    @(71.8254 mm, 66.5250 mm): Pad 17 [GND] of U6 on F.Cu
+    @(71.8000 mm, 64.7250 mm): PTH pad 29 [<no net>] of U6
+[shorting_items]: Items shorting two nets (nets VBUS and unconnected-(U8-IN2__1-Pad2_1))
+    Local override; error
+    @(78.3500 mm, 82.9250 mm): Pad 2 [VBUS] of U8 on F.Cu
+    @(78.3500 mm, 82.6500 mm): PTH pad 2_1 [unconnected-(U8-IN2__1-Pad2_1)] of U8
+[shorting_items]: Items shorting two nets (nets +5V VEHICLE and unconnected-(U8-IN1__1-Pad7_1))
+    Local override; error
+    @(78.3500 mm, 81.5750 mm): Pad 7 [+5V VEHICLE] of U8 on F.Cu
+    @(78.3500 mm, 81.8500 mm): PTH pad 7_1 [unconnected-(U8-IN1__1-Pad7_1)] of U8
+[clearance]: Clearance violation (netclass 'Default' clearance 0.2000 mm; actual 0.0500 mm)
+    Rule: netclass 'Default'; error
+    @(59.0800 mm, 110.6500 mm): Pad 41_1 [GND] of U9 on F.Cu
+    @(59.0800 mm, 109.9500 mm): PTH pad 41_10 [<no net>] of U9
+[clearance]: Clearance violation (netclass 'Default' clearance 0.2000 mm; actual 0.0500 mm)
+    Rule: netclass 'Default'; error
+    @(59.0800 mm, 110.6500 mm): Pad 41_1 [GND] of U9 on F.Cu
+    @(59.7800 mm, 110.6500 mm): PTH pad 41_12 [<no net>] of U9
+[clearance]: Clearance violation (netclass 'Default' clearance 0.2000 mm; actual 0.0500 mm)
+    Rule: netclass 'Default'; error
+    @(59.0800 mm, 109.2500 mm): Pad 41_2 [GND] of U9 on F.Cu
+    @(59.0800 mm, 109.9500 mm): PTH pad 41_10 [<no net>] of U9
+[clearance]: Clearance violation (netclass 'Default' clearance 0.2000 mm; actual 0.0500 mm)
+    Rule: netclass 'Default'; error
+    @(59.0800 mm, 109.2500 mm): Pad 41_2 [GND] of U9 on F.Cu
+    @(59.7800 mm, 109.2500 mm): PTH pad 41_13 [<no net>] of U9
+[clearance]: Clearance violation (netclass 'Default' clearance 0.2000 mm; actual 0.0500 mm)
+    Rule: netclass 'Default'; error
+    @(59.0800 mm, 109.2500 mm): Pad 41_2 [GND] of U9 on F.Cu
+    @(59.0800 mm, 108.5500 mm): PTH pad 41_11 [<no net>] of U9
+[clearance]: Clearance violation (netclass 'Default' clearance 0.2000 mm; actual 0.0500 mm)
+    Rule: netclass 'Default'; error
+    @(59.0800 mm, 107.8500 mm): Pad 41_3 [GND] of U9 on F.Cu
+    @(59.0800 mm, 108.5500 mm): PTH pad 41_11 [<no net>] of U9
+[clearance]: Clearance violation (netclass 'Default' clearance 0.2000 mm; actual 0.0500 mm)
+    Rule: netclass 'Default'; error
+    @(59.0800 mm, 107.8500 mm): Pad 41_3 [GND] of U9 on F.Cu
+    @(59.7800 mm, 107.8500 mm): PTH pad 41_14 [<no net>] of U9
+[clearance]: Clearance violation (netclass 'Default' clearance 0.2000 mm; actual 0.0500 mm)
+    Rule: netclass 'Default'; error
+    @(60.4800 mm, 110.6500 mm): Pad 41_4 [GND] of U9 on F.Cu
+    @(59.7800 mm, 110.6500 mm): PTH pad 41_12 [<no net>] of U9
+[clearance]: Clearance violation (netclass 'Default' clearance 0.2000 mm; actual 0.0500 mm)
+    Rule: netclass 'Default'; error
+    @(60.4800 mm, 110.6500 mm): Pad 41_4 [GND] of U9 on F.Cu
+    @(60.4800 mm, 109.9500 mm): PTH pad 41_15 [<no net>] of U9
+[clearance]: Clearance violation (netclass 'Default' clearance 0.2000 mm; actual 0.0500 mm)
+    Rule: netclass 'Default'; error
+    @(60.4800 mm, 110.6500 mm): Pad 41_4 [GND] of U9 on F.Cu
+    @(61.1800 mm, 110.6500 mm): PTH pad 41_17 [<no net>] of U9
+[clearance]: Clearance violation (netclass 'Default' clearance 0.2000 mm; actual 0.0500 mm)
+    Rule: netclass 'Default'; error
+    @(60.4800 mm, 109.2500 mm): Pad 41_5 [GND] of U9 on F.Cu
+    @(59.7800 mm, 109.2500 mm): PTH pad 41_13 [<no net>] of U9
+[clearance]: Clearance violation (netclass 'Default' clearance 0.2000 mm; actual 0.0500 mm)
+    Rule: netclass 'Default'; error
+    @(60.4800 mm, 109.2500 mm): Pad 41_5 [GND] of U9 on F.Cu
+    @(60.4800 mm, 109.9500 mm): PTH pad 41_15 [<no net>] of U9
+[clearance]: Clearance violation (netclass 'Default' clearance 0.2000 mm; actual 0.0500 mm)
+    Rule: netclass 'Default'; error
+    @(60.4800 mm, 109.2500 mm): Pad 41_5 [GND] of U9 on F.Cu
+    @(60.4800 mm, 108.5500 mm): PTH pad 41_16 [<no net>] of U9
+[clearance]: Clearance violation (netclass 'Default' clearance 0.2000 mm; actual 0.0500 mm)
+    Rule: netclass 'Default'; error
+    @(60.4800 mm, 109.2500 mm): Pad 41_5 [GND] of U9 on F.Cu
+    @(61.1800 mm, 109.2500 mm): PTH pad 41_18 [<no net>] of U9
+[clearance]: Clearance violation (netclass 'Default' clearance 0.2000 mm; actual 0.0500 mm)
+    Rule: netclass 'Default'; error
+    @(60.4800 mm, 107.8500 mm): Pad 41_6 [GND] of U9 on F.Cu
+    @(59.7800 mm, 107.8500 mm): PTH pad 41_14 [<no net>] of U9
+[clearance]: Clearance violation (netclass 'Default' clearance 0.2000 mm; actual 0.0500 mm)
+    Rule: netclass 'Default'; error
+    @(60.4800 mm, 107.8500 mm): Pad 41_6 [GND] of U9 on F.Cu
+    @(60.4800 mm, 108.5500 mm): PTH pad 41_16 [<no net>] of U9
+[clearance]: Clearance violation (netclass 'Default' clearance 0.2000 mm; actual 0.0500 mm)
+    Rule: netclass 'Default'; error
+    @(60.4800 mm, 107.8500 mm): Pad 41_6 [GND] of U9 on F.Cu
+    @(61.1800 mm, 107.8500 mm): PTH pad 41_19 [<no net>] of U9
+[clearance]: Clearance violation (netclass 'Default' clearance 0.2000 mm; actual 0.0500 mm)
+    Rule: netclass 'Default'; error
+    @(61.8800 mm, 110.6500 mm): Pad 41_7 [GND] of U9 on F.Cu
+    @(61.1800 mm, 110.6500 mm): PTH pad 41_17 [<no net>] of U9
+[clearance]: Clearance violation (netclass 'Default' clearance 0.2000 mm; actual 0.0500 mm)
+    Rule: netclass 'Default'; error
+    @(61.8800 mm, 110.6500 mm): Pad 41_7 [GND] of U9 on F.Cu
+    @(61.8800 mm, 109.9500 mm): PTH pad 41_20 [<no net>] of U9
+[clearance]: Clearance violation (netclass 'Default' clearance 0.2000 mm; actual 0.0500 mm)
+    Rule: netclass 'Default'; error
+    @(61.8800 mm, 109.2500 mm): Pad 41_8 [GND] of U9 on F.Cu
+    @(61.1800 mm, 109.2500 mm): PTH pad 41_18 [<no net>] of U9
+[clearance]: Clearance violation (netclass 'Default' clearance 0.2000 mm; actual 0.0500 mm)
+    Rule: netclass 'Default'; error
+    @(61.8800 mm, 109.2500 mm): Pad 41_8 [GND] of U9 on F.Cu
+    @(61.8800 mm, 109.9500 mm): PTH pad 41_20 [<no net>] of U9
+[clearance]: Clearance violation (netclass 'Default' clearance 0.2000 mm; actual 0.0500 mm)
+    Rule: netclass 'Default'; error
+    @(61.8800 mm, 109.2500 mm): Pad 41_8 [GND] of U9 on F.Cu
+    @(61.8800 mm, 108.5500 mm): PTH pad 41_21 [<no net>] of U9
+[clearance]: Clearance violation (netclass 'Default' clearance 0.2000 mm; actual 0.0500 mm)
+    Rule: netclass 'Default'; error
+    @(61.8800 mm, 107.8500 mm): Pad 41_9 [GND] of U9 on F.Cu
+    @(61.1800 mm, 107.8500 mm): PTH pad 41_19 [<no net>] of U9
+[clearance]: Clearance violation (netclass 'Default' clearance 0.2000 mm; actual 0.0500 mm)
+    Rule: netclass 'Default'; error
+    @(61.8800 mm, 107.8500 mm): Pad 41_9 [GND] of U9 on F.Cu
+    @(61.8800 mm, 108.5500 mm): PTH pad 41_21 [<no net>] of U9
+[clearance]: Clearance violation (netclass 'Default' clearance 0.2000 mm; actual 0.1700 mm)
+    Rule: netclass 'Default'; error
+    @(74.5000 mm, 50.2500 mm): Pad 1 [Net-(U5-VCAPL)] of U5 on F.Cu
+    @(74.5000 mm, 50.9000 mm): Pad 2 [Net-(Q1-G)] of U5 on F.Cu
+[clearance]: Clearance violation (netclass 'Default' clearance 0.2000 mm; actual 0.1700 mm)
+    Rule: netclass 'Default'; error
+    @(74.5000 mm, 50.9000 mm): Pad 2 [Net-(Q1-G)] of U5 on F.Cu
+    @(74.5000 mm, 51.5500 mm): Pad 3 [<no net>] of U5 on F.Cu
+[clearance]: Clearance violation (netclass 'Default' clearance 0.2000 mm; actual 0.1700 mm)
+    Rule: netclass 'Default'; error
+    @(74.5000 mm, 51.5500 mm): Pad 3 [<no net>] of U5 on F.Cu
+    @(74.5000 mm, 52.2000 mm): Pad 4 [+12V BATT] of U5 on F.Cu
+[clearance]: Clearance violation (netclass 'Default' clearance 0.2000 mm; actual 0.1700 mm)
+    Rule: netclass 'Default'; error
+    @(78.8000 mm, 52.2000 mm): Pad 5 [<no net>] of U5 on F.Cu
+    @(78.8000 mm, 51.5500 mm): Pad 6 [Net-(Q1-G)] of U5 on F.Cu
+[clearance]: Clearance violation (netclass 'Default' clearance 0.2000 mm; actual 0.1700 mm)
+    Rule: netclass 'Default'; error
+    @(78.8000 mm, 51.5500 mm): Pad 6 [Net-(Q1-G)] of U5 on F.Cu
+    @(78.8000 mm, 50.9000 mm): Pad 7 [Net-(U5-VCAPH)] of U5 on F.Cu
+[clearance]: Clearance violation (netclass 'Default' clearance 0.2000 mm; actual 0.1700 mm)
+    Rule: netclass 'Default'; error
+    @(78.8000 mm, 50.9000 mm): Pad 7 [Net-(U5-VCAPH)] of U5 on F.Cu
+    @(78.8000 mm, 50.2500 mm): Pad 8 [+12VA] of U5 on F.Cu
+[clearance]: Clearance violation (netclass 'Default' clearance 0.2000 mm; actual 0.1950 mm)
+    Rule: netclass 'Default'; error
+    @(64.4500 mm, 80.8000 mm): Pad 1 [+5V_SYS] of U7 on F.Cu
+    @(65.1000 mm, 79.7750 mm): Pad 7 [unconnected-(U7-EP-Pad7)] of U7 on F.Cu
+[clearance]: Clearance violation (netclass 'Default' clearance 0.2000 mm; actual 0.1950 mm)
+    Rule: netclass 'Default'; error
+    @(65.1000 mm, 80.8000 mm): Pad 2 [Net-(U7-ILIM)] of U7 on F.Cu
+    @(65.1000 mm, 79.7750 mm): Pad 7 [unconnected-(U7-EP-Pad7)] of U7 on F.Cu
+[clearance]: Clearance violation (netclass 'Default' clearance 0.2000 mm; actual 0.1950 mm)
+    Rule: netclass 'Default'; error
+    @(65.7500 mm, 80.8000 mm): Pad 3 [Net-(U7-~{FAULT})] of U7 on F.Cu
+    @(65.1000 mm, 79.7750 mm): Pad 7 [unconnected-(U7-EP-Pad7)] of U7 on F.Cu
+[clearance]: Clearance violation (netclass 'Default' clearance 0.2000 mm; actual 0.1950 mm)
+    Rule: netclass 'Default'; error
+    @(65.7500 mm, 78.7500 mm): Pad 4 [Net-(U7-EN)] of U7 on F.Cu
+    @(65.1000 mm, 79.7750 mm): Pad 7 [unconnected-(U7-EP-Pad7)] of U7 on F.Cu
+[clearance]: Clearance violation (netclass 'Default' clearance 0.2000 mm; actual 0.1950 mm)
+    Rule: netclass 'Default'; error
+    @(65.1000 mm, 78.7500 mm): Pad 5 [GND] of U7 on F.Cu
+    @(65.1000 mm, 79.7750 mm): Pad 7 [unconnected-(U7-EP-Pad7)] of U7 on F.Cu
+[clearance]: Clearance violation (netclass 'Default' clearance 0.2000 mm; actual 0.1950 mm)
+    Rule: netclass 'Default'; error
+    @(64.4500 mm, 78.7500 mm): Pad 6 [+5V ARB] of U7 on F.Cu
+    @(65.1000 mm, 79.7750 mm): Pad 7 [unconnected-(U7-EP-Pad7)] of U7 on F.Cu
+[hole_clearance]: Hole clearance violation (board setup constraints hole clearance 0.2500 mm; actual 0.2036 mm)
+    Rule: board setup constraints hole; error
+    @(66.2800 mm, 128.7000 mm): NPTH pad of J1
+    @(65.9700 mm, 127.5000 mm): Pad B12A1 [GND] of J1 on F.Cu
+[hole_clearance]: Hole clearance violation (board setup constraints hole clearance 0.2500 mm; actual 0.2036 mm)
+    Rule: board setup constraints hole; error
+    @(72.0600 mm, 128.7000 mm): NPTH pad of J1
+    @(72.3700 mm, 127.5000 mm): Pad A12B1 [GND] of J1 on F.Cu
+[malformed_courtyard]: Footprint has malformed courtyard (not a closed shape)
+    Local override; error
+    @(71.8000 mm, 66.5250 mm): Footprint U6
+[malformed_courtyard]: Footprint has malformed courtyard (not a closed shape)
+    Local override; error
+    @(71.8000 mm, 66.5250 mm): Footprint U6
+[text_thickness]: Text thickness out of range (TrueType font characters with insufficient stroke weight)
+    Rule: board setup constraints silk text thickness; warning
+    @(91.5000 mm, 90.4000 mm): PCB text '3.3V' on F.Silkscreen
+[text_thickness]: Text thickness out of range (TrueType font characters with insufficient stroke weight)
+    Rule: board setup constraints silk text thickness; warning
+    @(92.6500 mm, 86.7000 mm): PCB text '5V' on F.Silkscreen
+[text_thickness]: Text thickness out of range (TrueType font characters with insufficient stroke weight)
+    Rule: board setup constraints silk text thickness; warning
+    @(92.6000 mm, 82.9000 mm): PCB text '5V' on F.Silkscreen
+[text_thickness]: Text thickness out of range (TrueType font characters with insufficient stroke weight)
+    Rule: board setup constraints silk text thickness; warning
+    @(92.5500 mm, 79.1000 mm): PCB text '5V' on F.Silkscreen
+[text_thickness]: Text thickness out of range (TrueType font characters with insufficient stroke weight)
+    Rule: board setup constraints silk text thickness; warning
+    @(91.8500 mm, 75.2500 mm): PCB text '12V' on F.Silkscreen
+[text_thickness]: Text thickness out of range (TrueType font characters with insufficient stroke weight)
+    Rule: board setup constraints silk text thickness; warning
+    @(92.5500 mm, 122.0000 mm): PCB text 'Air Scales
+Part #' on F.Silkscreen
+[text_thickness]: Text thickness out of range (TrueType font characters with insufficient stroke weight)
+    Rule: board setup constraints silk text thickness; warning
+    @(92.5000 mm, 125.5500 mm): PCB text 'JLCJLCJLCJLC' on F.Silkscreen
+[text_thickness]: Text thickness out of range (TrueType font characters with insufficient stroke weight)
+    Rule: board setup constraints silk text thickness; warning
+    @(81.6000 mm, 133.9500 mm): PCB text 'V 0.02
+by beaker
+2025-11-21' on F.Silkscreen
+[text_thickness]: Text thickness out of range (TrueType font characters with insufficient stroke weight)
+    Rule: board setup constraints silk text thickness; warning
+    @(72.4500 mm, 62.8500 mm): Footprint text of U6 (U6)
+[text_thickness]: Text thickness out of range (TrueType font characters with insufficient stroke weight)
+    Rule: board setup constraints silk text thickness; warning
+    @(89.9000 mm, 82.2000 mm): Reference field of D12
+[text_thickness]: Text thickness out of range (TrueType font characters with insufficient stroke weight)
+    Rule: board setup constraints silk text thickness; warning
+    @(86.2800 mm, 82.3000 mm): Reference field of R22
+[text_thickness]: Text thickness out of range (TrueType font characters with insufficient stroke weight)
+    Rule: board setup constraints silk text thickness; warning
+    @(90.1500 mm, 93.4500 mm): Reference field of D9
+[text_thickness]: Text thickness out of range (TrueType font characters with insufficient stroke weight)
+    Rule: board setup constraints silk text thickness; warning
+    @(67.7000 mm, 77.7000 mm): Reference field of R3
+[text_thickness]: Text thickness out of range (TrueType font characters with insufficient stroke weight)
+    Rule: board setup constraints silk text thickness; warning
+    @(86.2800 mm, 86.1000 mm): Reference field of R21
+[text_thickness]: Text thickness out of range (TrueType font characters with insufficient stroke weight)
+    Rule: board setup constraints silk text thickness; warning
+    @(86.2800 mm, 89.9000 mm): Reference field of R19
+[text_thickness]: Text thickness out of range (TrueType font characters with insufficient stroke weight)
+    Rule: board setup constraints silk text thickness; warning
+    @(89.8500 mm, 86.0500 mm): Reference field of D11
+[text_thickness]: Text thickness out of range (TrueType font characters with insufficient stroke weight)
+    Rule: board setup constraints silk text thickness; warning
+    @(90.3000 mm, 78.4000 mm): Reference field of D8
+[text_thickness]: Text thickness out of range (TrueType font characters with insufficient stroke weight)
+    Rule: board setup constraints silk text thickness; warning
+    @(90.2000 mm, 89.8500 mm): Reference field of D7
+[text_thickness]: Text thickness out of range (TrueType font characters with insufficient stroke weight)
+    Rule: board setup constraints silk text thickness; warning
+    @(90.3500 mm, 74.6000 mm): Reference field of D5
+[text_thickness]: Text thickness out of range (TrueType font characters with insufficient stroke weight)
+    Rule: board setup constraints silk text thickness; warning
+    @(86.2500 mm, 74.7500 mm): Reference field of R16
+[text_thickness]: Text thickness out of range (TrueType font characters with insufficient stroke weight)
+    Rule: board setup constraints silk text thickness; warning
+    @(76.0400 mm, 57.2500 mm): Reference field of C4
+[text_thickness]: Text thickness out of range (TrueType font characters with insufficient stroke weight)
+    Rule: board setup constraints silk text thickness; warning
+    @(52.2500 mm, 121.7500 mm): Reference field of C18
+[text_thickness]: Text thickness out of range (TrueType font characters with insufficient stroke weight)
+    Rule: board setup constraints silk text thickness; warning
+    @(67.5500 mm, 94.4500 mm): Reference field of R14
+[text_thickness]: Text thickness out of range (TrueType font characters with insufficient stroke weight)
+    Rule: board setup constraints silk text thickness; warning
+    @(79.0000 mm, 108.1000 mm): Reference field of C3
+[text_thickness]: Text thickness out of range (TrueType font characters with insufficient stroke weight)
+    Rule: board setup constraints silk text thickness; warning
+    @(67.6500 mm, 74.2000 mm): Reference field of C12
+[text_thickness]: Text thickness out of range (TrueType font characters with insufficient stroke weight)
+    Rule: board setup constraints silk text thickness; warning
+    @(69.8100 mm, 70.2000 mm): Reference field of L2
+[text_thickness]: Text thickness out of range (TrueType font characters with insufficient stroke weight)
+    Rule: board setup constraints silk text thickness; warning
+    @(70.5000 mm, 57.9000 mm): Reference field of C9
+[text_thickness]: Text thickness out of range (TrueType font characters with insufficient stroke weight)
+    Rule: board setup constraints silk text thickness; warning
+    @(70.5000 mm, 74.1000 mm): Reference field of C14
+[text_thickness]: Text thickness out of range (TrueType font characters with insufficient stroke weight)
+    Rule: board setup constraints silk text thickness; warning
+    @(75.8500 mm, 125.4100 mm): Reference field of D3
+[text_thickness]: Text thickness out of range (TrueType font characters with insufficient stroke weight)
+    Rule: board setup constraints silk text thickness; warning
+    @(88.1000 mm, 72.5500 mm): Reference field of R17
+[text_thickness]: Text thickness out of range (TrueType font characters with insufficient stroke weight)
+    Rule: board setup constraints silk text thickness; warning
+    @(79.5500 mm, 84.5500 mm): Reference field of U8
+[text_thickness]: Text thickness out of range (TrueType font characters with insufficient stroke weight)
+    Rule: board setup constraints silk text thickness; warning
+    @(72.9500 mm, 99.1000 mm): Reference field of U9
+[text_thickness]: Text thickness out of range (TrueType font characters with insufficient stroke weight)
+    Rule: board setup constraints silk text thickness; warning
+    @(71.0500 mm, 120.0500 mm): Reference field of R13
+[text_thickness]: Text thickness out of range (TrueType font characters with insufficient stroke weight)
+    Rule: board setup constraints silk text thickness; warning
+    @(72.2500 mm, 53.4500 mm): Reference field of U5
+[text_thickness]: Text thickness out of range (TrueType font characters with insufficient stroke weight)
+    Rule: board setup constraints silk text thickness; warning
+    @(56.4500 mm, 122.5500 mm): Reference field of C19
+[text_thickness]: Text thickness out of range (TrueType font characters with insufficient stroke weight)
+    Rule: board setup constraints silk text thickness; warning
+    @(80.3000 mm, 89.4000 mm): Reference field of C26
+[text_thickness]: Text thickness out of range (TrueType font characters with insufficient stroke weight)
+    Rule: board setup constraints silk text thickness; warning
+    @(80.6500 mm, 75.9500 mm): Reference field of C25
+[text_thickness]: Text thickness out of range (TrueType font characters with insufficient stroke weight)
+    Rule: board setup constraints silk text thickness; warning
+    @(80.0500 mm, 93.7500 mm): Reference field of R15
+[text_thickness]: Text thickness out of range (TrueType font characters with insufficient stroke weight)
+    Rule: board setup constraints silk text thickness; warning
+    @(83.7500 mm, 48.5000 mm): Reference field of C5
+[text_thickness]: Text thickness out of range (TrueType font characters with insufficient stroke weight)
+    Rule: board setup constraints silk text thickness; warning
+    @(73.4500 mm, 88.2000 mm): Reference field of C1
+[text_thickness]: Text thickness out of range (TrueType font characters with insufficient stroke weight)
+    Rule: board setup constraints silk text thickness; warning
+    @(76.2000 mm, 79.5000 mm): Reference field of R9
+[text_thickness]: Text thickness out of range (TrueType font characters with insufficient stroke weight)
+    Rule: board setup constraints silk text thickness; warning
+    @(67.6500 mm, 50.9000 mm): Reference field of C2
+[text_thickness]: Text thickness out of range (TrueType font characters with insufficient stroke weight)
+    Rule: board setup constraints silk text thickness; warning
+    @(80.1000 mm, 96.2000 mm): Reference field of U2
+[text_thickness]: Text thickness out of range (TrueType font characters with insufficient stroke weight)
+    Rule: board setup constraints silk text thickness; warning
+    @(56.1500 mm, 81.8000 mm): Reference field of J4
+[text_thickness]: Text thickness out of range (TrueType font characters with insufficient stroke weight)
+    Rule: board setup constraints silk text thickness; warning
+    @(62.0000 mm, 122.8500 mm): Reference field of R2
+[text_thickness]: Text thickness out of range (TrueType font characters with insufficient stroke weight)
+    Rule: board setup constraints silk text thickness; warning
+    @(91.3500 mm, 62.5000 mm): Reference field of U1
+[text_thickness]: Text thickness out of range (TrueType font characters with insufficient stroke weight)
+    Rule: board setup constraints silk text thickness; warning
+    @(71.7500 mm, 95.8500 mm): Reference field of C21
+[text_thickness]: Text thickness out of range (TrueType font characters with insufficient stroke weight)
+    Rule: board setup constraints silk text thickness; warning
+    @(70.2500 mm, 122.7000 mm): Reference field of D2
+[text_thickness]: Text thickness out of range (TrueType font characters with insufficient stroke weight)
+    Rule: board setup constraints silk text thickness; warning
+    @(85.7000 mm, 93.8000 mm): Reference field of R11
+[text_thickness]: Text thickness out of range (TrueType font characters with insufficient stroke weight)
+    Rule: board setup constraints silk text thickness; warning
+    @(66.3000 mm, 120.0500 mm): Reference field of R12
+[text_thickness]: Text thickness out of range (TrueType font characters with insufficient stroke weight)
+    Rule: board setup constraints silk text thickness; warning
+    @(79.8500 mm, 62.9000 mm): Reference field of C7
+[text_thickness]: Text thickness out of range (TrueType font characters with insufficient stroke weight)
+    Rule: board setup constraints silk text thickness; warning
+    @(84.8500 mm, 67.1000 mm): Reference field of C23
+[text_thickness]: Text thickness out of range (TrueType font characters with insufficient stroke weight)
+    Rule: board setup constraints silk text thickness; warning
+    @(63.4500 mm, 61.1000 mm): Reference field of C8
+[text_thickness]: Text thickness out of range (TrueType font characters with insufficient stroke weight)
+    Rule: board setup constraints silk text thickness; warning
+    @(67.3000 mm, 122.7000 mm): Reference field of D1
+[text_thickness]: Text thickness out of range (TrueType font characters with insufficient stroke weight)
+    Rule: board setup constraints silk text thickness; warning
+    @(60.6500 mm, 62.8000 mm): Reference field of R6
+[text_thickness]: Text thickness out of range (TrueType font characters with insufficient stroke weight)
+    Rule: board setup constraints silk text thickness; warning
+    @(74.6500 mm, 95.8500 mm): Reference field of C22
+[text_thickness]: Text thickness out of range (TrueType font characters with insufficient stroke weight)
+    Rule: board setup constraints silk text thickness; warning
+    @(64.1500 mm, 94.2500 mm): Reference field of D4
+[text_thickness]: Text thickness out of range (TrueType font characters with insufficient stroke weight)
+    Rule: board setup constraints silk text thickness; warning
+    @(75.5000 mm, 103.0000 mm): Reference field of L1
+[text_thickness]: Text thickness out of range (TrueType font characters with insufficient stroke weight)
+    Rule: board setup constraints silk text thickness; warning
+    @(87.5000 mm, 107.1500 mm): Reference field of SW1
+[text_thickness]: Text thickness out of range (TrueType font characters with insufficient stroke weight)
+    Rule: board setup constraints silk text thickness; warning
+    @(79.6000 mm, 66.9000 mm): Reference field of C10
+[text_thickness]: Text thickness out of range (TrueType font characters with insufficient stroke weight)
+    Rule: board setup constraints silk text thickness; warning
+    @(70.1000 mm, 82.3500 mm): Reference field of R8
+[text_thickness]: Text thickness out of range (TrueType font characters with insufficient stroke weight)
+    Rule: board setup constraints silk text thickness; warning
+    @(63.0500 mm, 79.4000 mm): Reference field of U7
+[text_thickness]: Text thickness out of range (TrueType font characters with insufficient stroke weight)
+    Rule: board setup constraints silk text thickness; warning
+    @(73.7000 mm, 118.8000 mm): Reference field of R1
+[text_thickness]: Text thickness out of range (TrueType font characters with insufficient stroke weight)
+    Rule: board setup constraints silk text thickness; warning
+    @(82.3000 mm, 81.9500 mm): Reference field of C15
+[text_thickness]: Text thickness out of range (TrueType font characters with insufficient stroke weight)
+    Rule: board setup constraints silk text thickness; warning
+    @(77.3000 mm, 57.9000 mm): Reference field of C6
+[text_thickness]: Text thickness out of range (TrueType font characters with insufficient stroke weight)
+    Rule: board setup constraints silk text thickness; warning
+    @(63.7500 mm, 84.0000 mm): Reference field of C13
+[text_thickness]: Text thickness out of range (TrueType font characters with insufficient stroke weight)
+    Rule: board setup constraints silk text thickness; warning
+    @(80.3000 mm, 71.6500 mm): Reference field of C11
+[text_thickness]: Text thickness out of range (TrueType font characters with insufficient stroke weight)
+    Rule: board setup constraints silk text thickness; warning
+    @(73.2500 mm, 73.2500 mm): Reference field of C17
+[text_thickness]: Text thickness out of range (TrueType font characters with insufficient stroke weight)
+    Rule: board setup constraints silk text thickness; warning
+    @(82.2500 mm, 43.4500 mm): Reference field of Q1
+[text_thickness]: Text thickness out of range (TrueType font characters with insufficient stroke weight)
+    Rule: board setup constraints silk text thickness; warning
+    @(60.7500 mm, 46.6000 mm): Reference field of U3
+[text_thickness]: Text thickness out of range (TrueType font characters with insufficient stroke weight)
+    Rule: board setup constraints silk text thickness; warning
+    @(63.2000 mm, 130.3000 mm): Reference field of J1
+[text_thickness]: Text thickness out of range (TrueType font characters with insufficient stroke weight)
+    Rule: board setup constraints silk text thickness; warning
+    @(66.8500 mm, 46.6000 mm): Reference field of U4
+[text_thickness]: Text thickness out of range (TrueType font characters with insufficient stroke weight)
+    Rule: board setup constraints silk text thickness; warning
+    @(55.7500 mm, 64.6550 mm): Reference field of J3
+[text_thickness]: Text thickness out of range (TrueType font characters with insufficient stroke weight)
+    Rule: board setup constraints silk text thickness; warning
+    @(74.6000 mm, 81.4500 mm): Reference field of C16
+[text_thickness]: Text thickness out of range (TrueType font characters with insufficient stroke weight)
+    Rule: board setup constraints silk text thickness; warning
+    @(84.9000 mm, 62.5000 mm): Reference field of C24
+[text_thickness]: Text thickness out of range (TrueType font characters with insufficient stroke weight)
+    Rule: board setup constraints silk text thickness; warning
+    @(66.2500 mm, 88.5500 mm): Reference field of D10
+[text_thickness]: Text thickness out of range (TrueType font characters with insufficient stroke weight)
+    Rule: board setup constraints silk text thickness; warning
+    @(55.7500 mm, 50.5200 mm): Reference field of J6
+[text_thickness]: Text thickness out of range (TrueType font characters with insufficient stroke weight)
+    Rule: board setup constraints silk text thickness; warning
+    @(86.2000 mm, 78.5000 mm): Reference field of R20
+[text_thickness]: Text thickness out of range (TrueType font characters with insufficient stroke weight)
+    Rule: board setup constraints silk text thickness; warning
+    @(87.4500 mm, 97.3000 mm): Reference field of SW2
+[text_thickness]: Text thickness out of range (TrueType font characters with insufficient stroke weight)
+    Rule: board setup constraints silk text thickness; warning
+    @(79.2000 mm, 111.7000 mm): Reference field of R10
+[text_thickness]: Text thickness out of range (TrueType font characters with insufficient stroke weight)
+    Rule: board setup constraints silk text thickness; warning
+    @(90.0000 mm, 67.5500 mm): Reference field of R18
+[text_thickness]: Text thickness out of range (TrueType font characters with insufficient stroke weight)
+    Rule: board setup constraints silk text thickness; warning
+    @(70.9000 mm, 78.8000 mm): Reference field of R7
+[text_thickness]: Text thickness out of range (TrueType font characters with insufficient stroke weight)
+    Rule: board setup constraints silk text thickness; warning
+    @(80.8000 mm, 117.8500 mm): Reference field of C20
+[starved_thermal]: Thermal relief connection to zone incomplete (layer F.Cu; zone min spoke count 2; actual 1)
+    Local override; error
+    @(47.2500 mm, 36.5500 mm): Zone [GND] on F.Cu, priority 0
+    @(71.8254 mm, 66.5250 mm): Pad 17 [GND] of U6 on F.Cu
+[starved_thermal]: Thermal relief connection to zone incomplete (layer F.Cu; zone min spoke count 2; actual 1)
+    Local override; error
+    @(47.2500 mm, 36.5500 mm): Zone [GND] on F.Cu, priority 0
+    @(59.0800 mm, 109.2500 mm): Pad 41_2 [GND] of U9 on F.Cu
+[starved_thermal]: Thermal relief connection to zone incomplete (layer F.Cu; zone min spoke count 2; actual 1)
+    Local override; error
+    @(47.2500 mm, 36.5500 mm): Zone [GND] on F.Cu, priority 0
+    @(60.4800 mm, 110.6500 mm): Pad 41_4 [GND] of U9 on F.Cu
+[starved_thermal]: Thermal relief connection to zone incomplete (layer F.Cu; zone min spoke count 2; actual 1)
+    Local override; error
+    @(47.2500 mm, 36.5500 mm): Zone [GND] on F.Cu, priority 0
+    @(60.4800 mm, 107.8500 mm): Pad 41_6 [GND] of U9 on F.Cu
+[starved_thermal]: Thermal relief connection to zone incomplete (layer F.Cu; zone min spoke count 2; actual 1)
+    Local override; error
+    @(47.2500 mm, 36.5500 mm): Zone [GND] on F.Cu, priority 0
+    @(61.8800 mm, 109.2500 mm): Pad 41_8 [GND] of U9 on F.Cu
+[starved_thermal]: Thermal relief connection to zone incomplete (layer F.Cu; zone min spoke count 2; actual 1)
+    Local override; error
+    @(47.2500 mm, 36.5500 mm): Zone [GND] on F.Cu, priority 0
+    @(79.4500 mm, 97.6500 mm): Pad 1 [GND] of U2 on F.Cu
+[starved_thermal]: Thermal relief connection to zone incomplete (layer F.Cu; zone min spoke count 2; actual 1)
+    Local override; error
+    @(47.2500 mm, 36.5500 mm): Zone [GND] on F.Cu, priority 0
+    @(77.9500 mm, 97.6500 mm): Pad 4 [GND] of U2 on F.Cu
+[starved_thermal]: Thermal relief connection to zone incomplete (layer F.Cu; zone min spoke count 2; actual 1)
+    Local override; error
+    @(47.2500 mm, 36.5500 mm): Zone [GND] on F.Cu, priority 0
+    @(77.9500 mm, 99.5500 mm): Pad 5 [GND] of U2 on F.Cu
+[silk_over_copper]: Silkscreen clipped by solder mask
+    Local override; warning
+    @(71.8000 mm, 66.5250 mm): Reference field of U6
+[silk_over_copper]: Silkscreen clipped by solder mask
+    Local override; warning
+    @(70.3000 mm, 69.0750 mm): Segment of U6 on F.Silkscreen
+[solder_mask_bridge]: Front solder mask aperture bridges items with different nets
+    Rule: board setup solder mask min width; error
+    @(71.8254 mm, 66.5250 mm): Pad 17 [GND] of U6 on F.Cu
+    @(72.9000 mm, 67.1250 mm): PTH pad 18 [<no net>] of U6
+[solder_mask_bridge]: Front solder mask aperture bridges items with different nets
+    Rule: board setup solder mask min width; error
+    @(71.8254 mm, 66.5250 mm): Pad 17 [GND] of U6 on F.Cu
+    @(72.9000 mm, 65.9250 mm): PTH pad 19 [<no net>] of U6
+[solder_mask_bridge]: Front solder mask aperture bridges items with different nets
+    Rule: board setup solder mask min width; error
+    @(71.8254 mm, 66.5250 mm): Pad 17 [GND] of U6 on F.Cu
+    @(72.9000 mm, 68.3250 mm): PTH pad 24 [<no net>] of U6
+[solder_mask_bridge]: Front solder mask aperture bridges items with different nets
+    Rule: board setup solder mask min width; error
+    @(71.8254 mm, 66.5250 mm): Pad 17 [GND] of U6 on F.Cu
+    @(70.7000 mm, 67.1250 mm): PTH pad 20 [<no net>] of U6
+[solder_mask_bridge]: Front solder mask aperture bridges items with different nets
+    Rule: board setup solder mask min width; error
+    @(71.8254 mm, 66.5250 mm): Pad 17 [GND] of U6 on F.Cu
+    @(70.7000 mm, 68.3250 mm): PTH pad 26 [<no net>] of U6
+[solder_mask_bridge]: Front solder mask aperture bridges items with different nets
+    Rule: board setup solder mask min width; error
+    @(71.8254 mm, 66.5250 mm): Pad 17 [GND] of U6 on F.Cu
+    @(70.7000 mm, 65.9250 mm): PTH pad 21 [<no net>] of U6
+[solder_mask_bridge]: Front solder mask aperture bridges items with different nets
+    Rule: board setup solder mask min width; error
+    @(71.8254 mm, 66.5250 mm): Pad 17 [GND] of U6 on F.Cu
+    @(71.8000 mm, 65.9250 mm): PTH pad 23 [<no net>] of U6
+[solder_mask_bridge]: Front solder mask aperture bridges items with different nets
+    Rule: board setup solder mask min width; error
+    @(71.8254 mm, 66.5250 mm): Pad 17 [GND] of U6 on F.Cu
+    @(71.8000 mm, 67.1250 mm): PTH pad 22 [<no net>] of U6
+[solder_mask_bridge]: Front solder mask aperture bridges items with different nets
+    Rule: board setup solder mask min width; error
+    @(71.8254 mm, 66.5250 mm): Pad 17 [GND] of U6 on F.Cu
+    @(71.8000 mm, 68.3250 mm): PTH pad 25 [<no net>] of U6
+[solder_mask_bridge]: Front solder mask aperture bridges items with different nets
+    Rule: board setup solder mask min width; error
+    @(71.8254 mm, 66.5250 mm): Pad 17 [GND] of U6 on F.Cu
+    @(72.9000 mm, 64.7250 mm): PTH pad 27 [<no net>] of U6
+[solder_mask_bridge]: Front solder mask aperture bridges items with different nets
+    Rule: board setup solder mask min width; error
+    @(71.8254 mm, 66.5250 mm): Pad 17 [GND] of U6 on F.Cu
+    @(70.7000 mm, 64.7250 mm): PTH pad 28 [<no net>] of U6
+[solder_mask_bridge]: Front solder mask aperture bridges items with different nets
+    Rule: board setup solder mask min width; error
+    @(71.8254 mm, 66.5250 mm): Pad 17 [GND] of U6 on F.Cu
+    @(71.8000 mm, 64.7250 mm): PTH pad 29 [<no net>] of U6
+[solder_mask_bridge]: Front solder mask aperture bridges items with different nets
+    Rule: board setup solder mask min width; error
+    @(70.5700 mm, 67.6338 mm): Polygon of U6 on F.Mask
+    @(70.1251 mm, 66.8500 mm): Track [GND] on F.Cu, length 0.4596 mm
+[solder_mask_bridge]: Front solder mask aperture bridges items with different nets
+    Rule: board setup solder mask min width; error
+    @(70.5700 mm, 67.6338 mm): Polygon of U6 on F.Mask
+    @(70.1251 mm, 66.8500 mm): Track [GND] on F.Cu, length 0.4596 mm
+[solder_mask_bridge]: Front solder mask aperture bridges items with different nets
+    Rule: board setup solder mask min width; error
+    @(70.5700 mm, 67.6338 mm): Polygon of U6 on F.Mask
+    @(70.1251 mm, 66.8500 mm): Track [GND] on F.Cu, length 0.4596 mm
+[solder_mask_bridge]: Front solder mask aperture bridges items with different nets
+    Rule: board setup solder mask min width; error
+    @(70.5700 mm, 67.6338 mm): Polygon of U6 on F.Mask
+    @(70.1251 mm, 66.8500 mm): Track [GND] on F.Cu, length 0.4596 mm
+[solder_mask_bridge]: Front solder mask aperture bridges items with different nets
+    Rule: board setup solder mask min width; error
+    @(70.5700 mm, 67.6338 mm): Polygon of U6 on F.Mask
+    @(70.1251 mm, 66.8500 mm): Track [GND] on F.Cu, length 0.4596 mm
+[solder_mask_bridge]: Front solder mask aperture bridges items with different nets
+    Rule: board setup solder mask min width; error
+    @(70.5700 mm, 67.6338 mm): Polygon of U6 on F.Mask
+    @(70.1251 mm, 66.8500 mm): Track [GND] on F.Cu, length 0.4596 mm
+[solder_mask_bridge]: Front solder mask aperture bridges items with different nets
+    Rule: board setup solder mask min width; error
+    @(78.1000 mm, 83.5000 mm): Polygon of U8 on F.Mask
+    @(78.3500 mm, 83.1510 mm): Track [VBUS] on F.Cu, length 4.1390 mm
+[solder_mask_bridge]: Front solder mask aperture bridges items with different nets
+    Rule: board setup solder mask min width; error
+    @(78.1000 mm, 82.1500 mm): Polygon of U8 on F.Mask
+    @(78.7700 mm, 80.8790 mm): Track [+5V VEHICLE] on F.Cu, length 0.5940 mm
+[solder_mask_bridge]: Front solder mask aperture bridges items with different nets
+    Rule: board setup solder mask min width; error
+    @(59.0800 mm, 109.9500 mm): PTH pad 41_10 [<no net>] of U9
+    @(59.0800 mm, 110.6500 mm): Pad 41_1 [GND] of U9 on F.Cu
+[solder_mask_bridge]: Front solder mask aperture bridges items with different nets
+    Rule: board setup solder mask min width; error
+    @(59.0800 mm, 109.9500 mm): PTH pad 41_10 [<no net>] of U9
+    @(59.0800 mm, 109.2500 mm): Pad 41_2 [GND] of U9 on F.Cu
+[solder_mask_bridge]: Front solder mask aperture bridges items with different nets
+    Rule: board setup solder mask min width; error
+    @(59.0800 mm, 108.5500 mm): PTH pad 41_11 [<no net>] of U9
+    @(59.0800 mm, 109.2500 mm): Pad 41_2 [GND] of U9 on F.Cu
+[solder_mask_bridge]: Front solder mask aperture bridges items with different nets
+    Rule: board setup solder mask min width; error
+    @(59.0800 mm, 108.5500 mm): PTH pad 41_11 [<no net>] of U9
+    @(59.0800 mm, 107.8500 mm): Pad 41_3 [GND] of U9 on F.Cu
+[solder_mask_bridge]: Front solder mask aperture bridges items with different nets
+    Rule: board setup solder mask min width; error
+    @(59.7800 mm, 110.6500 mm): PTH pad 41_12 [<no net>] of U9
+    @(59.0800 mm, 110.6500 mm): Pad 41_1 [GND] of U9 on F.Cu
+[solder_mask_bridge]: Front solder mask aperture bridges items with different nets
+    Rule: board setup solder mask min width; error
+    @(59.7800 mm, 110.6500 mm): PTH pad 41_12 [<no net>] of U9
+    @(60.4800 mm, 110.6500 mm): Pad 41_4 [GND] of U9 on F.Cu
+[solder_mask_bridge]: Front solder mask aperture bridges items with different nets
+    Rule: board setup solder mask min width; error
+    @(59.7800 mm, 109.2500 mm): PTH pad 41_13 [<no net>] of U9
+    @(59.0800 mm, 109.2500 mm): Pad 41_2 [GND] of U9 on F.Cu
+[solder_mask_bridge]: Front solder mask aperture bridges items with different nets
+    Rule: board setup solder mask min width; error
+    @(59.7800 mm, 109.2500 mm): PTH pad 41_13 [<no net>] of U9
+    @(60.4800 mm, 109.2500 mm): Pad 41_5 [GND] of U9 on F.Cu
+[solder_mask_bridge]: Front solder mask aperture bridges items with different nets
+    Rule: board setup solder mask min width; error
+    @(59.7800 mm, 107.8500 mm): PTH pad 41_14 [<no net>] of U9
+    @(59.0800 mm, 107.8500 mm): Pad 41_3 [GND] of U9 on F.Cu
+[solder_mask_bridge]: Front solder mask aperture bridges items with different nets
+    Rule: board setup solder mask min width; error
+    @(59.7800 mm, 107.8500 mm): PTH pad 41_14 [<no net>] of U9
+    @(60.4800 mm, 107.8500 mm): Pad 41_6 [GND] of U9 on F.Cu
+[solder_mask_bridge]: Front solder mask aperture bridges items with different nets
+    Rule: board setup solder mask min width; error
+    @(60.4800 mm, 109.9500 mm): PTH pad 41_15 [<no net>] of U9
+    @(60.4800 mm, 109.2500 mm): Pad 41_5 [GND] of U9 on F.Cu
+[solder_mask_bridge]: Front solder mask aperture bridges items with different nets
+    Rule: board setup solder mask min width; error
+    @(60.4800 mm, 109.9500 mm): PTH pad 41_15 [<no net>] of U9
+    @(60.4800 mm, 110.6500 mm): Pad 41_4 [GND] of U9 on F.Cu
+[solder_mask_bridge]: Front solder mask aperture bridges items with different nets
+    Rule: board setup solder mask min width; error
+    @(60.4800 mm, 108.5500 mm): PTH pad 41_16 [<no net>] of U9
+    @(60.4800 mm, 109.2500 mm): Pad 41_5 [GND] of U9 on F.Cu
+[solder_mask_bridge]: Front solder mask aperture bridges items with different nets
+    Rule: board setup solder mask min width; error
+    @(60.4800 mm, 108.5500 mm): PTH pad 41_16 [<no net>] of U9
+    @(60.4800 mm, 107.8500 mm): Pad 41_6 [GND] of U9 on F.Cu
+[solder_mask_bridge]: Front solder mask aperture bridges items with different nets
+    Rule: board setup solder mask min width; error
+    @(61.1800 mm, 110.6500 mm): PTH pad 41_17 [<no net>] of U9
+    @(60.4800 mm, 110.6500 mm): Pad 41_4 [GND] of U9 on F.Cu
+[solder_mask_bridge]: Front solder mask aperture bridges items with different nets
+    Rule: board setup solder mask min width; error
+    @(61.1800 mm, 110.6500 mm): PTH pad 41_17 [<no net>] of U9
+    @(61.8800 mm, 110.6500 mm): Pad 41_7 [GND] of U9 on F.Cu
+[solder_mask_bridge]: Front solder mask aperture bridges items with different nets
+    Rule: board setup solder mask min width; error
+    @(61.1800 mm, 109.2500 mm): PTH pad 41_18 [<no net>] of U9
+    @(60.4800 mm, 109.2500 mm): Pad 41_5 [GND] of U9 on F.Cu
+[solder_mask_bridge]: Front solder mask aperture bridges items with different nets
+    Rule: board setup solder mask min width; error
+    @(61.1800 mm, 109.2500 mm): PTH pad 41_18 [<no net>] of U9
+    @(61.8800 mm, 109.2500 mm): Pad 41_8 [GND] of U9 on F.Cu
+[solder_mask_bridge]: Front solder mask aperture bridges items with different nets
+    Rule: board setup solder mask min width; error
+    @(61.1800 mm, 107.8500 mm): PTH pad 41_19 [<no net>] of U9
+    @(60.4800 mm, 107.8500 mm): Pad 41_6 [GND] of U9 on F.Cu
+[solder_mask_bridge]: Front solder mask aperture bridges items with different nets
+    Rule: board setup solder mask min width; error
+    @(61.1800 mm, 107.8500 mm): PTH pad 41_19 [<no net>] of U9
+    @(61.8800 mm, 107.8500 mm): Pad 41_9 [GND] of U9 on F.Cu
+[solder_mask_bridge]: Front solder mask aperture bridges items with different nets
+    Rule: board setup solder mask min width; error
+    @(61.8800 mm, 109.9500 mm): PTH pad 41_20 [<no net>] of U9
+    @(61.8800 mm, 110.6500 mm): Pad 41_7 [GND] of U9 on F.Cu
+[solder_mask_bridge]: Front solder mask aperture bridges items with different nets
+    Rule: board setup solder mask min width; error
+    @(61.8800 mm, 109.9500 mm): PTH pad 41_20 [<no net>] of U9
+    @(61.8800 mm, 109.2500 mm): Pad 41_8 [GND] of U9 on F.Cu
+[solder_mask_bridge]: Front solder mask aperture bridges items with different nets
+    Rule: board setup solder mask min width; error
+    @(61.8800 mm, 108.5500 mm): PTH pad 41_21 [<no net>] of U9
+    @(61.8800 mm, 109.2500 mm): Pad 41_8 [GND] of U9 on F.Cu
+[solder_mask_bridge]: Front solder mask aperture bridges items with different nets
+    Rule: board setup solder mask min width; error
+    @(61.8800 mm, 108.5500 mm): PTH pad 41_21 [<no net>] of U9
+    @(61.8800 mm, 107.8500 mm): Pad 41_9 [GND] of U9 on F.Cu
+[solder_mask_bridge]: Front solder mask aperture bridges items with different nets
+    Rule: board setup solder mask min width; error
+    @(74.5000 mm, 50.2500 mm): Pad 1 [Net-(U5-VCAPL)] of U5 on F.Cu
+    @(74.5000 mm, 50.9000 mm): Pad 2 [Net-(Q1-G)] of U5 on F.Cu
+[solder_mask_bridge]: Front solder mask aperture bridges items with different nets
+    Rule: board setup solder mask min width; error
+    @(74.5000 mm, 50.9000 mm): Pad 2 [Net-(Q1-G)] of U5 on F.Cu
+    @(74.5000 mm, 51.5500 mm): Pad 3 [<no net>] of U5 on F.Cu
+[solder_mask_bridge]: Front solder mask aperture bridges items with different nets
+    Rule: board setup solder mask min width; error
+    @(74.5000 mm, 51.5500 mm): Pad 3 [<no net>] of U5 on F.Cu
+    @(74.5000 mm, 52.2000 mm): Pad 4 [+12V BATT] of U5 on F.Cu
+[solder_mask_bridge]: Front solder mask aperture bridges items with different nets
+    Rule: board setup solder mask min width; error
+    @(78.8000 mm, 52.2000 mm): Pad 5 [<no net>] of U5 on F.Cu
+    @(78.8000 mm, 51.5500 mm): Pad 6 [Net-(Q1-G)] of U5 on F.Cu
+[solder_mask_bridge]: Front solder mask aperture bridges items with different nets
+    Rule: board setup solder mask min width; error
+    @(78.8000 mm, 51.5500 mm): Pad 6 [Net-(Q1-G)] of U5 on F.Cu
+    @(78.8000 mm, 50.9000 mm): Pad 7 [Net-(U5-VCAPH)] of U5 on F.Cu
+[solder_mask_bridge]: Front solder mask aperture bridges items with different nets
+    Rule: board setup solder mask min width; error
+    @(78.8000 mm, 50.9000 mm): Pad 7 [Net-(U5-VCAPH)] of U5 on F.Cu
+    @(78.8000 mm, 50.2500 mm): Pad 8 [+12VA] of U5 on F.Cu
+[solder_mask_bridge]: Front solder mask aperture bridges items with different nets
+    Rule: board setup solder mask min width; error
+    @(64.4500 mm, 80.8000 mm): Pad 1 [+5V_SYS] of U7 on F.Cu
+    @(65.1000 mm, 79.7750 mm): Pad 7 [unconnected-(U7-EP-Pad7)] of U7 on F.Cu
+[solder_mask_bridge]: Front solder mask aperture bridges items with different nets
+    Rule: board setup solder mask min width; error
+    @(65.1000 mm, 80.8000 mm): Pad 2 [Net-(U7-ILIM)] of U7 on F.Cu
+    @(65.1000 mm, 79.7750 mm): Pad 7 [unconnected-(U7-EP-Pad7)] of U7 on F.Cu
+[solder_mask_bridge]: Front solder mask aperture bridges items with different nets
+    Rule: board setup solder mask min width; error
+    @(65.7500 mm, 80.8000 mm): Pad 3 [Net-(U7-~{FAULT})] of U7 on F.Cu
+    @(65.1000 mm, 79.7750 mm): Pad 7 [unconnected-(U7-EP-Pad7)] of U7 on F.Cu
+[solder_mask_bridge]: Front solder mask aperture bridges items with different nets
+    Rule: board setup solder mask min width; error
+    @(65.7500 mm, 78.7500 mm): Pad 4 [Net-(U7-EN)] of U7 on F.Cu
+    @(65.1000 mm, 79.7750 mm): Pad 7 [unconnected-(U7-EP-Pad7)] of U7 on F.Cu
+[solder_mask_bridge]: Front solder mask aperture bridges items with different nets
+    Rule: board setup solder mask min width; error
+    @(65.1000 mm, 78.7500 mm): Pad 5 [GND] of U7 on F.Cu
+    @(65.1000 mm, 79.7750 mm): Pad 7 [unconnected-(U7-EP-Pad7)] of U7 on F.Cu
+[solder_mask_bridge]: Front solder mask aperture bridges items with different nets
+    Rule: board setup solder mask min width; error
+    @(64.4500 mm, 78.7500 mm): Pad 6 [+5V ARB] of U7 on F.Cu
+    @(65.1000 mm, 79.7750 mm): Pad 7 [unconnected-(U7-EP-Pad7)] of U7 on F.Cu
+[silk_overlap]: Silkscreen overlap (board setup constraints silk clearance 0.1500 mm; actual 0.1300 mm)
+    Rule: board setup constraints silk; warning
+    @(90.2000 mm, 89.8500 mm): Reference field of D7
+    @(89.4100 mm, 90.4700 mm): Segment of D7 on F.Silkscreen
+[silk_overlap]: Silkscreen overlap (board setup constraints silk clearance 0.1500 mm; actual 0.1300 mm)
+    Rule: board setup constraints silk; warning
+    @(90.2000 mm, 89.8500 mm): Reference field of D7
+    @(91.7000 mm, 90.4700 mm): Segment of D7 on F.Silkscreen
+[silk_overlap]: Silkscreen overlap (board setup constraints silk clearance 0.1500 mm; actual 0.1300 mm)
+    Rule: board setup constraints silk; warning
+    @(91.7000 mm, 86.6700 mm): Segment of D11 on F.Silkscreen
+    @(89.8500 mm, 86.0500 mm): Reference field of D11
+[silk_overlap]: Silkscreen overlap (board setup constraints silk clearance 0.1500 mm; actual 0.1396 mm)
+    Rule: board setup constraints silk; warning
+    @(77.3000 mm, 57.9000 mm): Reference field of C6
+    @(76.0400 mm, 57.2500 mm): Reference field of C4
+
+** Found 7 unconnected pads **
+[unconnected_items]: Missing connection between items
+    Local override; error
+    @(89.9800 mm, 68.9000 mm): Track [+3.3V] on F.Cu, length 3.5000 mm
+    @(85.4600 mm, 91.2000 mm): Track [+3.3V] on F.Cu, length 5.7417 mm
+[unconnected_items]: Missing connection between items
+    Local override; error
+    @(55.3000 mm, 116.5000 mm): Pad 3 [/EN] of U9 on F.Cu
+    @(79.3000 mm, 112.9000 mm): Track [/EN] on F.Cu, length 3.2200 mm
+[unconnected_items]: Missing connection between items
+    Local override; error
+    @(47.2500 mm, 36.5500 mm): Zone [GND] on F.Cu, priority 0
+    @(79.4500 mm, 97.6500 mm): Pad 1 [GND] of U2 on F.Cu
+[unconnected_items]: Missing connection between items
+    Local override; error
+    @(77.9500 mm, 99.5500 mm): Pad 5 [GND] of U2 on F.Cu
+    @(47.2500 mm, 36.5500 mm): Zone [GND] on F.Cu, priority 0
+[unconnected_items]: Missing connection between items
+    Local override; error
+    @(77.9500 mm, 97.6500 mm): Pad 4 [GND] of U2 on F.Cu
+    @(47.2500 mm, 36.5500 mm): Zone [GND] on F.Cu, priority 0
+[unconnected_items]: Missing connection between items
+    Local override; error
+    @(60.4800 mm, 109.2500 mm): Pad 41_5 [GND] of U9 on F.Cu
+    @(59.0800 mm, 109.2500 mm): Pad 41_2 [GND] of U9 on F.Cu
+[unconnected_items]: Missing connection between items
+    Local override; error
+    @(66.7700 mm, 127.5000 mm): Pad B9A4 [VBUS] of J1 on F.Cu
+    @(71.5700 mm, 126.3800 mm): Track [VBUS] on F.Cu, length 1.1200 mm
+
+** Found 0 Footprint errors **
+
+** End of Report **
