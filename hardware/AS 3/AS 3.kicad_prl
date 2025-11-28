@@ -13,7 +13,7 @@
       "shapes": 1.0,
       "tracks": 1.0,
       "vias": 1.0,
-      "zones": 0.029999999329447746
+      "zones": 0.6
     },
     "selection_filter": {
       "dimensions": true,
@@ -59,11 +59,13 @@
     "ssh_key": ""
   },
   "meta": {
-    "filename": "air-scales.kicad_prl",
+    "filename": "AS 3.kicad_prl",
     "version": 5
   },
   "net_inspector_panel": {
     "col_hidden": [
+      false,
+      false,
       false,
       false,
       false,
@@ -85,7 +87,9 @@
       6,
       7,
       8,
-      9
+      9,
+      10,
+      11
     ],
     "col_widths": [
       186,
@@ -96,6 +100,8 @@
       112,
       112,
       83,
+      112,
+      112,
       112,
       112
     ],
