@@ -201,8 +201,7 @@
       ],
       "track_widths": [
         0.0,
-        0.1,
-        0.15,
+        0.152,
         0.2,
         0.3,
         0.4,
@@ -503,7 +502,7 @@
     "classes": [
       {
         "bus_width": 12,
-        "clearance": 0.16,
+        "clearance": 0.152,
         "diff_pair_gap": 0.25,
         "diff_pair_via_gap": 0.25,
         "diff_pair_width": 0.2,
@@ -514,7 +513,7 @@
         "pcb_color": "rgba(0, 0, 0, 0.000)",
         "priority": 2147483647,
         "schematic_color": "rgba(0, 0, 0, 0.000)",
-        "track_width": 0.16,
+        "track_width": 0.152,
         "via_diameter": 0.25,
         "via_drill": 0.15,
         "wire_width": 6
