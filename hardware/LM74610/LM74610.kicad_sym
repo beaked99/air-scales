@@ -57,8 +57,8 @@
 		)
 		(symbol "LM74610QDGKTQ1_0_0"
 			(rectangle
-				(start -17.78 -15.24)
-				(end 17.78 15.24)
+				(start -17.78 15.24)
+				(end 17.78 -15.24)
 				(stroke
 					(width 0.41)
 					(type default)
@@ -132,6 +132,42 @@
 					)
 				)
 				(number "6"
+					(effects
+						(font
+							(size 1.016 1.016)
+						)
+					)
+				)
+			)
+			(pin no_connect line
+				(at 22.86 -7.62 180)
+				(length 5.08)
+				(name "nc"
+					(effects
+						(font
+							(size 1.016 1.016)
+						)
+					)
+				)
+				(number "3"
+					(effects
+						(font
+							(size 1.016 1.016)
+						)
+					)
+				)
+			)
+			(pin no_connect line
+				(at 22.86 -11.43 180)
+				(length 5.08)
+				(name "nc"
+					(effects
+						(font
+							(size 1.016 1.016)
+						)
+					)
+				)
+				(number "5"
 					(effects
 						(font
 							(size 1.016 1.016)

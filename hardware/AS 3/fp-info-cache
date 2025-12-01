@@ -1,4 +1,4 @@
-26661459975032819
+26666752970626441
 10X12P7_NCH
 CAP_PC_10X12P7_NCH
 
@@ -41,6 +41,13 @@ B3FS-1000
 0
 4
 4
+BME280
+PSON65P250X250X100-8N
+2.5 mm x 2.5 mm x 0.93 mm metal lid LGA
+
+0
+8
+8
 Battery
 BatteryClip_Keystone_54_D16-19mm
 Battery clip for batteries with a diameter between 16-19 mm: https://www.keyelco.com/product.cfm/product_id/826
@@ -70258,6 +70265,13 @@ SOP65P490X110-8N
 0
 8
 8
+LMR60420
+RAK0009A-MFG
+
+LMR604303SRAKRQ1 
+0
+12
+12
 Module
 A20_OLINUXINO_LIME2
 A20 Olinuxino LIME2, 1.2GHz, 512-1024MB RAM, Micro-SD, NAND or eMMC, 1000Mbit Ethernet
@@ -99504,6 +99518,13 @@ SON65P200X200X80-7N
 0
 7
 7
+TPS62901
+QFN_902RPJR_TEX
+
+TPS62901RPJR 
+0
+9
+9
 TerminalBlock
 TerminalBlock_Altech_AK300-2_P5.00mm
 Altech AK300 terminal block, pitch 5.0mm, 45 degree angled, see http://www.mouser.com/ds/2/16/PCBMETRC-24178.pdf

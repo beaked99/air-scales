@@ -12587,6 +12587,16 @@
 		)
 		(uuid ec0c5814-4bd1-4755-8ff1-d026e1544605)
 	)
+	(text "X"
+		(exclude_from_sim no)
+		(at 177.038 132.842 0)
+		(effects
+			(font
+				(size 12.7 12.7)
+			)
+		)
+		(uuid "0213067f-a523-48a4-86cf-4fd1f49ec7a9")
+	)
 	(text "STEP DOWN VOLTAGE CONVERTER WITH SPREAD SPECTRUM"
 		(exclude_from_sim no)
 		(at 209.296 17.78 0)
@@ -12616,6 +12626,16 @@
 			)
 		)
 		(uuid "3cdb6873-4780-4102-9c18-25c90ea00984")
+	)
+	(text "X"
+		(exclude_from_sim no)
+		(at 80.01 135.89 0)
+		(effects
+			(font
+				(size 12.7 12.7)
+			)
+		)
+		(uuid "3ec6218c-a2fe-4d78-9886-bd8b888fb71c")
 	)
 	(text "LM74610-Q1 Zero IQ Reverse Polarity Protection Smart Diode Controller\n"
 		(exclude_from_sim no)
@@ -28391,6 +28411,33 @@
 			)
 		)
 		(property "Description" "100A, 60V Vds, N-Channel MOSFET, 5.2mOhm Ron, LFPAK56"
+			(at 69.85 30.48 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Manufacturer" ""
+			(at 69.85 30.48 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Mfr. Part #" ""
+			(at 69.85 30.48 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" ""
 			(at 69.85 30.48 0)
 			(effects
 				(font
