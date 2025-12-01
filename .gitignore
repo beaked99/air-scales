@@ -33,6 +33,18 @@ prod-dump.sql
 hardware/**/out/
 hardware/**/build/
 hardware/**/plots/
+# Lock Files
+*.kicad_sch.lck
+*.kicad_pcb.lck
+# JLCPCB plugin settings file
+fabrication-toolkit-options.json
+*/production/backups
+# Temporary files
+*.bak
+*-backups
+*.kicad_prl
+fp-info-cache
+\#auto_saved_files#
 
 # --- Composer & NPM caches ---
 /webapp/composer.lock

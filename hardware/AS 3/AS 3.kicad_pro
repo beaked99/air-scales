@@ -60,15 +60,7 @@
       ],
       "drc_exclusions": [
         [
-          "lib_footprint_mismatch|67975000|78037500|1ef3ff86-a397-4d76-a208-fb046b1f2d1c|00000000-0000-0000-0000-000000000000",
-          ""
-        ],
-        [
           "lib_footprint_mismatch|72375000|115460000|356ed20d-a10f-43b1-8f48-539d807576e2|00000000-0000-0000-0000-000000000000",
-          ""
-        ],
-        [
-          "lib_footprint_mismatch|78825001|62264999|eacc46aa-0dd3-41a5-ba6e-271e3ce38383|00000000-0000-0000-0000-000000000000",
           ""
         ],
         [
@@ -144,8 +136,8 @@
       },
       "rules": {
         "max_error": 0.005,
-        "min_clearance": 0.125,
-        "min_connection": 0.15,
+        "min_clearance": 0.152,
+        "min_connection": 0.152,
         "min_copper_edge_clearance": 0.2,
         "min_groove_width": 0.0,
         "min_hole_clearance": 0.225,
@@ -157,7 +149,7 @@
         "min_text_height": 1.0,
         "min_text_thickness": 0.15,
         "min_through_hole_diameter": 0.3,
-        "min_track_width": 0.15,
+        "min_track_width": 0.152,
         "min_via_annular_width": 0.05,
         "min_via_diameter": 0.3,
         "solder_mask_to_copper_clearance": 0.0,
@@ -209,8 +201,7 @@
       ],
       "track_widths": [
         0.0,
-        0.1,
-        0.15,
+        0.152,
         0.2,
         0.3,
         0.4,
@@ -493,6 +484,7 @@
       "single_global_label": "ignore",
       "unannotated": "error",
       "unconnected_wire_endpoint": "warning",
+      "undefined_netclass": "error",
       "unit_value_mismatch": "error",
       "unresolved_variable": "error",
       "wire_dangling": "error"
@@ -510,7 +502,7 @@
     "classes": [
       {
         "bus_width": 12,
-        "clearance": 0.1,
+        "clearance": 0.152,
         "diff_pair_gap": 0.25,
         "diff_pair_via_gap": 0.25,
         "diff_pair_width": 0.2,
@@ -521,7 +513,7 @@
         "pcb_color": "rgba(0, 0, 0, 0.000)",
         "priority": 2147483647,
         "schematic_color": "rgba(0, 0, 0, 0.000)",
-        "track_width": 0.1,
+        "track_width": 0.152,
         "via_diameter": 0.25,
         "via_drill": 0.15,
         "wire_width": 6
@@ -928,6 +920,36 @@
           "group_by": false,
           "label": "Field9",
           "name": "Field9",
+          "show": false
+        },
+        {
+          "group_by": false,
+          "label": "MANUFACTURER",
+          "name": "MANUFACTURER",
+          "show": false
+        },
+        {
+          "group_by": false,
+          "label": "FT Position Offset",
+          "name": "FT Position Offset",
+          "show": false
+        },
+        {
+          "group_by": false,
+          "label": "FT Rotation Offset",
+          "name": "FT Rotation Offset",
+          "show": false
+        },
+        {
+          "group_by": false,
+          "label": "JLCPCB Part No.",
+          "name": "JLCPCB Part No.",
+          "show": false
+        },
+        {
+          "group_by": false,
+          "label": "MPN",
+          "name": "MPN",
           "show": false
         }
       ],
