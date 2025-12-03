@@ -32059,7 +32059,7 @@
 				)
 			)
 		)
-		(property "Footprint" "Inductor_SMD:L_Chilisin_BMRF00101040"
+		(property "Footprint" "XGL6060-222MEC:IND_XGL6060_COC"
 			(at 328.93 95.25 0)
 			(effects
 				(font
@@ -32068,7 +32068,7 @@
 				(hide yes)
 			)
 		)
-		(property "Datasheet" "https://www.lcsc.com/datasheet/C5562314.pdf"
+		(property "Datasheet" "https://www.coilcraft.com/getmedia/329fe97c-7311-4726-9bf3-37718f42b168/xgl6060.pdf"
 			(at 328.93 95.25 0)
 			(effects
 				(font
@@ -32077,7 +32077,7 @@
 				(hide yes)
 			)
 		)
-		(property "Description" "FIXED IND 2.2uH 14A 6.8mΩ SMD,11.6x10.2mm"
+		(property "Description" "16A 2.2uH 4.9mΩ AEC-Q200 Magnetic Shielded Inductor ±20% SMD,6.7x6.5mm Power Inductors ROHS"
 			(at 328.93 95.25 0)
 			(effects
 				(font
@@ -32086,7 +32086,7 @@
 				(hide yes)
 			)
 		)
-		(property "Manufacturer" "Chilisin"
+		(property "Manufacturer" " Coilcraft"
 			(at 328.93 95.25 0)
 			(effects
 				(font
@@ -32095,7 +32095,7 @@
 				(hide yes)
 			)
 		)
-		(property "Mfr. Part #" "AMRU001010402R2MA1"
+		(property "Mfr. Part #" " XGL6060-222MEC"
 			(at 328.93 95.25 0)
 			(effects
 				(font
@@ -32104,7 +32104,7 @@
 				(hide yes)
 			)
 		)
-		(property "LCSC" "C5562314"
+		(property "LCSC" " C3911671"
 			(at 328.93 95.25 0)
 			(effects
 				(font
@@ -32295,6 +32295,15 @@
 		)
 		(property "VOLTAGE" ""
 			(at 328.93 95.25 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Voltage" ""
+			(at 328.93 95.25 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -35333,7 +35342,7 @@
 				)
 			)
 		)
-		(property "Value" "IAUCN04S7N004"
+		(property "Value" "IAUC120N06S5L011"
 			(at 74.168 91.694 90)
 			(effects
 				(font

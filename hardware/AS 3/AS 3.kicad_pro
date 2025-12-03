@@ -58,7 +58,16 @@
           "width": 0.0
         }
       ],
-      "drc_exclusions": [],
+      "drc_exclusions": [
+        [
+          "malformed_courtyard|66700000|54315000|b3219022-0cea-4ebb-ad43-b1c43766e31f|00000000-0000-0000-0000-000000000000",
+          ""
+        ],
+        [
+          "malformed_courtyard|67200000|54815000|b3219022-0cea-4ebb-ad43-b1c43766e31f|00000000-0000-0000-0000-000000000000",
+          ""
+        ]
+      ],
       "meta": {
         "version": 2
       },
@@ -971,6 +980,14 @@
       "version": 1
     },
     "net_format_name": "",
+    "ngspice": {
+      "fix_include_paths": true,
+      "meta": {
+        "version": 0
+      },
+      "model_mode": 4,
+      "workbook_filename": ""
+    },
     "page_layout_descr_file": "C:\\xampp\\htdocs\\air-scales\\hardware\\SCHEMATIC TEMPLATE.kicad_wks",
     "plot_directory": "",
     "space_save_all_events": true,
