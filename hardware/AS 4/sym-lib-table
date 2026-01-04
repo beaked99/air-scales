@@ -1,0 +1,4 @@
+(sym_lib_table
+  (version 7)
+  (lib (name "TPS73501")(type "KiCad")(uri "C:/xampp/htdocs/air-scales/hardware/TPS73501/TPS73501.kicad_sym")(options "")(descr ""))
+)

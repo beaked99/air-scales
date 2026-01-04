@@ -1,4 +1,4 @@
-// Dashboard Live Updates + Bluetooth Device Discovery (Turbo-safe)
+// Dashboard Live Updates + Bluetooth Device Discovery
 // File: public/js/dashboard.js
 
 /****************************
@@ -14,8 +14,6 @@ const CONFIG = {
 let API_URL = null;
 let retryCount = 0;
 let updateInterval = null;
-
-// Turbo boot guard so we don't re-init on every navigation
 let dashBooted = false;
 
 // Simple BLE state holder
@@ -31,23 +29,21 @@ const BLE = {
   },
 };
 
-// =============== TRANSFERRED FROM OLD WORKING CODE ===============
-
-// Unified device data management (from old code)
-let allDeviceData = new Map(); // Combined data from all sources
+// Unified device data management
+let allDeviceData = new Map();
 let dataSourcePriority = {
-    'bluetooth': 3,    // Highest priority (most current)
-    'websocket': 2,    // Medium priority
-    'server': 1        // Lowest priority (cached data)
+    'bluetooth': 3,
+    'websocket': 2,
+    'server': 1
 };
 
-// BLE Configuration (from old code)
+// BLE Configuration
 const BLE_SERVICE_UUID = '12345678-1234-1234-1234-123456789abc';
 const BLE_SENSOR_CHAR_UUID = '87654321-4321-4321-4321-cba987654321';
 const BLE_COEFFS_CHAR_UUID = '11111111-2222-3333-4444-555555555555';
 
-// BLE State Management (from old code)
-let bleDevices = new Map(); // Connected BLE devices
+// BLE State Management
+let bleDevices = new Map();
 let dbInstance = null;
 let lastServerSync = 0;
 
@@ -219,7 +215,7 @@ function updateTotalWeight(totalWeight, deviceCount) {
  * Update cycle control
  ****************************/
 function startUpdates() {
-  if (updateInterval) return; // guard against double start
+  if (updateInterval) return;
   if (CONFIG.debug) console.log(`🚀 Starting live updates every ${CONFIG.updateIntervalMs / 1000} seconds`);
   fetchLiveData();
   updateInterval = setInterval(fetchLiveData, CONFIG.updateIntervalMs);
@@ -238,12 +234,16 @@ function stopUpdates() {
  ****************************/
 function initializeDeviceScanning() {
   const scanBtn = document.getElementById('scan-devices-btn');
-  if (!scanBtn) return;
+  if (!scanBtn) {
+    if (CONFIG.debug) console.warn('Scan button not found!');
+    return;
+  }
 
-  // ensure we don't bind twice
-  scanBtn.replaceWith(scanBtn.cloneNode(true));
-  const freshBtn = document.getElementById('scan-devices-btn');
-  freshBtn.addEventListener('click', scanForBluetoothDevices, { once: true });
+  // Remove existing listeners and add fresh one
+  const newBtn = scanBtn.cloneNode(true);
+  scanBtn.parentNode.replaceChild(newBtn, scanBtn);
+  newBtn.addEventListener('click', scanForBluetoothDevices);
+  
   if (CONFIG.debug) console.log('🔍 Device scanning initialized');
 }
 
@@ -267,13 +267,15 @@ async function scanForBluetoothDevices() {
     noDevicesFound.classList.add('hidden');
     devicesList.innerHTML = '';
 
-    // fallback-friendly single device selection (most reliable across browsers)
     const device = await navigator.bluetooth.requestDevice({
-      filters: [{ namePrefix: 'AirScales' }, { namePrefix: 'AS25-' }, { namePrefix: 'ESP32' }],
+      filters: [
+        { namePrefix: 'AirScales' },
+        { namePrefix: 'AS-' },
+        { namePrefix: 'ESP32' }
+      ],
       optionalServices: ['battery_service', '12345678-1234-1234-1234-123456789abc'],
     });
 
-    // display one result
     displayDiscoveredDevices([{ device, rssi: null }]);
   } catch (err) {
     if (err?.name === 'NotFoundError') {
@@ -316,16 +318,16 @@ function displayDiscoveredDevices(items) {
       </div>
     `;
     const btn = card.querySelector('.connect-device-btn');
-    btn.addEventListener('click', (e) => connectToBLEDevice(device, null, e.currentTarget));
+    btn.addEventListener('click', () => connectToBLEDevice(device));
     devicesList.appendChild(card);
   });
 
   if (CONFIG.debug) console.log(`📱 Displayed ${items.length} device(s)`);
 }
 
-// =============== TRANSFERRED OLD WORKING BLE FUNCTIONS ===============
-
-// BLE Functions (from old working code)
+/****************************
+ * BLE Functions
+ ****************************/
 async function initDB() {
     return new Promise((resolve, reject) => {
         const request = indexedDB.open('AirScalesDB', 1);
@@ -349,7 +351,7 @@ async function initDB() {
             }
             
             if (!db.objectStoreNames.contains('devices')) {
-                const deviceStore = db.createObjectStore('devices', { 
+                db.createObjectStore('devices', { 
                     keyPath: 'mac_address' 
                 });
             }
@@ -375,7 +377,7 @@ async function connectToBLEDevice(device) {
             server,
             sensorCharacteristic,
             coeffsCharacteristic,
-            mac_address: device.id, // USE DEVICE.ID AS MAC (the working approach!)
+            mac_address: device.id,
             lastSeen: new Date(),
             dataCount: 0
         };
@@ -393,7 +395,6 @@ async function connectToBLEDevice(device) {
         showSuccessToast(`Connected to ${device.name}`);
         hideDiscoverySection();
         
-        // Notify server of connection (from old working code)
         if (!deviceInfo.serverNotified) {
             deviceInfo.serverNotified = true;
             console.log('Notifying server with MAC:', deviceInfo.mac_address);
@@ -406,7 +407,6 @@ async function connectToBLEDevice(device) {
     }
 }
 
-// TRANSFERRED: BLE Data Handler (from old working code)
 function handleBLEData(event, deviceInfo) {
     const decoder = new TextDecoder();
     const jsonString = decoder.decode(event.target.value);
@@ -418,12 +418,10 @@ function handleBLEData(event, deviceInfo) {
         deviceInfo.lastSeen = new Date();
         deviceInfo.dataCount++;
         
-        // Check if this is aggregated mesh data
         if (data.role === 'master' && data.slave_devices) {
             console.log('Received aggregated mesh data from master device');
             handleMeshAggregatedData(data, deviceInfo);
         } else {
-            // Single device data
             handleSingleDeviceData(data, deviceInfo);
         }
         
@@ -435,15 +433,13 @@ function handleBLEData(event, deviceInfo) {
     }
 }
 
-// TRANSFERRED: Mesh aggregated data handler (from old working code)
 function handleMeshAggregatedData(data, deviceInfo) {
-    // Add master device to unified data with ORIGINAL name (no changes!)
     const masterMac = data.mac_address;
     const originalName = deviceInfo.device.name;
     
     allDeviceData.set(masterMac, {
         mac_address: masterMac,
-        device_name: originalName, // KEEP ORIGINAL NAME FOREVER
+        device_name: originalName,
         main_air_pressure: data.master_device.main_air_pressure,
         temperature: data.master_device.temperature,
         weight: data.master_device.weight,
@@ -455,7 +451,6 @@ function handleMeshAggregatedData(data, deviceInfo) {
         total_weight: data.total_weight
     });
     
-    // Add slave devices to unified data
     if (data.slave_devices && data.slave_devices.length > 0) {
         data.slave_devices.forEach(slave => {
             const existingSlave = allDeviceData.get(slave.mac_address);
@@ -463,7 +458,7 @@ function handleMeshAggregatedData(data, deviceInfo) {
             
             allDeviceData.set(slave.mac_address, {
                 mac_address: slave.mac_address,
-                device_name: originalSlaveName, // KEEP ORIGINAL NAME
+                device_name: originalSlaveName,
                 main_air_pressure: slave.main_air_pressure,
                 temperature: slave.temperature,
                 weight: slave.weight,
@@ -477,21 +472,18 @@ function handleMeshAggregatedData(data, deviceInfo) {
     }
 }
 
-// TRANSFERRED: Single device data handler (from old working code)  
 function handleSingleDeviceData(data, deviceInfo) {
-    // ALWAYS use the original BLE device name - NEVER change it
     const originalName = deviceInfo.device.name;
     
     allDeviceData.set(data.mac_address, {
         ...data,
-        device_name: originalName, // ORIGINAL BLE NAME ONLY
+        device_name: originalName,
         source: 'bluetooth',
         last_updated: new Date(),
         priority: dataSourcePriority.bluetooth
     });
 }
 
-// TRANSFERRED: Server notification (from old working code)
 async function notifyServerOfBLEConnection(macAddress) {
     const userId = getCurrentUserId();
     console.log('User ID:', userId);
@@ -523,7 +515,6 @@ async function notifyServerOfBLEConnection(macAddress) {
             console.log('Parsed JSON:', result);
             if (result.status === 'connected') {
                 console.log('✅ Server notified of BLE connection successfully');
-                // Refresh dashboard data
                 setTimeout(() => fetchLiveData(), 1000);
             }
         } else {
@@ -535,7 +526,6 @@ async function notifyServerOfBLEConnection(macAddress) {
     }
 }
 
-// TRANSFERRED: Data sync functions (from old working code)
 function bufferDataForSync(data) {
     const now = Date.now();
     
@@ -610,7 +600,6 @@ function handleBLEDisconnection(device) {
     
     bleDevices.delete(device.id);
     
-    // Remove from unified data
     allDeviceData.forEach((deviceInfo, mac) => {
         if (deviceInfo.source === 'bluetooth' && deviceInfo.device_name.includes(device.name)) {
             allDeviceData.delete(mac);
@@ -620,12 +609,10 @@ function handleBLEDisconnection(device) {
     showBluetoothError('Device disconnected');
 }
 
-// HELPER FUNCTION: Get current user ID
 function getCurrentUserId() {
     return window.currentUserId;
 }
 
-// Initialize BLE integration (from old working code)
 async function initBLEIntegration() {
     if (!isBluetoothSupported()) {
         console.log('Web Bluetooth not supported');
@@ -667,42 +654,49 @@ function hideDiscoverySection() {
     setTimeout(() => {
       scanBtn.innerHTML = '<i class="fas fa-bluetooth-b"></i> <span>Scan for Devices</span>';
       scanBtn.disabled = false;
-      scanBtn.className =
-        'flex items-center gap-2 px-4 py-2 text-white transition-colors rounded-lg bg-sky-600 hover:bg-sky-700';
+      scanBtn.className = 'flex items-center gap-2 px-4 py-2 text-white transition-colors rounded-lg bg-sky-600 hover:bg-sky-700';
     }, 5000);
   }
 }
 
-function guardDeviceLinksWhileConnected() {
-  // Prevent navigation that would drop BLE when connected
-  const links = document.querySelectorAll('a[href^="/device/"]');
-  links.forEach((a) => {
-    a.addEventListener('click', (e) => {
-      if (BLE.isConnected()) {
-        e.preventDefault();
-        showBluetoothError("You're connected over Bluetooth. Disconnect first, or open device details in a new tab.");
-      }
-    });
-  });
-}
-
 /****************************
- * Turbo lifecycle hooks
+ * Initialization - GUARANTEED TO RUN
  ****************************/
-document.addEventListener('turbo:load', () => {
-  if (dashBooted) return; // prevent double boot
+function initDashboard() {
+  if (dashBooted) {
+    if (CONFIG.debug) console.log('⚠️  Dashboard already booted, skipping...');
+    return;
+  }
   dashBooted = true;
 
-  if (CONFIG.debug) console.log('📄 Dashboard boot (turbo:load)');
+  if (CONFIG.debug) console.log('📄 Dashboard initializing...');
+  
   initializeDeviceScanning();
-  initBLEIntegration(); // Initialize BLE from old working code
+  initBLEIntegration();
 
-  // wait a tick for Twig to call initializeApiUrl()
   setTimeout(() => {
-    if (API_URL) startUpdates();
-    else console.error('❌ API URL not initialized');
+    if (API_URL) {
+      startUpdates();
+    } else {
+      console.error('❌ API URL not initialized');
+    }
   }, 100);
-});
+  
+  if (CONFIG.debug) console.log('✅ Dashboard initialized!');
+}
+
+// Try ALL possible page load events
+document.addEventListener('DOMContentLoaded', initDashboard);
+document.addEventListener('turbo:load', initDashboard);
+window.addEventListener('load', initDashboard);
+
+// Fallback: Initialize after 500ms if nothing else worked
+setTimeout(() => {
+  if (!dashBooted) {
+    console.warn('⚠️  Fallback initialization triggered');
+    initDashboard();
+  }
+}, 500);
 
 // Stop timers before Turbo snapshots the page
 document.addEventListener('turbo:before-cache', () => {
@@ -726,6 +720,7 @@ window.DashboardDebug = {
     intervalId: updateInterval,
     retryCount,
     bleConnected: BLE.isConnected(),
+    dashBooted: dashBooted,
   }),
   testBluetooth: () => {
     console.log('Bluetooth supported:', !!navigator.bluetooth);

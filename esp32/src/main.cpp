@@ -11,15 +11,21 @@
 #include <BLE2902.h>
 #include <esp_now.h>
 #include <esp_wifi.h>
+#include <Wire.h>
+#include <Adafruit_Sensor.h>
+#include <Adafruit_BME280.h>
+#include <Adafruit_NeoPixel.h>
 
-// Hardware Configuration
-#define STATUS_LED_PIN 13
+// Hardware Configuration - CUSTOM AIR SCALES BOARD
+#define WS2812B_PIN 10
+#define I2C_SDA 48
+#define I2C_SCL 47
 
 // BLE configuration
 #define SERVICE_UUID        "12345678-1234-1234-1234-123456789abc"
 #define SENSOR_CHAR_UUID    "87654321-4321-4321-4321-cba987654321"
 #define COEFFS_CHAR_UUID    "11111111-2222-3333-4444-555555555555"
-#define DEVICE_NAME_PREFIX  "AirScales-"
+#define DEVICE_NAME_PREFIX  "AirScale-"
 
 // Network Configuration
 const char* SERVER_URL = "https://beaker.ca";
@@ -31,6 +37,8 @@ WebServer server(80);
 WebSocketsServer webSocket(81);
 Preferences preferences;
 HTTPClient http;
+Adafruit_BME280 bme; // BME280 sensor
+Adafruit_NeoPixel pixel(1, WS2812B_PIN, NEO_GRB + NEO_KHZ800);
 
 // BLE Global Objects
 BLEServer* pServer = nullptr;
@@ -45,7 +53,8 @@ String deviceMAC;
 String apSSID;
 bool isConnectedToWiFi = false;
 bool isAPMode = false;
-bool isHub = false; // Simple: am I the hub or not?
+bool isHub = false;
+bool bmeInitialized = false;
 
 // ESP-NOW Data Structure
 typedef struct {
@@ -96,6 +105,16 @@ struct RegressionCoeffs {
 
 RegressionCoeffs coeffs;
 
+// LED Status Colors
+enum LEDStatus {
+  LED_OFF,
+  LED_BOOTING,      // Blue pulse
+  LED_NO_WIFI,      // Red slow blink
+  LED_WIFI_OK,      // Green solid
+  LED_HUB_MODE,     // Purple pulse
+  LED_TRANSMITTING  // Quick white flash
+};
+
 // Function declarations
 void connectToWiFi();
 void startAPMode();
@@ -114,13 +133,15 @@ String getCurrentTimestamp();
 void initBLE();
 void updateDeviceData(ESPNowData* data);
 DeviceData* findDevice(const char* mac);
+void initBME280();
+void setLEDStatus(LEDStatus status);
+void updateLED();
 
 // BLE Callback Classes
 class MyServerCallbacks: public BLEServerCallbacks {
     void onConnect(BLEServer* pServer) {
         deviceConnected = true;
         Serial.println("BLE Client Connected!");
-        // Download coefficients when BLE connects
         if (isHub) {
             downloadAndDistributeCoeffs();
         }
@@ -166,11 +187,16 @@ void setup() {
   Serial.begin(115200);
   delay(1000);
   
-  Serial.println("AirScales ESP32 Starting...");
+  Serial.println("🚀 AirScales ESP32 Custom Board Starting...");
   
-  // Initialize hardware
-  pinMode(STATUS_LED_PIN, OUTPUT);
-  digitalWrite(STATUS_LED_PIN, LOW);
+  // Initialize WS2812B LED
+  pixel.begin();
+  pixel.setBrightness(50);
+  setLEDStatus(LED_BOOTING);
+  
+  // Initialize I2C for BME280
+  Wire.begin(I2C_SDA, I2C_SCL);
+  initBME280();
   
   // Get MAC address for device ID
   deviceMAC = WiFi.macAddress();
@@ -197,11 +223,18 @@ void setup() {
   // If no WiFi, start AP mode
   if (!isConnectedToWiFi) {
     startAPMode();
+    setLEDStatus(LED_NO_WIFI);
+  } else {
+    setLEDStatus(LED_WIFI_OK);
   }
   
-  // Determine if I'm a hub (have WiFi or will have BLE)
+  // Determine if I'm a hub
   isHub = isConnectedToWiFi;
-  Serial.println(isHub ? "I AM THE HUB" : "I am a regular device");
+  Serial.println(isHub ? "🌟 I AM THE HUB" : "📡 I am a regular device");
+  
+  if (isHub) {
+    setLEDStatus(LED_HUB_MODE);
+  }
   
   // Setup web server
   setupWebServer();
@@ -218,25 +251,27 @@ void setup() {
     downloadAndDistributeCoeffs();
   }
   
-  Serial.println("AirScales Ready!");
-  digitalWrite(STATUS_LED_PIN, HIGH);
+  Serial.println("✅ AirScales Ready!");
 }
 
 void loop() {
-  // Handle web server
   server.handleClient();
   webSocket.loop();
+  
+  // Update LED status animation
+  updateLED();
   
   // If someone connects via BLE, I become a hub
   if (!isHub && deviceConnected) {
     isHub = true;
-    Serial.println("BLE connected - I AM NOW THE HUB");
+    Serial.println("🌟 BLE connected - I AM NOW THE HUB");
+    setLEDStatus(LED_HUB_MODE);
     downloadAndDistributeCoeffs();
   }
   
-  // Add periodic memory and status debugging
+  // Status debug output
   static unsigned long lastDebugPrint = 0;
-  if (millis() - lastDebugPrint > 60000) { // Every 60 seconds
+  if (millis() - lastDebugPrint > 60000) {
     uint8_t currentChannel = 0;
     if (WiFi.status() == WL_CONNECTED) {
       currentChannel = WiFi.channel();
@@ -245,14 +280,14 @@ void loop() {
       esp_wifi_get_channel(&currentChannel, &dummy);
     }
     
-    Serial.printf("🔍 STATUS: %s | Ch:%d | RAM:%d | Known devices:%d | WiFi:%s\n", 
+    Serial.printf("🔍 STATUS: %s | Ch:%d | RAM:%d | Devices:%d | WiFi:%s | BME280:%s\n", 
                  isHub ? "HUB" : "DEVICE", 
                  currentChannel, 
                  ESP.getFreeHeap(), 
                  deviceCount,
-                 isConnectedToWiFi ? "OK" : "NO");
+                 isConnectedToWiFi ? "OK" : "NO",
+                 bmeInitialized ? "OK" : "FAIL");
     
-    // Show known devices
     for (int i = 0; i < deviceCount; i++) {
       if (knownDevices[i].isActive) {
         Serial.printf("   Device %d: %s | Last seen: %lu ms ago\n", 
@@ -263,25 +298,31 @@ void loop() {
     lastDebugPrint = millis();
   }
   
-  // Broadcast my sensor data every 10 seconds (only if not hub)
+  // Broadcast sensor data every 10 seconds (non-hub devices only)
   static unsigned long lastBroadcast = 0;
   if (millis() - lastBroadcast > 10000) {
-    if (!isHub) {  // Only non-hub devices broadcast via ESP-NOW
+    if (!isHub) {
+      setLEDStatus(LED_TRANSMITTING);
       broadcastMyData();
+      delay(100);
+      setLEDStatus(LED_NO_WIFI);
     }
     lastBroadcast = millis();
   }
   
-  // If I'm the hub, send all data every 30 seconds
+  // Hub uploads data every 30 seconds
   if (isHub) {
     static unsigned long lastDataSend = 0;
     if (millis() - lastDataSend > 30000) {
+      setLEDStatus(LED_TRANSMITTING);
       sendAllDataToServer();
       sendAllDataViaBLE();
+      delay(100);
+      setLEDStatus(LED_HUB_MODE);
       lastDataSend = millis();
     }
     
-    // Send updated coefficients to all devices every 60 seconds
+    // Update coefficients every 60 seconds
     static unsigned long lastCoeffUpdate = 0;
     if (millis() - lastCoeffUpdate > 60000) {
       downloadAndDistributeCoeffs();
@@ -289,31 +330,155 @@ void loop() {
     }
   }
   
-  // Clean up old devices every 60 seconds
+  // Clean up old devices
   static unsigned long lastCleanup = 0;
   if (millis() - lastCleanup > 60000) {
     for (int i = 0; i < deviceCount; i++) {
-      if (millis() - knownDevices[i].lastSeen > 120000) { // 2 minutes timeout
+      if (millis() - knownDevices[i].lastSeen > 120000) {
         knownDevices[i].isActive = false;
       }
     }
     lastCleanup = millis();
   }
   
-  // Blink status LED
-  static unsigned long lastBlink = 0;
-  if (millis() - lastBlink > (isHub ? 500 : 1000)) {
-    digitalWrite(STATUS_LED_PIN, !digitalRead(STATUS_LED_PIN));
-    lastBlink = millis();
-  }
-  
   delay(100);
 }
+
+void initBME280() {
+  Serial.println("🌡️  Initializing BME280...");
+  
+  bmeInitialized = bme.begin(0x76, &Wire); // Try address 0x76 first
+  
+  if (!bmeInitialized) {
+    bmeInitialized = bme.begin(0x77, &Wire); // Try 0x77 if 0x76 fails
+  }
+  
+  if (bmeInitialized) {
+    Serial.println("✅ BME280 initialized successfully!");
+    
+    // Configure BME280 for weather monitoring
+    bme.setSampling(Adafruit_BME280::MODE_NORMAL,
+                    Adafruit_BME280::SAMPLING_X2,  // temperature
+                    Adafruit_BME280::SAMPLING_X16, // pressure
+                    Adafruit_BME280::SAMPLING_X1,  // humidity
+                    Adafruit_BME280::FILTER_X16,
+                    Adafruit_BME280::STANDBY_MS_500);
+                    
+    // Read and display initial values
+    float temp = bme.readTemperature() * 9.0/5.0 + 32.0; // Convert to F
+    float pressure = bme.readPressure() / 6894.76; // Convert to PSI
+    float altitude = bme.readAltitude(1013.25); // Sea level pressure in hPa
+    
+    Serial.printf("Initial readings: %.1f°F, %.2f PSI, %.1fm altitude\n", 
+                 temp, pressure, altitude);
+  } else {
+    Serial.println("❌ BME280 initialization failed! Using dummy data.");
+  }
+}
+
+void setLEDStatus(LEDStatus status) {
+  static LEDStatus currentStatus = LED_OFF;
+  currentStatus = status;
+  
+  switch (status) {
+    case LED_OFF:
+      pixel.setPixelColor(0, pixel.Color(0, 0, 0));
+      break;
+    case LED_BOOTING:
+      pixel.setPixelColor(0, pixel.Color(0, 0, 50)); // Blue
+      break;
+    case LED_NO_WIFI:
+      pixel.setPixelColor(0, pixel.Color(50, 0, 0)); // Red
+      break;
+    case LED_WIFI_OK:
+      pixel.setPixelColor(0, pixel.Color(0, 50, 0)); // Green
+      break;
+    case LED_HUB_MODE:
+      pixel.setPixelColor(0, pixel.Color(25, 0, 25)); // Purple
+      break;
+    case LED_TRANSMITTING:
+      pixel.setPixelColor(0, pixel.Color(50, 50, 50)); // White
+      break;
+  }
+  pixel.show();
+}
+
+void updateLED() {
+  static unsigned long lastUpdate = 0;
+  static uint8_t brightness = 0;
+  static bool increasing = true;
+  
+  if (millis() - lastUpdate > 20) {
+    // Pulse effect for certain states
+    if (isHub || !isConnectedToWiFi) {
+      if (increasing) {
+        brightness += 5;
+        if (brightness >= 50) increasing = false;
+      } else {
+        brightness -= 5;
+        if (brightness <= 10) increasing = true;
+      }
+      pixel.setBrightness(brightness);
+      
+      if (isHub) {
+        pixel.setPixelColor(0, pixel.Color(brightness/2, 0, brightness/2));
+      } else {
+        pixel.setPixelColor(0, pixel.Color(brightness, 0, 0));
+      }
+      pixel.show();
+    }
+    
+    lastUpdate = millis();
+  }
+}
+
+SensorData readSensors() {
+  SensorData data;
+  
+  if (bmeInitialized) {
+    // Read actual BME280 data
+    data.temperature = bme.readTemperature() * 9.0/5.0 + 32.0; // Convert C to F
+    data.atmosphericPressure = bme.readPressure() / 6894.76; // Convert Pa to PSI
+    data.elevation = bme.readAltitude(1013.25) * 3.28084; // Convert m to feet
+    
+    // For now, use atmospheric pressure as main air pressure (will be calibrated later)
+    data.mainAirPressure = data.atmosphericPressure + random(-5, 5) / 10.0;
+    
+    Serial.printf("📊 BME280: %.1f°F, %.2f PSI, %.0f ft\n", 
+                 data.temperature, data.atmosphericPressure, data.elevation);
+  } else {
+    // Fallback to dummy data if BME280 failed
+    data.mainAirPressure = 35.0 + (random(-50, 50)/10.0);
+    data.atmosphericPressure = 14.7 + (random(-10, 10)/100.0);
+    data.temperature = 72.0 + (random(-30, 30)/10.0);
+    data.elevation = 1000 + random(-500, 500);
+    
+    Serial.println("⚠️  Using dummy sensor data (BME280 not available)");
+  }
+  
+  // GPS data (placeholder for now)
+  data.gpsLat = 40.7128 + (random(-100, 100)/1000.0);
+  data.gpsLng = -74.0060 + (random(-100, 100)/1000.0);
+  
+  // Calculate weight using regression coefficients
+  data.weight = coeffs.intercept + 
+                (data.mainAirPressure * coeffs.airPressureCoeff) +
+                (data.atmosphericPressure * coeffs.ambientPressureCoeff) +
+                (data.temperature * coeffs.airTempCoeff);
+  
+  if (data.weight < 0) data.weight = 0;
+  
+  data.timestamp = getCurrentTimestamp();
+  
+  return data;
+}
+
+// [Rest of the functions remain the same - connectToWiFi, startAPMode, setupWebServer, etc.]
+// I'll include them below for completeness:
 
 void connectToWiFi() {
   Serial.println("Trying to connect to WiFi...");
   
-  // Try saved networks first
   String savedSSID = preferences.getString("wifi_ssid", "");
   String savedPassword = preferences.getString("wifi_password", "");
   
@@ -335,7 +500,6 @@ void connectToWiFi() {
     }
   }
   
-  // Try fallback network
   Serial.println("Trying fallback network...");
   WiFi.begin(FALLBACK_SSID, FALLBACK_PASSWORD);
   
@@ -363,7 +527,11 @@ void setupWebServer() {
   server.serveStatic("/", SPIFFS, "/");
   
   server.on("/", HTTP_GET, []() {
-    server.send(200, "text/html", "<h1>AirScales Device</h1><p>MAC: " + deviceMAC + "</p><p>Role: " + (isHub ? "HUB" : "DEVICE") + "</p>");
+    String html = "<h1>AirScales Custom Board</h1>";
+    html += "<p>MAC: " + deviceMAC + "</p>";
+    html += "<p>Role: " + String(isHub ? "HUB" : "DEVICE") + "</p>";
+    html += "<p>BME280: " + String(bmeInitialized ? "OK" : "FAILED") + "</p>";
+    server.send(200, "text/html", html);
   });
   
   server.on("/api/status", HTTP_GET, []() {
@@ -373,6 +541,7 @@ void setupWebServer() {
     doc["wifi_connected"] = isConnectedToWiFi;
     doc["ble_connected"] = deviceConnected;
     doc["known_devices"] = deviceCount;
+    doc["bme280_initialized"] = bmeInitialized;
     
     String response;
     serializeJson(doc, response);
@@ -383,10 +552,14 @@ void setupWebServer() {
   Serial.println("Web server started");
 }
 
+// [Include all remaining functions from original code: initESPNow, onESPNowDataReceived, 
+// onESPNowDataSent, broadcastMyData, sendAllDataToServer, sendAllDataViaBLE, 
+// registerDevice, downloadAndDistributeCoeffs, sendCoeffsToDevice, initBLE, 
+// updateDeviceData, findDevice, getCurrentTimestamp]
+
 void initESPNow() {
   WiFi.mode(WIFI_STA);
   
-  // Show current WiFi channel and memory status
   uint8_t currentChannel = 0;
   if (WiFi.status() == WL_CONNECTED) {
     currentChannel = WiFi.channel();
@@ -412,7 +585,6 @@ void initESPNow() {
 }
 
 void onESPNowDataReceived(const uint8_t *mac, const uint8_t *incomingData, int len) {
-  // Get current channel for debugging
   uint8_t currentChannel = 0;
   if (WiFi.status() == WL_CONNECTED) {
     currentChannel = WiFi.channel();
@@ -425,7 +597,6 @@ void onESPNowDataReceived(const uint8_t *mac, const uint8_t *incomingData, int l
                len, currentChannel, ESP.getFreeHeap());
   
   if (len != sizeof(ESPNowData)) {
-    // Only log if it's close to our expected size (reduce spam)
     if (len > 80 && len < 120) {
       Serial.printf("❌ Invalid ESP-NOW data size: expected %d, got %d\n", sizeof(ESPNowData), len);
     }
@@ -436,18 +607,16 @@ void onESPNowDataReceived(const uint8_t *mac, const uint8_t *incomingData, int l
   
   Serial.printf("✅ Received ESP-NOW data from %s: %.1f lbs\n", data->deviceMAC, data->weight);
   
-  // **NEW: If I'm not a hub and received data from a hub, lock to their channel**
+  // Channel locking for non-hub devices
   if (!isHub && !isConnectedToWiFi) {
     static bool channelLocked = false;
     static String hubMAC = "";
     static uint8_t targetChannel = 0;
     
     if (!channelLocked || hubMAC != String(data->deviceMAC)) {
-      // Lock to the channel we received this message on
       targetChannel = currentChannel;
       Serial.printf("🔒 HARD LOCKING to hub channel %d (hub MAC: %s)\n", targetChannel, data->deviceMAC);
       
-      // Aggressive channel lock sequence
       WiFi.mode(WIFI_STA);
       WiFi.disconnect();
       delay(100);
@@ -474,7 +643,7 @@ void onESPNowDataReceived(const uint8_t *mac, const uint8_t *incomingData, int l
       }
     }
     
-    // Verify we're still on the right channel
+    // Verify channel
     uint8_t actualChannel;
     wifi_second_chan_t dummy;
     esp_wifi_get_channel(&actualChannel, &dummy);
@@ -486,10 +655,8 @@ void onESPNowDataReceived(const uint8_t *mac, const uint8_t *incomingData, int l
     }
   }
   
-  // Update device data
   updateDeviceData(data);
   
-  // If I'm the hub and have coefficients, send them back to this device
   if (isHub && (coeffs.intercept != 0.0 || coeffs.airPressureCoeff != 0.0)) {
     sendCoeffsToDevice(data->deviceMAC);
   }
@@ -527,7 +694,6 @@ void broadcastMyData() {
   data.batteryLevel = 85;
   data.isCharging = false;
   
-  // Broadcast to everyone
   uint8_t broadcastAddress[] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
   
   esp_now_peer_info_t peerInfo = {};
@@ -539,7 +705,6 @@ void broadcastMyData() {
     esp_now_add_peer(&peerInfo);
   }
   
-  // Get current WiFi channel for debugging
   uint8_t currentChannel = 0;
   if (WiFi.status() == WL_CONNECTED) {
     currentChannel = WiFi.channel();
@@ -561,7 +726,6 @@ void broadcastMyData() {
 void sendAllDataToServer() {
   if (!isConnectedToWiFi) return;
   
-  // Send my own data
   SensorData myData = readSensors();
   
   DynamicJsonDocument doc(1024);
@@ -584,6 +748,8 @@ void sendAllDataToServer() {
   
   if (httpResponseCode > 0) {
     Serial.println("Sent my data to server: " + String(httpResponseCode));
+  } else {
+    Serial.println("❌ Failed to send data to server: " + String(httpResponseCode));
   }
   http.end();
   
@@ -613,7 +779,7 @@ void sendAllDataToServer() {
       }
       http.end();
       
-      delay(100); // Small delay between requests
+      delay(100);
     }
   }
 }
@@ -621,7 +787,6 @@ void sendAllDataToServer() {
 void sendAllDataViaBLE() {
   if (!deviceConnected || !bleEnabled) return;
   
-  // Send my own data
   SensorData myData = readSensors();
   
   DynamicJsonDocument doc(1024);
@@ -644,7 +809,6 @@ void sendAllDataViaBLE() {
   
   delay(100);
   
-  // Send all device data
   for (int i = 0; i < deviceCount; i++) {
     if (knownDevices[i].isActive && millis() - knownDevices[i].lastSeen < 60000) {
       DynamicJsonDocument deviceDoc(1024);
@@ -671,36 +835,6 @@ void sendAllDataViaBLE() {
   }
 }
 
-SensorData readSensors() {
-  SensorData data;
-  
-  // Generate realistic dummy data
-  static float basePressure = 35.0;
-  static float baseTemp = 72.0;
-  
-  float pressureVariation = (random(-50, 50)/10);
-  float tempVariation = (random(-30, 30));
-  
-  data.mainAirPressure = basePressure + pressureVariation;
-  data.atmosphericPressure = 14.7 + (random(-10, 10));
-  data.temperature = baseTemp + tempVariation;
-  data.elevation = 1000 + random(-500, 500);
-  data.gpsLat = 40.7128 + (random(-100, 100));
-  data.gpsLng = -74.0060 + (random(-100, 100));
-  
-  // Calculate weight using regression coefficients
-  data.weight = coeffs.intercept + 
-                (data.mainAirPressure * coeffs.airPressureCoeff) +
-                (data.atmosphericPressure * coeffs.ambientPressureCoeff) +
-                (data.temperature * coeffs.airTempCoeff);
-  
-  if (data.weight < 0) data.weight = 0;
-  
-  data.timestamp = getCurrentTimestamp();
-  
-  return data;
-}
-
 void registerDevice() {
   if (!isConnectedToWiFi) return;
   
@@ -709,9 +843,10 @@ void registerDevice() {
   
   DynamicJsonDocument doc(512);
   doc["mac_address"] = deviceMAC;
-  doc["device_type"] = "FeatherS3";
-  doc["firmware_version"] = "2.0.0";
+  doc["device_type"] = "AirScales_Custom";
+  doc["firmware_version"] = "3.0.0";
   doc["is_hub"] = isHub;
+  doc["has_bme280"] = bmeInitialized;
   
   String jsonString;
   serializeJson(doc, jsonString);
@@ -722,19 +857,12 @@ void registerDevice() {
     String response = http.getString();
     Serial.println("Device registered: " + String(httpResponseCode));
     
-    // Parse regression coefficients from response
     DynamicJsonDocument responseDoc(1024);
     deserializeJson(responseDoc, response);
     
     if (responseDoc.containsKey("regression_coefficients")) {
       JsonObject regCoeffs = responseDoc["regression_coefficients"];
       
-      coeffs.intercept = regCoeffs["intercept"] | 0.0;
-      coeffs.airPressureCoeff = regCoeffs["air_pressure_coeff"] | 0.0;
-      coeffs.ambientPressureCoeff = regCoeffs["ambient_pressure_coeff"] | 0.0;
-      coeffs.airTempCoeff = regCoeffs["air_temp_coeff"] | 0.0;
-
-      // Debug section to see wtf is going on
       float newIntercept = regCoeffs["intercept"] | 0.0;
       float newAirCoeff = regCoeffs["air_pressure_coeff"] | 0.0;
       float newAmbientCoeff = regCoeffs["ambient_pressure_coeff"] | 0.0;
@@ -750,14 +878,15 @@ void registerDevice() {
       coeffs.ambientPressureCoeff = newAmbientCoeff;
       coeffs.airTempCoeff = newTempCoeff;
       
-      // Save coefficients
       preferences.putFloat("intercept", coeffs.intercept);
       preferences.putFloat("air_coeff", coeffs.airPressureCoeff);
       preferences.putFloat("ambient_coeff", coeffs.ambientPressureCoeff);
       preferences.putFloat("temp_coeff", coeffs.airTempCoeff);
       
-      Serial.println("Updated regression coefficients from server");
+      Serial.println("✅ Updated regression coefficients from server");
     }
+  } else {
+    Serial.println("❌ Failed to register device: " + String(httpResponseCode));
   }
   
   http.end();
@@ -768,16 +897,14 @@ void downloadAndDistributeCoeffs() {
   
   Serial.println("🔄 Downloading and distributing coefficients...");
   
-  // First, get my coefficients from server
   registerDevice();
   
-  // Then send them to all known devices
   int sentCount = 0;
   for (int i = 0; i < deviceCount; i++) {
-    if (knownDevices[i].isActive && millis() - knownDevices[i].lastSeen < 120000) { // Active within 2 minutes
+    if (knownDevices[i].isActive && millis() - knownDevices[i].lastSeen < 120000) {
       sendCoeffsToDevice(knownDevices[i].macAddress);
       sentCount++;
-      delay(100); // Small delay between sends
+      delay(100);
     }
   }
   
@@ -793,13 +920,11 @@ void sendCoeffsToDevice(const char* targetMAC) {
   Serial.printf("📡 Sending coefficients to %s: intercept=%.2f, air=%.4f\n", 
                targetMAC, coeffs.intercept, coeffs.airPressureCoeff);
   
-  // Convert MAC string to bytes
   uint8_t macBytes[6];
   sscanf(targetMAC, "%hhx:%hhx:%hhx:%hhx:%hhx:%hhx",
          &macBytes[0], &macBytes[1], &macBytes[2],
          &macBytes[3], &macBytes[4], &macBytes[5]);
   
-  // Create coefficients message
   ESPNowData coeffsData;
   strcpy(coeffsData.deviceMAC, deviceMAC.c_str());
   strcpy(coeffsData.deviceName, "COEFFS_UPDATE");
@@ -809,7 +934,6 @@ void sendCoeffsToDevice(const char* targetMAC) {
   coeffsData.elevation = coeffs.airTempCoeff;
   coeffsData.timestamp = millis();
   
-  // Add peer if not exists
   esp_now_peer_info_t peerInfo = {};
   memcpy(peerInfo.peer_addr, macBytes, 6);
   peerInfo.channel = 0;
@@ -855,13 +979,12 @@ void initBLE() {
   pAdvertising->setMinPreferred(0x0);
   
   pServer->startAdvertising();
-  Serial.println("BLE advertising started");
+  Serial.println("✅ BLE advertising started");
   
   bleEnabled = true;
 }
 
 void updateDeviceData(ESPNowData* data) {
-  // Check if this is a coefficients update
   if (strcmp(data->deviceName, "COEFFS_UPDATE") == 0) {
     float oldIntercept = coeffs.intercept;
     float oldAirCoeff = coeffs.airPressureCoeff;
@@ -871,7 +994,6 @@ void updateDeviceData(ESPNowData* data) {
     coeffs.ambientPressureCoeff = data->temperature;
     coeffs.airTempCoeff = data->elevation;
     
-    // Save coefficients
     preferences.putFloat("intercept", coeffs.intercept);
     preferences.putFloat("air_coeff", coeffs.airPressureCoeff);
     preferences.putFloat("ambient_coeff", coeffs.ambientPressureCoeff);
@@ -882,7 +1004,6 @@ void updateDeviceData(ESPNowData* data) {
     return;
   }
   
-  // Find or create device entry
   DeviceData* device = findDevice(data->deviceMAC);
   
   if (device == nullptr && deviceCount < MAX_DEVICES) {
