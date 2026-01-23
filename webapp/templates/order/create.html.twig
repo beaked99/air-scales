@@ -1,0 +1,295 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Pre-Order AirScales{% endblock %}
+
+{% block body %}
+  <div class="min-h-screen flex flex-col">
+    {% include '_header.html.twig' %}
+    <!-- Order Form -->
+    <section class="container mx-auto px-6 py-12 max-w-3xl">
+    <h1 class="text-3xl sm:text-4xl font-bold text-white mb-4">Pre-Order Your AirScales</h1>
+    <p class="text-sm sm:text-base text-gray-400 mb-8">Complete your order and we will ship your device within 3-5 months.</p>
+
+    {% for message in app.flashes('error') %}
+      <div class="bg-red-900/30 border border-red-500 rounded-lg p-4 mb-8">
+        <p class="text-sm sm:text-base text-red-400">
+          <i class="fas fa-exclamation-circle mr-2"></i>{{ message }}
+        </p>
+      </div>
+    {% endfor %}
+
+    {% if app.user %}
+      <div class="bg-blue-900/30 border border-blue-500 rounded-lg p-4 mb-8">
+        <p class="text-sm sm:text-base text-blue-400">
+          <i class="fas fa-info-circle mr-2"></i>Signed in as <strong>{{ app.user.email }}</strong>
+        </p>
+      </div>
+    {% endif %}
+
+    <form method="POST" action="{{ path('order_checkout') }}" class="bg-gray-800 rounded-lg border border-gray-700 p-8">
+      {% if not app.user %}
+        <!-- Guest Information -->
+        <div class="mb-8">
+          <h2 class="text-xl sm:text-2xl font-bold text-white mb-4">Your Information</h2>
+          <p class="text-xs sm:text-sm text-gray-400 mb-6">
+            Already have an account? <a href="{{ path('app_login') }}" class="text-blue-400 hover:text-blue-300">Sign in</a>
+          </p>
+
+          <div class="grid md:grid-cols-2 gap-6">
+            <div>
+              <label class="block text-xs sm:text-sm font-semibold text-gray-300 mb-2">Name</label>
+              <input type="text" name="name" required class="w-full bg-gray-900 border border-gray-700 text-sm sm:text-base text-white rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="John Smith">
+            </div>
+            <div>
+              <label class="block text-xs sm:text-sm font-semibold text-gray-300 mb-2">Email</label>
+              <input type="email" name="email" required class="w-full bg-gray-900 border border-gray-700 text-sm sm:text-base text-white rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="you@example.com">
+            </div>
+          </div>
+        </div>
+      {% endif %}
+        <!-- Device Configuration -->
+        <div class="mb-8">
+          <h2 class="text-xl sm:text-2xl font-bold text-white mb-6">Select Your Devices</h2>
+          <p class="text-xs sm:text-sm text-gray-400 mb-6">Volume discounts apply automatically: 10% off 2-9 devices, 15% off 10-49 devices, 20% off 50-99 devices, 25% off 100+ devices!</p>
+
+          <div class="grid md:grid-cols-2 gap-6">
+            <!-- Single Sensor -->
+            <div class="bg-gray-900 border-2 border-gray-700 rounded-lg p-6">
+              <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg sm:text-xl font-bold text-white">Single Sensor</h3>
+                <i class="fas fa-gauge text-3xl text-blue-400"></i>
+              </div>
+              <p class="text-xs sm:text-sm text-gray-400 mb-4">Monitor one axle group</p>
+              <div class="text-blue-400 font-semibold text-xl sm:text-2xl mb-4">$150 <span class="text-xs sm:text-sm text-gray-400">USD each</span></div>
+
+              <div>
+                <label for="quantity_single" class="block text-sm sm:text-base text-white font-semibold mb-2">Quantity</label>
+                <input
+                  type="number"
+                  id="quantity_single"
+                  name="quantity_single"
+                  value="0"
+                  min="0"
+                  class="w-full bg-gray-800 border border-gray-600 text-sm sm:text-base text-white rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  onchange="updateOrderTotal()"
+                >
+              </div>
+            </div>
+
+            <!-- Dual Sensor -->
+            <div class="bg-gray-900 border-2 border-gray-700 rounded-lg p-6">
+              <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg sm:text-xl font-bold text-white">Dual Sensor</h3>
+                <i class="fas fa-gauge text-3xl text-blue-400"></i>
+              </div>
+              <p class="text-xs sm:text-sm text-gray-400 mb-4">Monitor two axle groups (front & rear)</p>
+              <div class="text-blue-400 font-semibold text-xl sm:text-2xl mb-4">$225 <span class="text-xs sm:text-sm text-gray-400">USD each</span></div>
+
+              <div>
+                <label for="quantity_dual" class="block text-sm sm:text-base text-white font-semibold mb-2">Quantity</label>
+                <input
+                  type="number"
+                  id="quantity_dual"
+                  name="quantity_dual"
+                  value="0"
+                  min="0"
+                  class="w-full bg-gray-800 border border-gray-600 text-sm sm:text-base text-white rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  onchange="updateOrderTotal()"
+                >
+              </div>
+            </div>
+          </div>
+
+          <!-- Order Summary -->
+          <div id="order-summary" class="mt-6 bg-gray-900 border border-gray-700 rounded-lg p-6 hidden">
+            <h3 class="text-base sm:text-lg font-bold text-white mb-4">Order Summary</h3>
+            <div class="space-y-2 text-sm sm:text-base text-gray-300">
+              <div id="summary-single" class="hidden flex justify-between">
+                <span><span id="summary-single-qty">0</span>x Single Sensor @ $150</span>
+                <span id="summary-single-total">$0</span>
+              </div>
+              <div id="summary-dual" class="hidden flex justify-between">
+                <span><span id="summary-dual-qty">0</span>x Dual Sensor @ $225</span>
+                <span id="summary-dual-total">$0</span>
+              </div>
+              <div class="border-t border-gray-700 pt-2 mt-2">
+                <div class="flex justify-between font-semibold">
+                  <span>Subtotal:</span>
+                  <span id="summary-subtotal">$0</span>
+                </div>
+              </div>
+              <div id="summary-discount-row" class="hidden flex justify-between text-green-400">
+                <span>Discount (<span id="summary-discount-percent">0</span>% off <span id="summary-device-count">0</span> devices):</span>
+                <span id="summary-discount">-$0</span>
+              </div>
+              <div class="border-t border-gray-700 pt-2 mt-2">
+                <div class="flex justify-between font-bold text-lg sm:text-xl text-blue-400">
+                  <span>Total:</span>
+                  <span id="summary-total">$0</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <script>
+        function updateOrderTotal() {
+          const qtySingle = parseInt(document.getElementById('quantity_single').value) || 0;
+          const qtyDual = parseInt(document.getElementById('quantity_dual').value) || 0;
+          const totalDevices = qtySingle + qtyDual;
+
+          const priceSingle = 150;
+          const priceDual = 225;
+
+          const subtotal = (qtySingle * priceSingle) + (qtyDual * priceDual);
+
+          // Calculate discount
+          let discountPercent = 0;
+          if (totalDevices >= 100) {
+            discountPercent = 25;
+          } else if (totalDevices >= 50) {
+            discountPercent = 20;
+          } else if (totalDevices >= 10) {
+            discountPercent = 15;
+          } else if (totalDevices >= 2) {
+            discountPercent = 10;
+          }
+
+          const discountAmount = subtotal * (discountPercent / 100);
+          const total = subtotal - discountAmount;
+
+          // Update summary display
+          const summaryDiv = document.getElementById('order-summary');
+          const summarySingle = document.getElementById('summary-single');
+          const summaryDual = document.getElementById('summary-dual');
+          const discountRow = document.getElementById('summary-discount-row');
+
+          if (totalDevices > 0) {
+            summaryDiv.classList.remove('hidden');
+
+            if (qtySingle > 0) {
+              summarySingle.classList.remove('hidden');
+              document.getElementById('summary-single-qty').textContent = qtySingle;
+              document.getElementById('summary-single-total').textContent = '$' + (qtySingle * priceSingle).toFixed(2);
+            } else {
+              summarySingle.classList.add('hidden');
+            }
+
+            if (qtyDual > 0) {
+              summaryDual.classList.remove('hidden');
+              document.getElementById('summary-dual-qty').textContent = qtyDual;
+              document.getElementById('summary-dual-total').textContent = '$' + (qtyDual * priceDual).toFixed(2);
+            } else {
+              summaryDual.classList.add('hidden');
+            }
+
+            document.getElementById('summary-subtotal').textContent = '$' + subtotal.toFixed(2);
+
+            if (discountPercent > 0) {
+              discountRow.classList.remove('hidden');
+              document.getElementById('summary-discount-percent').textContent = discountPercent;
+              document.getElementById('summary-device-count').textContent = totalDevices;
+              document.getElementById('summary-discount').textContent = '-$' + discountAmount.toFixed(2);
+            } else {
+              discountRow.classList.add('hidden');
+            }
+
+            document.getElementById('summary-total').textContent = '$' + total.toFixed(2);
+          } else {
+            summaryDiv.classList.add('hidden');
+          }
+        }
+
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', updateOrderTotal);
+        </script>
+
+        <!-- Shipping Address -->
+        <div class="mb-8">
+          <h2 class="text-xl sm:text-2xl font-bold text-white mb-6">Shipping Address</h2>
+
+          <div class="space-y-4">
+            <div>
+              <label for="shipping_address" class="block text-sm sm:text-base text-white font-semibold mb-2">Street Address</label>
+              <input
+                type="text"
+                id="shipping_address"
+                name="shipping_address"
+                class="w-full bg-gray-900 border border-gray-700 text-sm sm:text-base text-white rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="123 Main Street"
+                required
+              >
+            </div>
+
+            <div class="grid md:grid-cols-2 gap-4">
+              <div>
+                <label for="shipping_city" class="block text-sm sm:text-base text-white font-semibold mb-2">City</label>
+                <input
+                  type="text"
+                  id="shipping_city"
+                  name="shipping_city"
+                  class="w-full bg-gray-900 border border-gray-700 text-sm sm:text-base text-white rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="City"
+                  required
+                >
+              </div>
+
+              <div>
+                <label for="shipping_state" class="block text-sm sm:text-base text-white font-semibold mb-2">State/Province</label>
+                <input
+                  type="text"
+                  id="shipping_state"
+                  name="shipping_state"
+                  class="w-full bg-gray-900 border border-gray-700 text-sm sm:text-base text-white rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="State/Province"
+                  required
+                >
+              </div>
+            </div>
+
+            <div class="grid md:grid-cols-2 gap-4">
+              <div>
+                <label for="shipping_zip" class="block text-sm sm:text-base text-white font-semibold mb-2">ZIP/Postal Code</label>
+                <input
+                  type="text"
+                  id="shipping_zip"
+                  name="shipping_zip"
+                  class="w-full bg-gray-900 border border-gray-700 text-sm sm:text-base text-white rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="ZIP Code"
+                  required
+                >
+              </div>
+
+              <div>
+                <label for="shipping_country" class="block text-sm sm:text-base text-white font-semibold mb-2">Country</label>
+                <select
+                  id="shipping_country"
+                  name="shipping_country"
+                  class="w-full bg-gray-900 border border-gray-700 text-sm sm:text-base text-white rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  required
+                >
+                  <option value="US">United States</option>
+                  <option value="CA">Canada</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Submit Button -->
+        <div class="flex items-center justify-between">
+          <a href="{{ path('product_details') }}" class="text-xs sm:text-sm text-gray-400 hover:text-white transition">
+            <i class="fas fa-arrow-left mr-2"></i>Back to Product Details
+          </a>
+          <button
+            type="submit"
+            class="bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-lg text-base sm:text-lg font-semibold transition"
+          >
+            <i class="fas fa-lock mr-2"></i>Proceed to Secure Checkout
+          </button>
+        </div>
+      </form>
+    </section>
+    {% include '_footer.html.twig' %}
+  </div>
+{% endblock %}

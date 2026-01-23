@@ -1,0 +1,30 @@
+{# Public header navigation #}
+<nav class="bg-gray-800 border-b border-gray-700">
+  <div class="container mx-auto px-6 py-4">
+    <div class="flex items-center justify-between">
+      <div class="flex items-center space-x-8">
+        <a href="{{ path('app_homepage') }}" class="text-2xl font-bold text-blue-400">AirScales</a>
+        <div class="hidden md:flex space-x-6">
+          <a href="{{ path('product_details') }}" class="text-gray-300 hover:text-blue-400 transition">Product</a>
+          <a href="{{ path('app_homepage') }}#features" class="text-gray-300 hover:text-blue-400 transition">Features</a>
+          <a href="{{ path('order_create') }}" class="text-gray-300 hover:text-blue-400 transition">Order</a>
+          <a href="{{ path('faq') }}" class="text-gray-300 hover:text-blue-400 transition">FAQ</a>
+        </div>
+      </div>
+      <div class="flex items-center gap-3">
+        {% if app.user %}
+          <a href="{{ path('configuration_index') }}" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition">
+            <i class="fas fa-truck mr-2"></i>Fleet
+          </a>
+          <a href="{{ path('app_dashboard') }}" class="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg transition">
+            <i class="fas fa-gauge mr-2"></i>Devices
+          </a>
+        {% else %}
+          <a href="{{ path('app_login') }}" class="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg transition">
+            <i class="fas fa-sign-in-alt mr-2"></i>Sign In
+          </a>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</nav>

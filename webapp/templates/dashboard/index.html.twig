@@ -1,243 +1,439 @@
 {# templates/dashboard/index.html.twig #}
-{% extends 'base.html.twig' %}
+{% extends 'base_app.html.twig' %}
 
-{% block title %}Air Scales Dashboard{% endblock %}
+{% block title %}Dashboard{% endblock %}
+{% block header_page_title %}Dashboard{% endblock %}
 
-{% block stylesheets %}
-    {{ parent() }}
-    {# Add any dashboard-specific CSS here if needed #}
+{% block app_header_actions %}
+  <button onclick="openDeviceScanner()" class="px-3 py-2 text-sm font-medium text-white bg-sky-600 hover:bg-sky-700 rounded-lg transition-colors">
+    <i class="fas fa-signal mr-1"></i> Nearby Devices
+  </button>
 {% endblock %}
 
 {% block javascripts %}
     {{ parent() }}
+    <script src="{{ asset('js/weight-masking.js') }}"></script>
     <script src="{{ asset('js/dashboard.js') }}"></script>
     <script>
-        // Initialize the API URL for the dashboard
-        initializeApiUrl('{{ path("dashboard_api_devices_live_data") }}');
-        
-        // Set global user ID for Bluetooth connections
-        window.currentUserId = {{ app.user.id }};
+        // Set subscription status for weight masking
+        window.hasActiveSubscription = {{ hasActiveSubscription ? 'true' : 'false' }};
     </script>
 {% endblock %}
 
 {% block body %}
-<div class="min-h-screen text-gray-100 bg-gray-900">
 
-  <!-- Header -->
-  <header class="px-4 py-3 bg-gray-900 border-b border-gray-800">
-    <div class="flex items-center justify-between">
-      <h1 class="text-2xl font-semibold text-white">Air Scales Dashboard</h1>
-      <div class="flex items-center space-x-3">
-        <div class="text-gray-400 fas fa-user"></div>
-        <div class="text-xs text-gray-400">{{ app.user.fullName ?: app.user.email }}</div>
+    <!-- Subscription Warning -->
+    {% if not hasActiveSubscription %}
+    <div class="m-4 p-4 border border-orange-500 rounded-lg bg-orange-900/30">
+      <div class="flex items-center">
+        <i class="mr-3 text-2xl text-orange-400 fas fa-exclamation-triangle"></i>
+        <div>
+          <div class="font-semibold text-orange-400">Subscription Required</div>
+          <div class="text-sm text-orange-300">Activate your subscription to see live axle weights.</div>
+        </div>
       </div>
     </div>
-  </header>
+    {% endif %}
 
-  <!-- Main Content -->
-  <main class="pb-20">
-    <div id="warning" class="p-1 space-y-2 bg-gray-900">
-      <!-- Subscription Warning -->
-      {% if not hasActiveSubscription %}
-      <div class="p-4 border border-black rounded-lg bg-orange-400/85">
-        <div class="flex items-center">
-          <div class="flex items-center justify-center w-8 h-8 mr-3">
-            <i class="text-4xl text-black fas fa-exclamation-triangle"></i>
-          </div>
-          <div>
-            <div class="font-bold text-black">Subscription Required</div>
-            <div class="text-sm text-black">Ensure you have an active subscription to see live axle weights.</div>
-          </div>
-        </div>
-      </div>
-      {% endif %}
-      
-      <!-- Config Warning -->
-      {% if not hasSetupConfiguration %}
-      <div class="p-4 border border-black rounded-lg bg-orange-400/85">
-        <div class="flex items-center">
-          <div class="flex items-center justify-center w-8 h-8 mr-3">
-            <i class="text-4xl text-black fas fa-exclamation-triangle"></i>
-          </div>
-          <div>
-            <div class="font-bold text-black">Setup Required</div>
-            <div class="text-sm text-black">Set up your truck and trailer configuration to see axle weights.</div>
-          </div>
-        </div>
-      </div>
-      {% endif %}
-    </div>
+    {% if activeConfigurations|length > 0 %}
+      <!-- Active Configuration Cards -->
+      <div class="space-y-4 m-4">
+        {% for activeConfiguration in activeConfigurations %}
+          {% set totalWeight = configurationWeights[activeConfiguration.id]|default(0) %}
+          <a href="{{ path('configuration_edit', {id: activeConfiguration.id}) }}" class="block">
+            <div class="p-4 bg-gray-800 border border-gray-700 rounded-lg hover:border-sky-600 transition-colors">
+              <div class="flex items-center justify-between mb-4">
+                <h2 class="text-xl font-semibold text-white">{{ activeConfiguration.name }}</h2>
+                <i class="text-gray-400 fas fa-chevron-right"></i>
+              </div>
 
-    <!-- Device Discovery Section -->
-    <section class="p-4 bg-gray-800 border-b border-gray-700">
-      <div class="flex items-center justify-between mb-4">
-        <h2 class="text-lg font-medium text-white">Device Discovery</h2>
-        <button id="scan-devices-btn" class="flex items-center gap-2 px-4 py-2 text-white transition-colors rounded-lg bg-sky-600 hover:bg-sky-700">
-          <i class="fas fa-bluetooth-b"></i>
-          <span>Scan for Devices</span>
-        </button>
-      </div>
-      
-      <!-- Scanning indicator -->
-      <div id="scanning-indicator" class="hidden p-3 mb-4 border border-blue-600 rounded-lg bg-blue-600/20">
-        <div class="flex items-center">
-          <div class="w-4 h-4 mr-3 border-2 border-blue-400 rounded-full animate-spin border-t-transparent"></div>
-          <span class="text-blue-300">Scanning for Air Scales devices...</span>
-        </div>
-      </div>
+              {% if activeConfiguration.deviceRoles|length == 0 %}
+                <div class="py-8 text-center text-gray-400">
+                  <p class="mb-2">No devices configured</p>
+                  <p class="text-sm">Click to add devices</p>
+                </div>
+              {% else %}
+                <!-- Device Channels List -->
+                <div class="space-y-3 mb-4">
+                  {% for deviceRole in activeConfiguration.deviceRoles %}
+                    {% set device = deviceRole.device %}
+                    {% if device %}
+                      <div class="p-3 bg-gray-750 border border-gray-600 rounded-lg" data-device-id="{{ device.id }}" data-mac-address="{{ device.macAddress|upper }}">
+                        <div class="flex items-center justify-between mb-2">
+                          <div class="flex items-center gap-2">
+                            <span class="font-medium text-white">{{ device.serialNumber ?: 'AS25-' ~ device.id }}</span>
+                            <span class="text-xs text-gray-400">({{ deviceRole.role }})</span>
+                          </div>
+                          <div class="flex items-center gap-1 text-xs">
+                            {% if device.isConnected is defined and device.isConnected %}
+                              <div class="w-2 h-2 bg-green-400 rounded-full animate-pulse device-status-dot"></div>
+                              <span class="text-green-400 device-status-text">Connected</span>
+                            {% else %}
+                              <div class="w-2 h-2 bg-gray-500 rounded-full device-status-dot"></div>
+                              <span class="text-gray-400 device-status-text">Offline</span>
+                            {% endif %}
+                          </div>
+                        </div>
 
-      <!-- Discovered devices -->
-      <div id="discovered-devices" class="hidden space-y-2">
-        <h3 class="text-sm font-medium text-gray-300">Found Devices:</h3>
-        <div id="discovered-devices-list" class="space-y-2">
-          <!-- Discovered devices will appear here -->
-        </div>
-      </div>
+                        <!-- Build combined sorted array of channels + virtual steer -->
+                        {% set allChannelItems = [] %}
 
-      <!-- No devices found message -->
-      <div id="no-devices-found" class="hidden p-3 text-center border border-gray-600 rounded-lg bg-gray-700/50">
-        <p class="text-gray-400">No Air Scales devices found nearby.</p>
-        <p class="text-sm text-gray-500">Make sure your devices are powered on and in pairing mode.</p>
-      </div>
-    </section>
+                        {# Add virtual steer if enabled #}
+                        {% if device.hasVirtualSteer %}
+                          {% set allChannelItems = allChannelItems|merge([{
+                            'type': 'virtual-steer',
+                            'order': device.virtualSteerDisplayOrder ?? 0,
+                            'device': device
+                          }]) %}
+                        {% endif %}
 
-    <!-- Device Status List -->
-    <section class="bg-gray-900 border-gray-800">
-      <div class="p-4 border-b border-gray-800">
-        <h2 class="text-lg font-medium text-white">Current Axle-Group Configuration</h2>
-      </div>
-      <div class="divide-y divide-gray-800">
-        {% if devices is empty %}
-            <!-- No devices message -->
-            <div class="p-8 text-center">
-            <p class="mb-4 text-gray-400">No devices found.</p>
-            <p class="text-sm text-gray-500">Connect to an Air Scales device to get started.</p>
+                        {# Add regular channels #}
+                        {% for channel in device.deviceChannels %}
+                          {% if channel.enabled %}
+                            {% set allChannelItems = allChannelItems|merge([{
+                              'type': 'channel',
+                              'order': channel.displayOrder ?? (channel.channelIndex + 100),
+                              'channel': channel
+                            }]) %}
+                          {% endif %}
+                        {% endfor %}
+
+                        {# Sort by order #}
+                        {% set allChannelItems = allChannelItems|sort((a, b) => a.order <=> b.order) %}
+
+                        {# Hidden elements for live updates (device-level data) #}
+                        <div class="hidden">
+                          <span class="device-pressure"></span>
+                          <span class="device-weight"></span>
+                        </div>
+
+                        {# Display sorted channels #}
+                        {% for item in allChannelItems %}
+                          {% if item.type == 'virtual-steer' %}
+                            {# Virtual Steer #}
+                            <div class="flex items-center justify-between py-1 text-sm">
+                              <span class="text-purple-400">
+                                <i class="fas fa-calculator mr-1"></i>Virtual Steer
+                              </span>
+                              <span class="font-semibold text-purple-300">
+                                {% if item.device.virtualSteerWeight is defined and item.device.virtualSteerWeight > 0 %}
+                                  {{ item.device.virtualSteerWeight|number_format(0) }} lbs
+                                {% else %}
+                                  <span class="text-xs text-gray-500">Need calibration data</span>
+                                {% endif %}
+                              </span>
+                            </div>
+                          {% else %}
+                            {# Regular Channel #}
+                            {% set channel = item.channel %}
+                            <div class="flex items-center justify-between py-1 text-sm">
+                              <div class="flex items-center gap-2">
+                                <span class="text-gray-300">Channel {{ channel.channelIndex }}</span>
+                                <span class="text-gray-500 text-xs channel-pressure" data-channel="{{ channel.channelIndex }}">-- psi</span>
+                              </div>
+                              <span class="font-semibold text-white channel-weight" data-channel="{{ channel.channelIndex }}">
+                                {% if channel.calculatedWeight is defined and channel.calculatedWeight > 0 %}
+                                  {{ channel.calculatedWeight|number_format(0) }} lbs
+                                {% else %}
+                                  -- lbs
+                                {% endif %}
+                              </span>
+                            </div>
+                          {% endif %}
+                        {% endfor %}
+                      </div>
+                    {% endif %}
+                  {% endfor %}
+                </div>
+
+                <!-- Total Weight -->
+                <div class="pt-3 border-t border-gray-600">
+                  <div class="flex items-center justify-between">
+                    <span class="text-lg font-semibold text-gray-300">TOTAL</span>
+                    <span class="text-2xl font-bold text-white configuration-total-weight">
+                      {% if totalWeight > 0 %}
+                        {{ totalWeight|number_format(0) }} lbs
+                      {% else %}
+                        -- lbs
+                      {% endif %}
+                    </span>
+                  </div>
+                </div>
+
+                <!-- Quick Action -->
+                <div class="mt-4 pt-3 border-t border-gray-600">
+                  <a href="{{ path('configuration_bulk_calibration', {id: activeConfiguration.id}) }}"
+                     onclick="event.stopPropagation();"
+                     class="block w-full py-3 text-center font-semibold rounded-lg bg-sky-600 hover:bg-sky-700 transition-colors">
+                    Add Scale Weights
+                  </a>
+                </div>
+              {% endif %}
             </div>
-        {% else %}
-            <!-- Loop through real devices -->
-            {% for device in devices %}
-      <a href="{{ path('device_detail', {id: device.id}) }}" class="flex items-center justify-between block p-4 transition-colors hover:bg-gray-800/50">
-        <div class="flex items-center space-x-3">
-          {# Connection status indicator #}
-          {% if device.connectionStatus == 'connected' %}
-            <div class="w-3 h-3 bg-green-400 rounded-full animate-pulse"></div>
-          {% elseif device.connectionStatus == 'recent' %}
-            <div class="w-3 h-3 bg-orange-400 rounded-full"></div>
-          {% elseif device.connectionStatus == 'corrupted' %}
-            <div class="w-3 h-3 bg-purple-500 rounded-full"></div>
-          {% elseif device.connectionStatus == 'offline' %}
-            <div class="w-3 h-3 bg-red-500 rounded-full"></div>
-          {% else %}
-            <div class="w-3 h-3 bg-gray-500 rounded-full"></div>
-          {% endif %}
-
-          <div data-device-id="{{ device.id }}">
-            <div class="font-medium text-white">
-              {{ device.serialNumber ?: ('Device #' ~ device.id) }}
-            </div>
-            <div class="text-sm {% if device.connectionStatus == 'connected' %}text-green-400{% elseif device.connectionStatus == 'recent' %}text-orange-400{% elseif device.connectionStatus == 'corrupted' %}text-purple-400{% elseif device.connectionStatus == 'offline' %}text-red-500{% else %}text-gray-500{% endif %}">
-              {{ device.lastSeenText }}
-            </div>
-          </div>
-        </div>
-        
-        <div class="text-right">
-          {% if device.latestMicroData %}
-            <div class="font-bold {% if device.connectionStatus == 'connected' %}text-white{% elseif device.connectionStatus == 'recent' %}text-white{% else %}text-gray-400{% endif %}">
-              {{ device.latestMicroData.weight|number_format(0) }} lbs
-            </div>
-            <div class="text-sm text-gray-400">{{ device.latestMicroData.mainAirPressure|number_format(1) }} psi</div>
-          {% else %}
-            <div class="font-bold text-gray-500">-- lbs</div>
-            <div class="text-sm text-gray-500">-- psi</div>
-          {% endif %}
-        </div>
-      </a>
-    {% endfor %}
-        {% endif %}
-        </div>
-    </section>
-
-    <!-- Total Weight Display -->
-    <section class="p-4 text-center bg-gray-900 border border-gray-800">
-      <div class="mb-2 text-sm tracking-wider text-gray-400 uppercase">Total Estimated Weight</div>
-      <div class="flex items-end justify-center mb-3 space-x-2">
-        {% if totalWeight.has_data %}
-        <div class="text-5xl font-bold text-white">{{ totalWeight.total|number_format(0) }}</div>
-        <div class="text-lg text-gray-400">lbs</div>
-        {% if totalWeight.error_margin > 0 %}
-        <div class="text-lg text-gray-400">± {{ totalWeight.error_margin }}</div>
-        {% endif %}
-        {% else %}
-        <div class="text-5xl font-bold text-gray-500">--</div>
-        <div class="text-lg text-gray-400">lbs</div>
-        {% endif %}
+          </a>
+        {% endfor %}
       </div>
-      
-      {# For now, always show "within limits" since we're ignoring weight limits #}
-      <div class="flex items-end justify-center space-x-2">
-        <svg class="h-[1lh] w-5.5 shrink-0" viewBox="0 0 22 22" fill="none" stroke-linecap="square">
-          <circle cx="11" cy="11" r="11" class="fill-sky-400/20" />
-          <circle cx="11" cy="11" r="10.5" class="stroke-sky-400/20" />
-          <path d="M8 11.5L10.5 14L14 8" class="stroke-sky-800 dark:stroke-sky-300" />
-        </svg>
-        <p class="font-mono font-medium text-white">within limits</p>
-      </div>
-    </section>
 
-    <!-- Quote Section -->
-    <section id="quote-of-the-day" class="bg-gray-900">
-      <div id="tips" class="p-4">
-        <div class="relative text-center">
-          <p class="px-6 italic text-gray-200">
-            Your Air Scales device improves with each calibration. Start with 4 to get basic readings; aim for 10+ for reliable accuracy.
+    {% else %}
+      <!-- No Active Configuration -->
+      <section class="m-4">
+        <div class="p-8 text-center bg-gray-800 border border-gray-700 rounded-lg">
+          <div class="mb-4 text-6xl">🚛</div>
+          <h2 class="mb-2 text-xl font-semibold text-white">No Active Configuration</h2>
+          <p class="mb-6 text-gray-400">Enable a configuration from Fleet to start tracking your axle weights.</p>
+          <a href="{{ path('configuration_index') }}" class="inline-block px-8 py-3 font-semibold text-white rounded-lg bg-sky-600 hover:bg-sky-700">
+            Go to Fleet
+          </a>
+        </div>
+      </section>
+    {% endif %}
+
+  <!-- BLE Device Scanner Modal -->
+  <div id="deviceScannerModal" class="fixed inset-0 z-50 hidden bg-black bg-opacity-50">
+    <div class="flex items-end justify-center min-h-screen px-4 pb-20">
+      <div class="w-full max-w-md bg-gray-800 rounded-t-2xl shadow-xl transform transition-all">
+        <!-- Modal Header -->
+        <div class="flex items-center justify-between p-4 border-b border-gray-700">
+          <h2 class="text-lg font-semibold text-white">
+            <i class="fas fa-bluetooth text-sky-400 mr-2"></i>BLE Device Selection
+          </h2>
+          <button onclick="closeDeviceScanner()" class="text-gray-400 hover:text-white">
+            <i class="fas fa-times text-xl"></i>
+          </button>
+        </div>
+
+        <!-- Instructions -->
+        <div id="scanningStatus" class="p-4 bg-sky-900/30 border-b border-gray-700">
+          <p class="text-sm text-sky-300">
+            <i class="fas fa-info-circle mr-1"></i>
+            Select which device your phone should connect to via Bluetooth.
           </p>
-          <p class="mt-2 text-sm text-gray-400">beaker, July 2025</p>
+        </div>
+
+        <!-- Device List -->
+        <div id="deviceList" class="max-h-96 overflow-y-auto">
+          <div class="p-8 text-center text-gray-400">
+            <i class="fas fa-bluetooth text-4xl mb-3 opacity-50"></i>
+            <p>No devices found yet</p>
+            <p class="text-xs mt-1">Make sure your devices are powered on</p>
+          </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="p-4 border-t border-gray-700 text-xs text-gray-400 text-center">
+          Devices will appear as they transmit BLE data
         </div>
       </div>
-    </section>
-
-  </main>
-
-  <!-- Bottom Navigation -->
-  <nav class="fixed bottom-0 left-0 right-0 bg-gray-900 border-t border-gray-800">
-    <div class="flex items-center justify-around py-3">
-      <!-- Dashboard -->
-      <button class="flex flex-col items-center px-4 py-2 space-y-1 tab-btn">
-        <div class="flex items-center justify-center w-6 h-6 rounded-lg tab-icon bg-sky-400">
-          <i class="text-sm text-gray-900 fas fa-tachometer-alt"></i>
-        </div>
-        <span class="text-xs font-medium tab-label text-sky-400">Dashboard</span>
-      </button>
-
-      <!-- Calibrate -->
-      <button class="flex flex-col items-center px-4 py-2 space-y-1 tab-btn">
-        <div class="flex items-center justify-center w-6 h-6 bg-gray-700 rounded-lg tab-icon">
-          <i class="text-sm text-gray-400 fas fa-balance-scale"></i>
-        </div>
-        <span class="text-xs text-gray-400 tab-label">Calibrate</span>
-      </button>
-
-      <!-- Setup -->
-      <button class="flex flex-col items-center px-4 py-2 space-y-1 tab-btn">
-        <div class="flex items-center justify-center w-6 h-6 bg-gray-700 rounded-lg tab-icon">
-          <i class="text-sm text-gray-400 fas fa-cog"></i>
-        </div>
-        <span class="text-xs text-gray-400 tab-label">Setup</span>
-      </button>
-
-      <!-- Profile -->
-      <button class="flex flex-col items-center px-4 py-2 space-y-1 tab-btn">
-        <div class="flex items-center justify-center w-6 h-6 bg-gray-700 rounded-lg tab-icon">
-          <i class="text-sm text-gray-400 fas fa-user"></i>
-        </div>
-        <span class="text-xs text-gray-400 tab-label">Profile</span>
-      </button>
     </div>
-  </nav>
-</div>
+  </div>
 
-<!-- Loading/Success Messages -->
-<div id="toast-container" class="fixed z-50 space-y-2 top-4 right-4"></div>
+<script>
+let scanningInterval = null;
+let discoveredDevices = new Map();
+
+function openDeviceScanner() {
+  const modal = document.getElementById('deviceScannerModal');
+  modal.classList.remove('hidden');
+  startScan();
+}
+
+function closeDeviceScanner() {
+  const modal = document.getElementById('deviceScannerModal');
+  modal.classList.add('hidden');
+  stopScan();
+}
+
+function startScan() {
+  discoveredDevices.clear();
+  updateDeviceList();
+
+  if (scanningInterval) {
+    clearInterval(scanningInterval);
+  }
+
+  scanForDevices();
+  scanningInterval = setInterval(scanForDevices, 2000);
+}
+
+function stopScan() {
+  if (scanningInterval) {
+    clearInterval(scanningInterval);
+    scanningInterval = null;
+  }
+}
+
+async function scanForDevices() {
+  // Placeholder - devices appear through BLE event listeners
+}
+
+if (!window.onBLEDeviceDiscovered) {
+  window.onBLEDeviceDiscovered = function(deviceData) {
+    const modal = document.getElementById('deviceScannerModal');
+    if (!modal || modal.classList.contains('hidden')) {
+      return;
+    }
+
+    const mac = deviceData.mac_address?.toUpperCase();
+    if (!mac) return;
+
+    const rssi = deviceData.rssi !== undefined && deviceData.rssi !== null ? deviceData.rssi : -65;
+    const name = deviceData.name || deviceData.device_name || deviceData.serial_number || `Device ${mac.slice(-5)}`;
+    const role = deviceData.role || 'unknown';
+
+    discoveredDevices.set(mac, {
+      mac: mac,
+      name: name,
+      rssi: rssi,
+      role: role,
+      lastSeen: Date.now()
+    });
+
+    updateDeviceList();
+  };
+}
+
+function updateDeviceList() {
+  const deviceListEl = document.getElementById('deviceList');
+
+  const now = Date.now();
+  for (const [mac, device] of discoveredDevices.entries()) {
+    if (now - device.lastSeen > 10000) {
+      discoveredDevices.delete(mac);
+    }
+  }
+
+  if (discoveredDevices.size === 0) {
+    deviceListEl.innerHTML = `
+      <div class="p-8 text-center text-gray-400">
+        <i class="fas fa-bluetooth text-4xl mb-3 opacity-50"></i>
+        <p>No devices found yet</p>
+        <p class="text-xs mt-1">Make sure your devices are powered on</p>
+      </div>
+    `;
+    return;
+  }
+
+  const sortedDevices = Array.from(discoveredDevices.values())
+    .sort((a, b) => b.rssi - a.rssi);
+
+  let html = '<div class="divide-y divide-gray-700">';
+
+  for (const device of sortedDevices) {
+    const signalInfo = getSignalInfo(device.rssi);
+    const roleIcon = device.role === 'hub' || device.role === 'master' ? '🌟' : device.role === 'slave' || device.role === 'device' ? '📡' : '📱';
+    const roleLabel = device.role === 'hub' || device.role === 'master' ? 'Hub' : device.role === 'slave' || device.role === 'device' ? 'Mesh Device' : 'Device';
+
+    const savedDeviceInfo = window.AirScalesBLE ? window.AirScalesBLE.getSavedDevice() : null;
+    const isConnected = savedDeviceInfo && savedDeviceInfo.wifiMac === device.mac;
+
+    html += `
+      <div class="p-4 hover:bg-gray-750 transition-colors">
+        <div class="flex items-center justify-between mb-2">
+          <div class="flex-1">
+            <div class="flex items-center gap-2">
+              <span class="font-medium text-white">${escapeHtml(device.name)}</span>
+              <span class="text-xs px-2 py-0.5 rounded-full bg-sky-900/50 text-sky-400">${roleIcon} ${roleLabel}</span>
+              ${isConnected ? '<span class="text-xs px-2 py-0.5 rounded-full bg-green-900/50 text-green-400">✓ Connected</span>' : ''}
+            </div>
+            <div class="text-xs text-gray-400 font-mono mt-1">${device.mac}</div>
+          </div>
+          <button onclick="selectBLEDevice('${device.mac}', '${escapeHtml(device.name)}')"
+                  class="px-4 py-2 text-sm font-medium text-white ${isConnected ? 'bg-gray-600' : 'bg-sky-600 hover:bg-sky-700'} rounded-lg transition-colors">
+            ${isConnected ? 'Connected' : 'Select'}
+          </button>
+        </div>
+
+        <div class="flex items-center gap-2 mt-3">
+          <div class="flex-1">
+            <div class="h-2 bg-gray-700 rounded-full overflow-hidden">
+              <div class="h-full ${signalInfo.colorClass}" style="width: ${signalInfo.percentage}%"></div>
+            </div>
+          </div>
+          <div class="text-xs ${signalInfo.textClass} font-medium min-w-[80px] text-right">
+            ${device.rssi} dBm
+          </div>
+        </div>
+
+        <div class="mt-1 text-xs ${signalInfo.textClass}">
+          ${signalInfo.label}
+        </div>
+      </div>
+    `;
+  }
+
+  html += '</div>';
+  deviceListEl.innerHTML = html;
+}
+
+function getSignalInfo(rssi) {
+  if (rssi >= -50) {
+    return { percentage: 100, colorClass: 'bg-green-500', textClass: 'text-green-400', label: 'Excellent • Very close' };
+  } else if (rssi >= -60) {
+    return { percentage: 80, colorClass: 'bg-green-500', textClass: 'text-green-400', label: 'Good • Nearby' };
+  } else if (rssi >= -70) {
+    return { percentage: 60, colorClass: 'bg-yellow-500', textClass: 'text-yellow-400', label: 'Fair • Some distance' };
+  } else if (rssi >= -80) {
+    return { percentage: 40, colorClass: 'bg-orange-500', textClass: 'text-orange-400', label: 'Weak • Far away' };
+  } else {
+    return { percentage: 20, colorClass: 'bg-red-500', textClass: 'text-red-400', label: 'Very weak • May not connect' };
+  }
+}
+
+async function selectBLEDevice(macAddress, deviceName) {
+  if (!window.AirScalesBLE || !window.AirScalesBLE.isAvailable()) {
+    alert('Bluetooth is only available in the mobile app. Please use the Air Scales mobile app to connect to devices via Bluetooth.');
+    return;
+  }
+
+  const savedDeviceInfo = window.AirScalesBLE.getSavedDevice();
+  if (savedDeviceInfo && savedDeviceInfo.wifiMac === macAddress) {
+    alert('Already connected to this device.');
+    closeDeviceScanner();
+    return;
+  }
+
+  closeDeviceScanner();
+
+  if (window.AirScalesBLE.isConnected()) {
+    console.log('🔌 Disconnecting from current device...');
+    await window.AirScalesBLE.disconnect();
+    await new Promise(resolve => setTimeout(resolve, 500));
+  }
+
+  window.AirScalesBLE.forgetDevice();
+  await new Promise(resolve => setTimeout(resolve, 500));
+
+  try {
+    console.log('📱 Opening device picker for manual selection...');
+    await window.AirScalesBLE.scanAndConnect();
+    console.log('✅ User manually selected new device');
+  } catch (error) {
+    console.error('❌ Manual device selection failed:', error);
+    if (error.message && !error.message.includes('cancelled')) {
+      alert('Failed to connect. Make sure Bluetooth is enabled and the device is powered on.');
+    }
+    console.log('🔄 Restarting auto-discovery...');
+    if (window.AirScalesBLE.isAvailable()) {
+      await window.AirScalesBLE.startAutoDiscovery();
+    }
+  }
+}
+
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+document.getElementById('deviceScannerModal')?.addEventListener('click', function(e) {
+  if (e.target === this) {
+    closeDeviceScanner();
+  }
+});
+
+if (window.initializeApiUrl) {
+  window.initializeApiUrl('{{ path('dashboard_api_devices_live_data') }}');
+}
+</script>
 
 {% endblock %}

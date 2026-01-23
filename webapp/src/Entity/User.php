@@ -48,6 +48,30 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column(length: 255, nullable: true)]
     private ?string $stripe_customer_id = null;
 
+    #[ORM\Column(type: 'boolean')]
+    private bool $isVerified = false;
+
+    #[ORM\Column(type: 'string', length: 255, nullable: true)]
+    private ?string $verificationToken = null;
+
+    #[ORM\Column(type: 'string', length: 255, nullable: true)]
+    private ?string $resetToken = null;
+
+    #[ORM\Column(type: 'datetime_immutable', nullable: true)]
+    private ?\DateTimeImmutable $resetTokenExpiresAt = null;
+
+    #[ORM\Column(type: 'boolean', options: ['default' => true])]
+    private bool $bleAutoSwitch = true;
+
+    #[ORM\Column(length: 10, options: ['default' => 'psi'])]
+    private string $pressureUnit = 'psi';
+
+    #[ORM\Column(length: 10, options: ['default' => 'lbs'])]
+    private string $weightUnit = 'lbs';
+
+    #[ORM\Column(type: 'boolean', options: ['default' => true])]
+    private bool $autoUpdateFirmware = true;
+
     #[ORM\OneToMany(targetEntity: Device::class, mappedBy: 'soldTo')]
     private Collection $devices;
 
@@ -57,6 +81,9 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\OneToMany(targetEntity: Vehicle::class, mappedBy: 'updated_by')]
     private Collection $vehiclesUpdated;
 
+    #[ORM\OneToOne(targetEntity: Subscription::class, mappedBy: 'user', cascade: ['persist', 'remove'])]
+    private ?Subscription $subscription = null;
+
     private ?string $plainPassword = null;
 
     public function __construct()
@@ -64,6 +91,21 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         $this->devices = new ArrayCollection();
         $this->vehicles = new ArrayCollection();
         $this->vehiclesUpdated = new ArrayCollection();
+        $this->created_at = new \DateTimeImmutable();
+    }
+
+    #[ORM\PrePersist]
+    public function setCreatedAtValue(): void
+    {
+        if ($this->created_at === null) {
+            $this->created_at = new \DateTimeImmutable();
+        }
+    }
+
+    #[ORM\PreUpdate]
+    public function setUpdatedAtValue(): void
+    {
+        $this->updated_at = new \DateTimeImmutable();
     }
 
     public function getId(): ?int { return $this->id; }
@@ -233,6 +275,136 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
                 $vehicle->setUpdatedBy(null);
             }
         }
+        return $this;
+    }
+
+    public function getSubscription(): ?Subscription
+    {
+        return $this->subscription;
+    }
+
+    public function setSubscription(?Subscription $subscription): static
+    {
+        // Unset the owning side of the relation if necessary
+        if ($subscription === null && $this->subscription !== null) {
+            $this->subscription->setUser(null);
+        }
+
+        // Set the owning side of the relation if necessary
+        if ($subscription !== null && $subscription->getUser() !== $this) {
+            $subscription->setUser($this);
+        }
+
+        $this->subscription = $subscription;
+        return $this;
+    }
+
+    /**
+     * Check if user has active subscription access
+     */
+    public function hasActiveSubscription(): bool
+    {
+        if (!$this->subscription) {
+            return false;
+        }
+
+        return $this->subscription->hasActiveAccess();
+    }
+
+    public function isVerified(): bool
+    {
+        return $this->isVerified;
+    }
+
+    public function setIsVerified(bool $isVerified): static
+    {
+        $this->isVerified = $isVerified;
+        return $this;
+    }
+
+    public function getVerificationToken(): ?string
+    {
+        return $this->verificationToken;
+    }
+
+    public function setVerificationToken(?string $verificationToken): static
+    {
+        $this->verificationToken = $verificationToken;
+        return $this;
+    }
+
+    public function getResetToken(): ?string
+    {
+        return $this->resetToken;
+    }
+
+    public function setResetToken(?string $resetToken): static
+    {
+        $this->resetToken = $resetToken;
+        return $this;
+    }
+
+    public function getResetTokenExpiresAt(): ?\DateTimeImmutable
+    {
+        return $this->resetTokenExpiresAt;
+    }
+
+    public function setResetTokenExpiresAt(?\DateTimeImmutable $resetTokenExpiresAt): static
+    {
+        $this->resetTokenExpiresAt = $resetTokenExpiresAt;
+        return $this;
+    }
+
+    public function isResetTokenValid(): bool
+    {
+        if (!$this->resetToken || !$this->resetTokenExpiresAt) {
+            return false;
+        }
+
+        return $this->resetTokenExpiresAt > new \DateTimeImmutable();
+    }
+
+    public function getBleAutoSwitch(): bool
+    {
+        return $this->bleAutoSwitch;
+    }
+
+    public function setBleAutoSwitch(bool $bleAutoSwitch): static
+    {
+        $this->bleAutoSwitch = $bleAutoSwitch;
+        return $this;
+    }
+
+    public function getPressureUnit(): string
+    {
+        return $this->pressureUnit;
+    }
+
+    public function setPressureUnit(string $pressureUnit): static
+    {
+        $this->pressureUnit = $pressureUnit;
+        return $this;
+    }
+
+    public function getWeightUnit(): string
+    {
+        return $this->weightUnit;
+    }
+
+    public function setWeightUnit(string $weightUnit): static
+    {
+        $this->weightUnit = $weightUnit;
+        return $this;
+    }
+
+    public function isAutoUpdateFirmware(): bool
+    {
+        return $this->autoUpdateFirmware;
+    }
+
+    public function setAutoUpdateFirmware(bool $autoUpdateFirmware): static
+    {
+        $this->autoUpdateFirmware = $autoUpdateFirmware;
         return $this;
     }
 }

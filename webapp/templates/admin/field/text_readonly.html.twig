@@ -1,0 +1,5 @@
+{% if field.value is not empty %}
+    <div style="white-space: pre-wrap; font-family: monospace;">{{ field.value|raw }}</div>
+{% else %}
+    <span class="text-muted">N/A</span>
+{% endif %}

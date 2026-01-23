@@ -1,0 +1,293 @@
+{# templates/configuration/bulk_calibration.html.twig #}
+{% extends 'base_app.html.twig' %}
+
+{% block title %}Add Truck Scale Weights{% endblock %}
+
+{% block body %}
+<div class="min-h-screen text-white bg-gray-900">
+
+  <!-- Header -->
+  <header class="sticky top-0 z-50 px-4 py-3 bg-gray-800 border-b border-gray-700 shadow-md">
+    <div class="flex items-center justify-between">
+      <div>
+        <h1 class="text-xl font-semibold text-white">Add Truck Scale Weights</h1>
+        <div class="text-sm text-gray-400 mt-1">{{ configuration.name }}</div>
+      </div>
+      <a href="{{ path('configuration_show', {id: configuration.id}) }}" class="text-sm text-sky-400 hover:text-sky-300">
+        ← Back
+      </a>
+    </div>
+  </header>
+
+  <main class="pb-20">
+
+    <!-- Flash Messages -->
+    {% for type, messages in app.flashes %}
+      {% for message in messages %}
+        <div class="mx-4 mt-4 p-3 rounded-lg border-l-4 {% if type == 'success' %}bg-green-900/50 border-green-500 text-green-100{% elseif type == 'warning' %}bg-yellow-900/50 border-yellow-500 text-yellow-100{% else %}bg-red-900/50 border-red-500 text-red-100{% endif %}">
+          {{ message }}
+        </div>
+      {% endfor %}
+    {% endfor %}
+
+    <!-- Instructions -->
+    <section class="m-4 p-4 bg-sky-900/30 border border-sky-700 rounded-lg">
+      <h2 class="text-lg font-semibold text-sky-400 mb-2">📝 Instructions</h2>
+      <div class="text-sm text-gray-300 space-y-2">
+        <p>Enter the weights from your truck scale ticket below. The system will use the current sensor readings from your devices to create calibration points.</p>
+        <p class="text-yellow-400">⚠️ Make sure your devices are powered on and have recent data before submitting.</p>
+      </div>
+    </section>
+
+    <!-- Bulk Calibration Form -->
+    <form method="POST" class="m-4 space-y-4">
+
+      <!-- Scale Ticket Information -->
+      <section class="p-4 bg-gray-800 rounded-lg border border-gray-700">
+        <h2 class="text-lg font-semibold mb-4">Scale Ticket Information</h2>
+
+        <div class="space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-300 mb-2">Ticket Number (Optional)</label>
+            <input type="text" name="ticket_number"
+                   class="w-full px-3 py-2 bg-gray-700 text-white border border-gray-600 rounded-lg focus:outline-none focus:border-sky-400"
+                   placeholder="e.g., #12345">
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-300 mb-2">Location (Optional)</label>
+            <input type="text" name="location"
+                   class="w-full px-3 py-2 bg-gray-700 text-white border border-gray-600 rounded-lg focus:outline-none focus:border-sky-400"
+                   placeholder="e.g., CAT Scale - Exit 45">
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-300 mb-2">Date & Time (Optional)</label>
+            <input type="datetime-local" name="occurred_at"
+                   value="{{ 'now'|date('Y-m-d\\TH:i') }}"
+                   class="w-full px-3 py-2 bg-gray-700 text-white border border-gray-600 rounded-lg focus:outline-none focus:border-sky-400">
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-300 mb-2">Notes (Optional)</label>
+            <textarea name="notes" rows="2"
+                      class="w-full px-3 py-2 bg-gray-700 text-white border border-gray-600 rounded-lg focus:outline-none focus:border-sky-400"
+                      placeholder="Any additional notes..."></textarea>
+          </div>
+        </div>
+      </section>
+
+      <!-- Axle Group Weights -->
+      <section class="p-4 bg-gray-800 rounded-lg border border-gray-700">
+        <h2 class="text-lg font-semibold mb-4">Axle Weights</h2>
+
+        {% if axleGroups|length == 0 %}
+          <div class="p-6 text-center text-gray-400">
+            No axle groups configured. Please add devices to this configuration first.
+          </div>
+        {% else %}
+          <div class="space-y-4">
+            {% for deviceData in axleGroups %}
+              {% set device = deviceData.device %}
+              {% set role = deviceData.role %}
+
+              <div class="p-4 bg-gray-750 border border-gray-600 rounded-lg device-card" data-device-id="{{ device.id }}">
+                <div class="flex items-center justify-between mb-3">
+                  <div class="flex-1">
+                    <h3 class="font-semibold text-white">
+                      {{ device.serialNumber ?: 'AS25-' ~ device.id }}
+                    </h3>
+                    <div class="text-xs text-gray-400 mt-1">
+                      {{ role }}
+                    </div>
+                    <!-- Live sensor readings -->
+                    <div class="text-xs text-gray-500 mt-2 device-live-readings-{{ device.id }}">
+                      <span class="text-gray-600">Current readings: </span>
+                      <span class="text-gray-500">Waiting for data...</span>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Channel items in display order -->
+                <div class="space-y-3">
+                  {% for item in deviceData.items %}
+                    {% if item.type == 'virtual-steer' %}
+                      {# Virtual Steer #}
+                      <div class="p-3 bg-purple-900/20 border border-purple-600 rounded-lg">
+                        <div class="flex items-center justify-between mb-2">
+                          <div>
+                            <h4 class="font-medium text-purple-400">
+                              <i class="fas fa-calculator mr-1"></i>Virtual Steer
+                            </h4>
+                            <div class="text-xs text-purple-300 mt-1">
+                              Virtual weight calculated from drive axle
+                            </div>
+                          </div>
+                        </div>
+
+                        <div>
+                          <label class="block text-sm font-medium text-purple-300 mb-2">Weight (lbs)</label>
+                          <input type="number"
+                                 name="virtual_steer_weight"
+                                 step="1"
+                                 min="0"
+                                 class="w-full px-4 py-3 bg-gray-700 text-white text-lg font-semibold border border-purple-500 rounded-lg focus:outline-none focus:border-sky-400"
+                                 placeholder="0">
+                        </div>
+
+                        <div class="mt-2 pt-2 border-t border-purple-700">
+                          <div class="text-xs text-purple-300">
+                            Will be used to train virtual steer regression for {{ device.serialNumber ?: 'AS25-' ~ device.id }}
+                          </div>
+                        </div>
+                      </div>
+                    {% else %}
+                      {# Regular Channel #}
+                      {% set channel = item.channel %}
+                      <div class="p-3 bg-gray-800 border border-gray-600 rounded-lg">
+                        <div class="flex items-center justify-between mb-2">
+                          <div>
+                            <h4 class="font-medium text-white">
+                              {{ channel.displayLabel }}
+                            </h4>
+                            <div class="text-xs text-gray-400 mt-1">
+                              Channel {{ channel.channelIndex }}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div>
+                          <label class="block text-sm font-medium text-gray-300 mb-2">Weight (lbs)</label>
+                          <input type="number"
+                                 name="channel_weights[{{ channel.id }}]"
+                                 step="1"
+                                 min="0"
+                                 class="w-full px-4 py-3 bg-gray-700 text-white text-lg font-semibold border border-gray-600 rounded-lg focus:outline-none focus:border-sky-400"
+                                 placeholder="0">
+                        </div>
+                      </div>
+                    {% endif %}
+                  {% endfor %}
+                </div>
+              </div>
+            {% endfor %}
+          </div>
+
+          <!-- Submit Button -->
+          <div class="mt-6">
+            <button type="submit"
+                    class="w-full py-4 text-lg font-semibold bg-green-600 hover:bg-green-700 rounded-lg transition-colors">
+              ✓ Add Calibration Points
+            </button>
+          </div>
+
+          <div class="mt-3 p-3 bg-yellow-900/30 border border-yellow-700 rounded-lg text-sm text-yellow-200">
+            <strong>Note:</strong> This will use the most recent sensor readings from your devices. Make sure they are powered on and have transmitted data recently.
+          </div>
+        {% endif %}
+      </section>
+
+    </form>
+
+  </main>
+
+  <!-- Bottom Navigation -->
+  <nav class="fixed bottom-0 left-0 right-0 bg-gray-900 border-t border-gray-800">
+    <div class="flex items-center justify-around py-3">
+      <!-- Devices -->
+      <a href="{{ path('device_list') }}" class="flex flex-col items-center px-3 py-2 space-y-1 hover:opacity-80 transition">
+        <div class="flex items-center justify-center w-6 h-6 bg-gray-700 rounded-lg">
+          <i class="text-sm text-gray-400 fas fa-tachometer-alt"></i>
+        </div>
+        <span class="text-xs text-gray-400">Devices</span>
+      </a>
+
+      <!-- Fleet -->
+      <a href="{{ path('configuration_index') }}" class="flex flex-col items-center px-3 py-2 space-y-1 hover:opacity-80 transition">
+        <div class="flex items-center justify-center w-6 h-6 bg-gray-700 rounded-lg">
+          <i class="text-sm text-gray-400 fas fa-truck"></i>
+        </div>
+        <span class="text-xs text-gray-400">Fleet</span>
+      </a>
+
+      <!-- Calibrate (Current Page) -->
+      <button class="flex flex-col items-center px-3 py-2 space-y-1">
+        <div class="flex items-center justify-center w-6 h-6 rounded-lg bg-sky-400">
+          <i class="text-sm text-gray-900 fas fa-balance-scale"></i>
+        </div>
+        <span class="text-xs font-medium text-sky-400">Calibrate</span>
+      </button>
+
+      <!-- Profile -->
+      <a href="{{ path('user_profile') }}" class="flex flex-col items-center px-3 py-2 space-y-1 hover:opacity-80 transition">
+        <div class="flex items-center justify-center w-6 h-6 bg-gray-700 rounded-lg">
+          <i class="text-sm text-gray-400 fas fa-user"></i>
+        </div>
+        <span class="text-xs text-gray-400">Profile</span>
+      </a>
+    </div>
+  </nav>
+</div>
+
+<script>
+// Live data updates for bulk calibration page
+document.addEventListener('DOMContentLoaded', () => {
+  if (window.AirScalesBLE) {
+    window.AirScalesBLE.addListener((event, data) => {
+      if (event === 'data') {
+        updateBulkCalibrationLiveData(data);
+      }
+    });
+    console.log('📡 Bulk calibration page: Live data listener active');
+  }
+});
+
+function updateBulkCalibrationLiveData(bleData) {
+  const mac = bleData.mac_address;
+  if (!mac) return;
+
+  console.log(`📊 Bulk calib page received data for MAC ${mac}:`, bleData);
+
+  // Find device card by MAC address
+  const deviceCards = document.querySelectorAll('.device-card');
+  let matchingDeviceId = null;
+
+  deviceCards.forEach(card => {
+    const serialNumber = card.querySelector('.font-semibold')?.textContent;
+    if (serialNumber && serialNumber.includes(mac.toUpperCase())) {
+      matchingDeviceId = card.getAttribute('data-device-id');
+    }
+  });
+
+  if (!matchingDeviceId) {
+    console.log(`⚠️ No matching device card found for MAC ${mac}`);
+    return;
+  }
+
+  console.log(`✅ Found matching device ID ${matchingDeviceId} for MAC ${mac}`);
+
+  // Update device live readings summary
+  const readingsEl = document.querySelector(`.device-live-readings-${matchingDeviceId}`);
+  if (readingsEl) {
+    let readingsHtml = '<span class="text-gray-600">Current readings: </span>';
+
+    // Show channel data
+    if (bleData.ch1_air_pressure !== undefined) {
+      readingsHtml += `<span class="text-sky-400">${Number(bleData.ch1_air_pressure).toFixed(1)} psi</span>`;
+      if (bleData.ch1_weight) {
+        readingsHtml += ` <span class="text-gray-600">/</span> <span class="text-green-400">${Math.round(bleData.ch1_weight).toLocaleString()} lbs</span>`;
+      }
+    }
+
+    if (bleData.ch2_air_pressure !== undefined) {
+      readingsHtml += ` <span class="text-gray-600">•</span> <span class="text-sky-400">${Number(bleData.ch2_air_pressure).toFixed(1)} psi</span>`;
+      if (bleData.ch2_weight) {
+        readingsHtml += ` <span class="text-gray-600">/</span> <span class="text-green-400">${Math.round(bleData.ch2_weight).toLocaleString()} lbs</span>`;
+      }
+    }
+
+    readingsEl.innerHTML = readingsHtml;
+  }
+}
+</script>
+{% endblock %}

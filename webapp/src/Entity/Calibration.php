@@ -23,6 +23,10 @@ class Calibration
     #[ORM\JoinColumn(nullable: false)]
     private ?Device $device = null;
 
+    #[ORM\ManyToOne(targetEntity: DeviceChannel::class)]
+    #[ORM\JoinColumn(nullable: true)]
+    private ?DeviceChannel $deviceChannel = null;
+
     #[ORM\ManyToOne(targetEntity: User::class)]
     #[ORM\JoinColumn(nullable: false)]
     private ?User $created_by = null;
@@ -30,6 +34,10 @@ class Calibration
     #[ORM\ManyToOne(targetEntity: User::class)]
     #[ORM\JoinColumn(nullable: true)]
     private ?User $updated_by = null;
+
+    #[ORM\ManyToOne(targetEntity: CalibrationSession::class, inversedBy: 'calibrations')]
+    #[ORM\JoinColumn(nullable: true)]
+    private ?CalibrationSession $calibrationSession = null;
 
     // === Readings from device ===
 
@@ -68,6 +76,17 @@ class Calibration
     public function setDevice(?Device $device): self
     {
         $this->device = $device;
+        return $this;
+    }
+
+    public function getDeviceChannel(): ?DeviceChannel
+    {
+        return $this->deviceChannel;
+    }
+
+    public function setDeviceChannel(?DeviceChannel $deviceChannel): self
+    {
+        $this->deviceChannel = $deviceChannel;
         return $this;
     }
 
@@ -156,6 +175,17 @@ class Calibration
     public function setComment(?string $comment): self
     {
         $this->comment = $comment;
+        return $this;
+    }
+
+    public function getCalibrationSession(): ?CalibrationSession
+    {
+        return $this->calibrationSession;
+    }
+
+    public function setCalibrationSession(?CalibrationSession $calibrationSession): self
+    {
+        $this->calibrationSession = $calibrationSession;
         return $this;
     }
 

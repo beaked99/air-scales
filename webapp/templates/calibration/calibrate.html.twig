@@ -4,123 +4,298 @@
 {% block title %}Calibrate Device{% endblock %}
 
 {% block body %}
-<div class="min-h-screen p-4 text-gray-100 bg-gray-900 sm:p-6">
+<div class="min-h-screen text-white bg-gray-900">
 
   <!-- Header -->
-  <h1 class="mb-6 text-xl font-bold text-green-400 sm:text-2xl md:text-3xl">
-    Calibrate: {{ device.serialNumber ?: 'Device #' ~ device.id }}
-  </h1>
-
-  <!-- Flash Messages -->
-  {% for type, messages in { 'success': 'green', 'warning': 'yellow', 'error': 'red' } %}
-    {% for message in app.flashes(type) %}
-      <div class="bg-{{ messages }}-600 text-white p-3 rounded mb-4">{{ message }}</div>
-    {% endfor %}
-  {% endfor %}
-
-  <!-- Device Info -->
-  <section class="p-5 mb-8 bg-gray-800 rounded-lg">
-    <h2 class="mb-4 text-lg font-semibold text-white sm:text-xl">Device Information</h2>
-    <div class="grid grid-cols-1 gap-4 text-sm sm:grid-cols-2 sm:text-base">
-      <div><span class="text-gray-400">Serial Number:</span> <span class="ml-2">{{ device.serialNumber ?: 'N/A' }}</span></div>
-      <div><span class="text-gray-400">MAC Address:</span> <span class="ml-2 font-mono">{{ device.macAddress ?: 'N/A' }}</span></div>
-      <div><span class="text-gray-400">Vehicle:</span> <span class="ml-2">{{ device.vehicle ?: 'Unassigned' }}</span></div>
-      <div><span class="text-gray-400">Calibrations:</span> <span class="ml-2">{{ calibrationCount }} point(s)</span></div>
+  <header class="sticky top-0 z-50 px-4 py-3 bg-gray-800 border-b border-gray-700 shadow-md">
+    <div class="flex items-center justify-between">
+      <h1 class="text-xl font-semibold text-white">Calibrate Device</h1>
+      <a href="{{ path('app_dashboard') }}" class="text-sm text-sky-400 hover:text-sky-300">
+        ← Dashboard
+      </a>
     </div>
-  </section>
+    <div class="mt-1 text-sm text-gray-400">
+      {{ device.serialNumber ?: ('AS25-' ~ device.id) }}
+      {% if device.macAddress %}
+        <span class="ml-2 font-mono text-xs">{{ device.macAddress|upper }}</span>
+      {% endif %}
+    </div>
+  </header>
 
-  <!-- Sensor Readings -->
-  {% if latestData %}
-    <section class="p-5 mb-8 bg-gray-800 rounded-lg">
-      <h2 class="mb-4 text-lg font-semibold sm:text-xl">Sensor Readings</h2>
-      <div class="grid grid-cols-2 gap-4 text-sm sm:grid-cols-3 md:grid-cols-4 sm:text-base">
-        <div><span class="text-gray-400">Air Pressure:</span> <span id="val-air" class="ml-2 font-bold text-green-400">{{ latestData.mainAirPressure|number_format(2) }} psi</span></div>
-        <div><span class="text-gray-400">Ambient Pressure:</span> <span id="val-ambient" class="ml-2 font-bold text-green-400">{{ latestData.atmosphericPressure|number_format(2) }} psi</span></div>
-        <div><span class="text-gray-400">Temperature:</span> <span id="val-temp" class="ml-2 font-bold text-green-400">{{ latestData.temperature|number_format(2) }}°F</span></div>
-        <div><span class="text-gray-400">Elevation:</span> <span id="val-elevation" class="ml-2 font-bold text-green-400">{{ latestData.elevation|number_format(2) }} ft</span></div>
-        <div><span class="text-gray-400">Weight:</span> <span id="val-weight" class="ml-2 font-bold text-yellow-400">{{ latestData.weight|number_format(2) }} lbs</span></div>
-        <div><span class="text-gray-400">Last Updated:</span> <span id="val-time" class="ml-2 text-gray-300">{{ latestData.timestamp|date('H:i:s') }}</span></div>
-      </div>
-    </section>
-  {% endif %}
+  <main class="pb-20">
 
-  <!-- Calibration Form -->
-  <section class="p-5 mb-8 bg-gray-800 rounded-lg">
-    <h2 class="mb-4 text-lg font-semibold sm:text-xl">Add Calibration Point</h2>
-    <p class="mb-6 text-sm text-gray-400">Enter actual scale weight for current sensor conditions.</p>
+    <!-- Flash Messages -->
+    {% for type, messages in app.flashes %}
+      {% for message in messages %}
+        <div class="mx-4 mt-4 p-3 rounded-lg border-l-4 {% if type == 'success' %}bg-green-900/50 border-green-500 text-green-100{% elseif type == 'warning' %}bg-yellow-900/50 border-yellow-500 text-yellow-100{% else %}bg-red-900/50 border-red-500 text-red-100{% endif %}">
+          {{ message }}
+        </div>
+      {% endfor %}
+    {% endfor %}
 
-    {{ form_start(form, { attr: { class: 'space-y-4' } }) }}
-      <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        {% for field, label in {
-          scaleWeight: 'Scale Weight (lbs)',
-          airPressure: 'Air Pressure (psi)',
-          ambientAirPressure: 'Ambient Air Pressure (psi)',
-          airTemperature: 'Air Temp (°F)',
-          elevation: 'Elevation (ft)'
-        } %}
-          <div>
-            {{ form_label(attribute(form, field), label, { attr: { class: 'block text-sm font-medium text-gray-300 mb-1' } }) }}
-            {{ form_widget(attribute(form, field), {
-              attr: {
-                class: 'w-full px-3 py-2 bg-gray-700 text-white border border-gray-600 rounded text-sm',
-                step: '0.01',
-                value: latestData and attribute(latestData, field|replace({'scaleWeight':'weight','airPressure':'mainAirPressure','ambientAirPressure':'atmosphericPressure','airTemperature':'temperature'}) ) is defined
-                  ? attribute(latestData, field|replace({'scaleWeight':'weight','airPressure':'mainAirPressure','ambientAirPressure':'atmosphericPressure','airTemperature':'temperature'}))|number_format(2)
-                  : ''
-              }
-            }) }}
-            {{ form_errors(attribute(form, field)) }}
-          </div>
+    <!-- Channel Tabs (only show if multiple channels enabled) -->
+    {% set enabledChannels = [] %}
+    {% for channel in device.deviceChannels %}
+      {% if channel.enabled %}
+        {% set enabledChannels = enabledChannels|merge([channel]) %}
+      {% endif %}
+    {% endfor %}
+
+    {% if enabledChannels|length > 1 %}
+    <div class="sticky top-[60px] z-40 bg-gray-800 border-b border-gray-700">
+      <div class="flex">
+        {% for channel in enabledChannels %}
+          <button
+            type="button"
+            class="channel-tab flex-1 px-4 py-3 text-sm font-medium transition-colors border-b-2"
+            data-channel="{{ channel.channelIndex }}"
+            onclick="switchChannel({{ channel.channelIndex }})"
+          >
+            <div class="channel-tab-label">{{ channel.displayLabel }}</div>
+          </button>
         {% endfor %}
       </div>
+    </div>
+    {% endif %}
 
-      <div>
-        {{ form_label(form.comment, 'Comment (optional)', { attr: { class: 'block text-sm font-medium text-gray-300 mb-1' } }) }}
-        {{ form_widget(form.comment, { attr: {
-          class: 'w-full px-3 py-2 bg-gray-700 text-white border border-gray-600 rounded text-sm',
-          rows: 3,
-          placeholder: 'Add any notes...'
-        }}) }}
-        {{ form_errors(form.comment) }}
+    <!-- Channel Content - only render enabled channels -->
+    {% for channel in enabledChannels %}
+    <div id="channel-{{ channel.channelIndex }}-content" class="channel-content {% if loop.index > 1 %}hidden{% endif %}">
+
+      <!-- Live Readings Card -->
+      <section class="m-4 p-4 bg-gray-800 rounded-lg border border-gray-700">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-lg font-semibold">Live Readings{% if enabledChannels|length > 1 %} - {{ channel.displayLabel }}{% endif %}</h2>
+          <button
+            type="button"
+            onclick="refreshData({{ channel.channelIndex }})"
+            class="px-3 py-1 text-xs font-medium bg-sky-600 hover:bg-sky-700 rounded transition-colors"
+          >
+            🔄 Refresh
+          </button>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3 text-sm">
+          <div>
+            <div class="text-gray-400 text-xs mb-1">Air Pressure</div>
+            <div id="ch{{ channel.channelIndex }}-air-pressure" class="font-semibold text-green-400">-- psi</div>
+          </div>
+          <div>
+            <div class="text-gray-400 text-xs mb-1">Weight (Calc)</div>
+            <div id="ch{{ channel.channelIndex }}-weight" class="font-semibold text-yellow-400">-- lbs</div>
+          </div>
+          <div>
+            <div class="text-gray-400 text-xs mb-1">Ambient Pressure</div>
+            <div id="ch{{ channel.channelIndex }}-ambient-pressure" class="font-semibold text-green-400">-- psi</div>
+          </div>
+          <div>
+            <div class="text-gray-400 text-xs mb-1">Temperature</div>
+            <div id="ch{{ channel.channelIndex }}-temperature" class="font-semibold text-green-400">--°F</div>
+          </div>
+        </div>
+
+        <div class="mt-3 pt-3 border-t border-gray-700 text-xs text-gray-400">
+          Last updated: <span id="ch{{ channel.channelIndex }}-timestamp">--</span>
+        </div>
+      </section>
+
+      <!-- Calibration Count -->
+      <div class="mx-4 mb-4">
+        {% set channelCalCount = 0 %}
+        {% for cal in device.calibrations %}
+          {% if cal.deviceChannel and cal.deviceChannel.id == channel.id %}
+            {% set channelCalCount = channelCalCount + 1 %}
+          {% endif %}
+        {% endfor %}
+        <a
+          href="{{ path('device_calibration_history', { id: device.id }) }}#channel-{{ channel.channelIndex }}"
+          class="block p-3 text-center text-sm bg-gray-800 border border-gray-700 rounded-lg text-sky-400 hover:text-sky-300 hover:border-sky-500 transition-colors"
+        >
+          View Calibration History ({{ channelCalCount }} points for this channel)
+        </a>
       </div>
+    </div>
+    {% endfor %}
 
-      <button type="submit" class="px-4 py-2 font-semibold text-white bg-green-600 rounded hover:bg-green-700">
-        ➕ Add Calibration
-      </button>
-    {{ form_end(form) }}
-  </section>
+    <!-- Shared Calibration Form (works for both channels) -->
+    <section class="m-4 p-4 bg-gray-800 rounded-lg border border-gray-700">
+      <h2 class="text-lg font-semibold mb-3">Add Calibration Point</h2>
+      <p class="text-sm text-gray-400 mb-4">Place a known weight on your scale, then enter it below.</p>
 
-  <!-- Navigation -->
-  <div class="space-x-4 text-center">
-    <a href="{{ path('device_calibration_history', { id: device.id }) }}" class="text-blue-400 hover:text-blue-200">View Calibration History</a>
-    <a href="{{ path('app_dashboard') }}" class="text-blue-400 hover:text-blue-200">← Back to Dashboard</a>
-  </div>
+      {{ form_start(form, { attr: { class: 'space-y-4', id: 'calibration-form' } }) }}
+
+        <!-- Hidden channel selection - set via JS -->
+        {{ form_widget(form.deviceChannel, {
+          attr: {
+            id: 'form-device-channel',
+            class: 'hidden'
+          }
+        }) }}
+
+        <!-- Scale Weight Input -->
+        <div>
+          {{ form_label(form.scaleWeight, 'Scale Weight (lbs)', {
+            attr: { class: 'block text-sm font-medium text-gray-300 mb-2' }
+          }) }}
+          {{ form_widget(form.scaleWeight, {
+            attr: {
+              class: 'w-full px-3 py-3 bg-gray-700 text-white border border-gray-600 rounded-lg text-base focus:outline-none focus:border-sky-400',
+              placeholder: 'Enter weight from scale',
+              step: '0.1',
+              id: 'form-scale-weight'
+            }
+          }) }}
+          {{ form_errors(form.scaleWeight) }}
+        </div>
+
+        <!-- Hidden sensor fields - auto-filled via JS -->
+        <div class="hidden">
+          {{ form_row(form.airPressure, { attr: { id: 'form-air-pressure' } }) }}
+          {{ form_row(form.ambientAirPressure, { attr: { id: 'form-ambient-pressure' } }) }}
+          {{ form_row(form.airTemperature, { attr: { id: 'form-temperature' } }) }}
+          {{ form_row(form.elevation, { attr: { id: 'form-elevation' } }) }}
+        </div>
+
+        <!-- Comment (Optional) -->
+        <div>
+          {{ form_label(form.comment, 'Comment (optional)', {
+            attr: { class: 'block text-sm font-medium text-gray-300 mb-2' }
+          }) }}
+          {{ form_widget(form.comment, {
+            attr: {
+              class: 'w-full px-3 py-2 bg-gray-700 text-white border border-gray-600 rounded-lg text-sm focus:outline-none focus:border-sky-400',
+              rows: 2,
+              placeholder: 'Add any notes...'
+            }
+          }) }}
+        </div>
+
+        <button
+          type="submit"
+          class="w-full py-3 font-semibold text-white bg-green-600 rounded-lg hover:bg-green-700 transition-colors"
+        >
+          ✓ Add Calibration Point
+        </button>
+      {{ form_end(form) }}
+    </section>
+
+  </main>
 </div>
 
+<style>
+.channel-tab {
+  color: #9ca3af;
+  border-color: transparent;
+}
+.channel-tab.active {
+  color: #38bdf8;
+  border-color: #38bdf8;
+  background-color: rgba(56, 189, 248, 0.1);
+}
+</style>
+
 <script>
-document.getElementById('refresh-data')?.addEventListener('click', function () {
-  fetch('{{ path('api_device_live_data', { id: device.id }) }}')
+const deviceId = {{ device.id }};
+const enabledChannelIndexes = [{% for channel in enabledChannels %}{{ channel.channelIndex }}{% if not loop.last %}, {% endif %}{% endfor %}];
+let currentChannel = enabledChannelIndexes[0] || 1;
+
+// Initialize - set first enabled channel as active
+document.addEventListener('DOMContentLoaded', function() {
+  switchChannel(currentChannel);
+
+  // Initial data load for all enabled channels
+  enabledChannelIndexes.forEach(channelIndex => {
+    refreshData(channelIndex);
+  });
+});
+
+function switchChannel(channelIndex) {
+  currentChannel = channelIndex;
+
+  // Update tabs
+  document.querySelectorAll('.channel-tab').forEach(tab => {
+    const tabChannel = parseInt(tab.dataset.channel);
+    if (tabChannel === channelIndex) {
+      tab.classList.add('active');
+    } else {
+      tab.classList.remove('active');
+    }
+  });
+
+  // Update content visibility
+  document.querySelectorAll('.channel-content').forEach(content => {
+    content.classList.add('hidden');
+  });
+  document.getElementById(`channel-${channelIndex}-content`).classList.remove('hidden');
+
+  // Update hidden form field for channel selection
+  const channelSelect = document.getElementById('form-device-channel');
+  if (channelSelect) {
+    // Find the option that corresponds to this channel index
+    Array.from(channelSelect.options).forEach(option => {
+      const optionText = option.text.toLowerCase();
+      if (optionText.includes(`channel ${channelIndex}`)) {
+        channelSelect.value = option.value;
+      }
+    });
+  }
+}
+
+function refreshData(channelIndex) {
+  fetch(`/device/${deviceId}/api/live-data`)
     .then(response => response.json())
     .then(data => {
-      if (data.error) return console.error(data.error);
+      if (data.error) {
+        console.error('API Error:', data.error);
+        return;
+      }
 
-      document.getElementById('val-air').textContent = `${data.main_air_pressure} psi`;
-      document.getElementById('val-ambient').textContent = `${data.atmospheric_pressure} psi`;
-      document.getElementById('val-temp').textContent = `${data.temperature}°F`;
-      document.getElementById('val-elevation').textContent = `${data.elevation} ft`;
-      document.getElementById('val-weight').textContent = `${data.weight} lbs`;
-      document.getElementById('val-time').textContent = new Date(data.timestamp).toLocaleTimeString();
+      // Update environmental data (shared)
+      const ambientPressure = data.atmospheric_pressure || 0;
+      const temperature = data.temperature || 0;
+      const elevation = data.elevation || 0;
 
-      // Auto-fill calibration form
-      document.getElementById('calibration_airPressure').value = data.main_air_pressure;
-      document.getElementById('calibration_ambientAirPressure').value = data.atmospheric_pressure;
-      document.getElementById('calibration_airTemperature').value = data.temperature;
-      document.getElementById('calibration_elevation').value = data.elevation;
+      // Update channel-specific data
+      let airPressure = 0;
+      let weight = 0;
+
+      if (data.channels && data.channels.length > 0) {
+        // Multi-channel format
+        const channelData = data.channels.find(ch => ch.channel_index === channelIndex);
+        if (channelData) {
+          airPressure = channelData.air_pressure || 0;
+          weight = channelData.weight || 0;
+        }
+      } else if (channelIndex === 1) {
+        // Legacy single-channel format (only for Channel 1)
+        airPressure = data.main_air_pressure || 0;
+        weight = data.weight || 0;
+      }
+
+      // Update UI
+      const prefix = `ch${channelIndex}`;
+      document.getElementById(`${prefix}-air-pressure`).textContent = `${airPressure.toFixed(2)} psi`;
+      document.getElementById(`${prefix}-weight`).textContent = `${Math.round(weight).toLocaleString()} lbs`;
+      document.getElementById(`${prefix}-ambient-pressure`).textContent = `${ambientPressure.toFixed(2)} psi`;
+      document.getElementById(`${prefix}-temperature`).textContent = `${Math.round(temperature)}°F`;
+      document.getElementById(`${prefix}-timestamp`).textContent = new Date(data.timestamp).toLocaleTimeString();
+
+      // Auto-fill form if this is the active channel
+      if (channelIndex === currentChannel) {
+        document.getElementById('form-air-pressure').value = airPressure.toFixed(2);
+        document.getElementById('form-ambient-pressure').value = ambientPressure.toFixed(2);
+        document.getElementById('form-temperature').value = temperature.toFixed(2);
+        document.getElementById('form-elevation').value = elevation.toFixed(2);
+      }
     })
     .catch(err => {
-      console.error('Refresh failed', err);
-      alert('Could not fetch data. Check device/server connection.');
+      console.error('Refresh failed:', err);
     });
-});
+}
+
+// Auto-refresh every 5 seconds for current channel
+setInterval(() => {
+  refreshData(currentChannel);
+}, 5000);
 </script>
 {% endblock %}

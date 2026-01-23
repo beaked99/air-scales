@@ -1,0 +1,50 @@
+{% if field.value %}
+    {% set items = ea.entity.instance.orderItems %}
+    {% set order = ea.entity.instance %}
+    {% if items %}
+        <table class="table table-sm">
+            <thead>
+                <tr>
+                    <th>Product</th>
+                    <th class="text-end">Quantity</th>
+                    <th class="text-end">Unit Price</th>
+                    <th class="text-end">Line Total</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in items %}
+                    <tr>
+                        <td>{{ item.product_name }}</td>
+                        <td class="text-end">{{ item.quantity }}</td>
+                        <td class="text-end">${{ item.unit_price|number_format(2, '.', ',') }}</td>
+                        <td class="text-end">${{ item.line_total|number_format(2, '.', ',') }}</td>
+                    </tr>
+                {% endfor %}
+
+                {# Summary rows #}
+                {% if order.subtotal %}
+                    <tr class="table-light">
+                        <td colspan="3" class="text-end"><strong>Subtotal:</strong></td>
+                        <td class="text-end">${{ order.subtotal|number_format(2, '.', ',') }}</td>
+                    </tr>
+                {% endif %}
+
+                {% if order.discountAmount and order.discountAmount > 0 %}
+                    <tr class="table-light">
+                        <td colspan="3" class="text-end"><strong>Discount:</strong></td>
+                        <td class="text-end text-success">-${{ order.discountAmount|number_format(2, '.', ',') }}</td>
+                    </tr>
+                {% endif %}
+
+                <tr class="table-primary fw-bold">
+                    <td colspan="3" class="text-end"><strong>Total:</strong></td>
+                    <td class="text-end"><strong>${{ order.totalPaid|number_format(2, '.', ',') }}</strong></td>
+                </tr>
+            </tbody>
+        </table>
+    {% else %}
+        <span class="text-muted">{{ ea.entity.instance.product ? ea.entity.instance.product.name : 'N/A' }}</span>
+    {% endif %}
+{% else %}
+    <span class="text-muted">No items</span>
+{% endif %}

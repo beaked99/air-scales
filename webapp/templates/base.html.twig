@@ -1,8 +1,9 @@
-{# templates/base.html.twig #}
+{# templates/base.html.twig - Minimal base template #}
 <!DOCTYPE html>
 <html>
   <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{% block title %}Air Scales{% endblock %}</title>
 
     {{ encore_entry_link_tags('app') }}
@@ -15,7 +16,7 @@
 
     {% block javascripts %}{% endblock %}
   </head>
-  <body>
+  <body class="bg-gray-900 text-gray-100">
     {% block body %}{% endblock %}
   </body>
 </html>

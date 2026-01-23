@@ -1,0 +1,66 @@
+# --- General ---
+.DS_Store
+*.log
+node_modules/
+dist/
+build/
+.idea/
+.vscode/
+.env.local
+.phpunit.result.cache
+.env
+
+# --- Database Dumps ---
+prod-dump.sql
+*.sql
+
+# --- webapp (Symfony/PHP/Node) ---
+/webapp/vendor/
+/webapp/var/
+/webapp/node_modules/
+/webapp/dist/
+/webapp/build/
+/webapp/.env.local
+/webapp/.phpunit.result.cache
+
+# --- esp32 (PlatformIO/Arduino) ---
+/esp32/.pio/
+/esp32/.vscode/
+*.bin
+*.elf
+*.map
+
+# --- hardware (KiCad) ---
+hardware/**/out/
+hardware/**/build/
+hardware/**/plots/
+# Lock Files
+*.kicad_sch.lck
+*.kicad_pcb.lck
+# JLCPCB plugin settings file
+fabrication-toolkit-options.json
+*/production/backups
+# Temporary files
+*.bak
+*-backups
+*.kicad_prl
+fp-info-cache
+\#auto_saved_files#
+
+# --- Composer & NPM caches ---
+/webapp/composer.lock
+/webapp/package-lock.json
+
+# Root-level Composer + Symfony runtime (created earlier by accident)
+/vendor/
+/var/
+
+# Front-end build outputs we don't track
+/webapp/assets/vendor/
+/webapp/public/bundles/
+.env
+.env.dev
+
+#production shit
+public/assets/
+.claude/settings.local.json

@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Air Scales</string>
+    <string name="title_activity_main">Air Scales</string>
+    <string name="package_name">ca.beaker.airscales</string>
+    <string name="custom_url_scheme">ca.beaker.airscales</string>
+</resources>

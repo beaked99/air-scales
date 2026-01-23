@@ -1,0 +1,29 @@
+{# templates/configuration/_config_card.html.twig #}
+<div class="p-4 bg-gray-800 border border-gray-700 rounded-lg hover:border-gray-600 transition-colors">
+  <div class="flex items-center gap-3">
+    {# Selection checkbox - hidden by default, shown in select mode #}
+    <input type="checkbox"
+           class="config-select w-4 h-4 rounded-full border-gray-500 bg-gray-700 text-sky-600 focus:ring-sky-500 focus:ring-offset-gray-800 cursor-pointer flex-shrink-0 hidden"
+           data-config-id="{{ config.id }}"
+           onchange="updateSelection()">
+
+    <a href="{{ path('configuration_show', {id: config.id}) }}"
+       class="config-title text-lg font-semibold text-white hover:text-sky-400 transition-colors flex-1">
+      {{ config.name }}
+    </a>
+
+    {# Dashboard toggle #}
+    <label class="flex items-center gap-2 cursor-pointer flex-shrink-0" title="Show on Dashboard">
+      <span class="text-xs text-gray-400 hidden sm:inline">Dashboard</span>
+      <div class="relative">
+        <input type="checkbox"
+               id="dashboard-toggle-{{ config.id }}"
+               class="sr-only peer"
+               {{ config.isActive ? 'checked' : '' }}
+               onchange="toggleDashboard({{ config.id }}, this.checked)">
+        <div class="w-9 h-5 bg-gray-600 rounded-full peer peer-checked:bg-sky-600 transition-colors"></div>
+        <div class="absolute left-0.5 top-0.5 w-4 h-4 bg-white rounded-full transition-transform peer-checked:translate-x-4"></div>
+      </div>
+    </label>
+  </div>
+</div>

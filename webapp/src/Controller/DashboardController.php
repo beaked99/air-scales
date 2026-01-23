@@ -6,6 +6,7 @@ use App\Entity\Device;
 use App\Entity\DeviceAccess;
 use App\Entity\MicroData;
 use App\Entity\User;
+use App\Service\VirtualSteerCalculator;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Response;
@@ -15,24 +16,117 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 class DashboardController extends AbstractController
 {
     #[Route('/dashboard', name: 'app_dashboard')]
-    public function index(EntityManagerInterface $em): Response
+    public function index(EntityManagerInterface $em, VirtualSteerCalculator $virtualSteerCalculator): Response
     {
         $user = $this->getUser();
-        
-        // Get user's devices with latest data
-        $userDevices = $this->getUserDevicesWithData($em, $user);
-        
-        // Calculate totals
-        $totalWeight = $this->calculateTotalWeight($userDevices);
+
+        // Get ALL active truck configurations (ordered by sortOrder)
+        $activeConfigurations = $em->getRepository(\App\Entity\TruckConfiguration::class)
+            ->createQueryBuilder('tc')
+            ->where('tc.owner = :user')
+            ->andWhere('tc.isActive = :true')
+            ->setParameter('user', $user)
+            ->setParameter('true', true)
+            ->orderBy('tc.sortOrder', 'ASC')
+            ->addOrderBy('tc.id', 'ASC')
+            ->getQuery()
+            ->getResult();
+
+        // Calculate live weights for each configuration
+        $configurationWeights = [];
+
+        foreach ($activeConfigurations as $activeConfiguration) {
+            $configTotalWeight = 0;
+            foreach ($activeConfiguration->getDeviceRoles() as $deviceRole) {
+                $device = $deviceRole->getDevice();
+                if (!$device) continue;
+
+                // Get latest data for this device
+                $latestData = $em->getRepository(MicroData::class)
+                    ->createQueryBuilder('m')
+                    ->where('m.device = :device')
+                    ->setParameter('device', $device)
+                    ->orderBy('m.id', 'DESC')
+                    ->setMaxResults(1)
+                    ->getQuery()
+                    ->getOneOrNullResult();
+
+                // Calculate weight for each enabled channel
+                $deviceTotalWeight = 0;
+                foreach ($device->getDeviceChannels() as $channel) {
+                    if (!$channel->isEnabled()) continue;
+
+                    $weight = 0;
+                    if ($latestData && $channel->getRegressionIntercept() !== null) {
+                        // Get channel-specific data if available
+                        $microDataChannel = null;
+                        foreach ($latestData->getMicroDataChannels() as $mdc) {
+                            $mdcDeviceChannel = $mdc->getDeviceChannel();
+                            if ($mdcDeviceChannel && $mdcDeviceChannel->getChannelIndex() === $channel->getChannelIndex()) {
+                                $microDataChannel = $mdc;
+                                break;
+                            }
+                        }
+
+                        // Calculate weight using channel calibration
+                        $airPressure = $microDataChannel
+                            ? $microDataChannel->getAirPressure()
+                            : $latestData->getMainAirPressure();
+                        $weight = $channel->getRegressionIntercept() +
+                                 ($channel->getRegressionAirPressureCoeff() * $airPressure);
+                    }
+
+                    // Store calculated weight on the channel object for template access
+                    $channel->calculatedWeight = $weight;
+                    $deviceTotalWeight += $weight;
+                    $configTotalWeight += $weight;
+                }
+
+                // Calculate virtual steer weight if enabled for this device
+                if ($device->hasVirtualSteer() && $deviceTotalWeight > 0) {
+                    $virtualSteerWeight = $virtualSteerCalculator->calculateSteerWeight($device, $deviceTotalWeight);
+                    if ($virtualSteerWeight !== null) {
+                        $device->virtualSteerWeight = $virtualSteerWeight;
+                        $configTotalWeight += $virtualSteerWeight;
+                    }
+                }
+
+                // Store connection status on device for template access
+                $device->isConnected = $this->checkDeviceConnected($device, $em);
+            }
+
+            // Store total weight for this configuration
+            $configurationWeights[$activeConfiguration->getId()] = $configTotalWeight;
+        }
+
         $hasActiveSubscription = $this->checkSubscriptionStatus($user);
-        $hasSetupConfiguration = $this->checkSetupStatus($userDevices);
-        
+
         return $this->render('dashboard/index.html.twig', [
-            'devices' => $userDevices,
-            'totalWeight' => $totalWeight,
+            'activeConfigurations' => $activeConfigurations,
+            'configurationWeights' => $configurationWeights,
             'hasActiveSubscription' => $hasActiveSubscription,
-            'hasSetupConfiguration' => $hasSetupConfiguration,
         ]);
+    }
+
+    private function checkDeviceConnected(Device $device, EntityManagerInterface $em): bool
+    {
+        $latestData = $em->getRepository(MicroData::class)
+            ->createQueryBuilder('m')
+            ->where('m.device = :device')
+            ->setParameter('device', $device)
+            ->orderBy('m.id', 'DESC')
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getOneOrNullResult();
+
+        if (!$latestData) {
+            return false;
+        }
+
+        $now = new \DateTime();
+        $secondsDiff = $now->getTimestamp() - $latestData->getTimestamp()->getTimestamp();
+
+        return $secondsDiff <= 120; // Connected if data within 2 minutes
     }
 
     private function getUserDevicesWithData(EntityManagerInterface $em, $user): array
@@ -155,9 +249,11 @@ class DashboardController extends AbstractController
 
     private function checkSubscriptionStatus($user): bool
     {
-        // TODO: Implement actual subscription check
-        // For now, return false to show the warning
-        return $user->getStripeCustomerId() !== null;
+        if (!$user) {
+            return false;
+        }
+
+        return $user->hasActiveSubscription();
     }
 
     private function checkSetupStatus(array $devices): bool
@@ -201,6 +297,19 @@ class DashboardController extends AbstractController
                     $status = 'old'; // optional gray or faded
                 }
                 
+                // Build per-channel data
+                $channels = [];
+                foreach ($latestData->getMicroDataChannels() as $mdc) {
+                    $deviceChannel = $mdc->getDeviceChannel();
+                    if ($deviceChannel) {
+                        $channels[] = [
+                            'channel_index' => $deviceChannel->getChannelIndex(),
+                            'air_pressure' => $mdc->getAirPressure(),
+                            'weight' => $mdc->getWeight()
+                        ];
+                    }
+                }
+
                 $liveData[] = [
                     'device_id' => $device->getId(),
                     'device_name' => $device->getSerialNumber() ?: ('Device #' . $device->getId()),
@@ -214,6 +323,7 @@ class DashboardController extends AbstractController
                     'last_seen' => $lastSeen,
                     'micro_data_id' => $latestData->getId(),
                     'seconds_since_last_data' => $secondsDiff,
+                    'channels' => $channels,
                 ];
             }
         }

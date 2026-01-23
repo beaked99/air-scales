@@ -1,41 +1,181 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}Beaker
-{% endblock %}
+{% block title %}AirScales - Real-Time Load Monitoring for Semi Trucks{% endblock %}
 
 {% block body %}
-	<body class="bg-gray-900 text-gray-200 min-h-screen p-6 font-sans space-y-6">
+<div class="min-h-screen flex flex-col">
+  {% include '_header.html.twig' %}
 
-		<h1 class="text-4xl font-bold text-red-500 border-b border-red-700 pb-2">Fuck You</h1>
+  <!-- Hero Section -->
+  <section class="container mx-auto px-6 py-20">
+    <div class="grid md:grid-cols-2 gap-12 items-center">
+      <div>
+        <h1 class="text-3xl sm:text-4xl font-bold text-white mb-6">
+          Real-Time Load Monitoring for Semi Trucks
+        </h1>
+        <p class="text-sm sm:text-base text-gray-400 mb-8">
+          Monitor your truck's axle weights in real-time with AirScales. Bluetooth and WiFi-enabled load monitoring that keeps you legal and safe on the road.
+        </p>
+        <div>
+          <a href="{{ path('order_create') }}" class="inline-block bg-blue-600 hover:bg-blue-700 text-white text-center px-8 py-4 rounded-lg text-base sm:text-lg font-semibold transition">
+            <i class="fas fa-shopping-cart mr-2"></i>Order Your AirScales Today
+          </a>
+        </div>
+      </div>
+      <div class="flex justify-center">
+        <img src="{{ asset('images/airscales.png') }}" alt="AirScales Device" class="rounded-lg shadow-2xl max-w-full h-auto">
+      </div>
+    </div>
+  </section>
 
-		<p class="text-purple-400">
-			<span class="text-2xl text-purple-300 font-medium">Occasionally in life</span>
-			— for whatever reason — people need to tell other people to fuck off. Maybe it is to feel free, or maybe its because you truly are super pissed off.
-		</p>
+  <!-- Features Section -->
+  <section id="features" class="bg-gray-800 py-20">
+    <div class="container mx-auto px-6">
+      <h2 class="text-2xl sm:text-3xl font-bold text-center text-white mb-16">Why Choose AirScales?</h2>
+      <div class="grid md:grid-cols-3 gap-8">
+        <div class="bg-gray-900 p-8 rounded-lg border border-gray-700">
+          <div class="text-blue-400 text-4xl mb-4">
+            <i class="fas fa-weight-scale"></i>
+          </div>
+          <h3 class="text-lg sm:text-xl font-bold text-white mb-4">Real-Time Monitoring</h3>
+          <p class="text-sm sm:text-base text-gray-400">
+            Get instant weight readings directly on your phone with or without cellular data. Know your load status even in remote areas.
+          </p>
+        </div>
 
-		<p class="text-gray-300">Maybe they have been telling you to fuck off for awhile, but you didnt get the hint. Then, out of the blue, instead of yelling at you - they ask you what your name is!</p>
+        <div class="bg-gray-900 p-8 rounded-lg border border-gray-700">
+          <div class="text-blue-400 text-4xl mb-4">
+            <i class="fas fa-wifi"></i>
+          </div>
+          <h3 class="text-lg sm:text-xl font-bold text-white mb-4">Wireless Connectivity</h3>
+          <p class="text-sm sm:text-base text-gray-400">
+            WiFi and Bluetooth compatible. Monitor your weight remotely through the app or website from anywhere.
+          </p>
+        </div>
 
-		<p class="text-gray-300">
-			you are stunned. You've been blasted for so long that without thinking you reply:
-			<span class="italic text-green-400">"Tony"</span>.
-		</p>
+        <div class="bg-gray-900 p-8 rounded-lg border border-gray-700">
+          <div class="text-blue-400 text-4xl mb-4">
+            <i class="fas fa-road"></i>
+          </div>
+          <h3 class="text-lg sm:text-xl font-bold text-white mb-4">Multi-Axle Support</h3>
+          <p class="text-sm sm:text-base text-gray-400">
+            Connect multiple trailer configurations wirelessly. All devices communicate seamlessly within the app for comprehensive fleet monitoring.
+          </p>
+        </div>
 
-		<p class="text-gray-300 font-semibold text-xl">
-			And once again, they pick right up with where they left off before with a
-			<em class="text-pink-500 not-italic font-semibold">"Fuck You, Tony."</em>
-		</p>
+        <div class="bg-gray-900 p-8 rounded-lg border border-gray-700">
+          <div class="text-blue-400 text-4xl mb-4">
+            <i class="fas fa-bolt"></i>
+          </div>
+          <h3 class="text-lg sm:text-xl font-bold text-white mb-4">12V Powered</h3>
+          <p class="text-sm sm:text-base text-gray-400">
+            Simple 12V connection - plug and play installation. No complex wiring required.
+          </p>
+        </div>
 
-		<h2 class="text-2xl mt-8 text-yellow-400 font-bold">So What?</h2>
+        <div class="bg-gray-900 p-8 rounded-lg border border-gray-700">
+          <div class="text-blue-400 text-4xl mb-4">
+            <i class="fas fa-shield-halved"></i>
+          </div>
+          <h3 class="text-lg sm:text-xl font-bold text-white mb-4">Avoid Overload Fines</h3>
+          <p class="text-sm sm:text-base text-gray-400">
+            Stay compliant with weight regulations. Know your load before you hit the scales.
+          </p>
+        </div>
 
-		<p class="text-purple-600">Maybe you should tell someone off too?</p>
-		<p class="text-orange-400">Don't even worry - I can reserve space for you below.</p>
+        <div class="bg-gray-900 p-8 rounded-lg border border-gray-700">
+          <div class="text-blue-400 text-4xl mb-4">
+            <i class="fas fa-mobile-screen"></i>
+          </div>
+          <h3 class="text-lg sm:text-xl font-bold text-white mb-4">Mobile App</h3>
+          <p class="text-sm sm:text-base text-gray-400">
+            View your load data on iOS or Android. Dashboard, history, and alerts all in one app.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
 
-		<ul class="list-disc list-inside space-y-4 text-gray-100">
+  <!-- How It Works Section -->
+  <section id="how-it-works" class="py-20">
+    <div class="container mx-auto px-6">
+      <h2 class="text-2xl sm:text-3xl font-bold text-center text-white mb-16">How It Works</h2>
+      <div class="grid md:grid-cols-3 gap-8">
+        <div class="text-center">
+          <div class="bg-blue-600 text-white w-16 h-16 rounded-full flex items-center justify-center text-xl sm:text-2xl font-bold mx-auto mb-6">
+            1
+          </div>
+          <h3 class="text-lg sm:text-xl font-bold text-white mb-4">Install on Your Truck or Trailer</h3>
+          <p class="text-sm sm:text-base text-gray-400">
+            Connect AirScales to your 12V power supply and install the supplied T-fitting into the air supply for the air bags. Simple installation with no complex wiring.
+          </p>
+        </div>
 
-			<li class="text-lime-500">Reserved for the next piece of shit you encounter.</li>
+        <div class="text-center">
+          <div class="bg-blue-600 text-white w-16 h-16 rounded-full flex items-center justify-center text-xl sm:text-2xl font-bold mx-auto mb-6">
+            2
+          </div>
+          <h3 class="text-lg sm:text-xl font-bold text-white mb-4">Connect via Bluetooth/WiFi</h3>
+          <p class="text-sm sm:text-base text-gray-400">
+            Pair AirScales with your mobile device. Download the app and connect wirelessly. Subscription required for access to all features.
+          </p>
+        </div>
 
-			<li>In case they have a friend.</li>
-			<li>reserve: In Case you meet one more asshole.</li>
-		</ul>
-	</body>
+        <div class="text-center">
+          <div class="bg-blue-600 text-white w-16 h-16 rounded-full flex items-center justify-center text-xl sm:text-2xl font-bold mx-auto mb-6">
+            3
+          </div>
+          <h3 class="text-lg sm:text-xl font-bold text-white mb-4">Calibrate and Monitor</h3>
+          <p class="text-sm sm:text-base text-gray-400">
+            Calibrate and monitor axle group weights on both your semi and trailer(s). Get alerts, stay compliant, and avoid costly overload fines.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Mobile App Section -->
+  <section id="app" class="bg-gray-800 py-20">
+    <div class="container mx-auto px-6 text-center">
+      <h2 class="text-2xl sm:text-3xl font-bold text-white mb-8">Download the AirScales App</h2>
+      <p class="text-sm sm:text-base text-gray-400 mb-12 max-w-2xl mx-auto">
+        Get the most out of your AirScales device with our mobile app. Available for Android and eventually for iOS.
+      </p>
+      <div class="flex flex-col sm:flex-row gap-6 justify-center items-center">
+        <div class="bg-gray-700 text-gray-500 px-8 py-4 rounded-lg text-base sm:text-lg font-semibold flex items-center gap-3 cursor-not-allowed">
+          <i class="fab fa-google-play text-3xl"></i>
+          <div class="text-left">
+            <div class="text-xs sm:text-sm text-gray-600">Coming Soon</div>
+            <div>Google Play</div>
+          </div>
+        </div>
+        <div class="bg-gray-700 text-gray-500 px-8 py-4 rounded-lg text-base sm:text-lg font-semibold flex items-center gap-3 cursor-not-allowed">
+          <i class="fab fa-apple text-3xl"></i>
+          <div class="text-left">
+            <div class="text-xs sm:text-sm text-gray-600">In Development</div>
+            <div>App Store</div>
+          </div>
+        </div>
+      </div>
+      <p class="text-xs sm:text-sm text-gray-500 mt-6 max-w-xl mx-auto">
+        iOS version requires additional development and Apple Developer Program enrollment ($99/year). Android launch is prioritized for faster time-to-market.
+      </p>
+    </div>
+  </section>
+
+  <!-- CTA Section -->
+  <section class="py-20">
+    <div class="container mx-auto px-6 text-center">
+      <h2 class="text-2xl sm:text-3xl font-bold text-white mb-8">Ready to Get Started?</h2>
+      <p class="text-sm sm:text-base text-gray-400 mb-8 max-w-2xl mx-auto">
+        Join professional truck drivers who trust AirScales for real-time load monitoring.
+      </p>
+      <a href="{{ path('order_create') }}" class="inline-block bg-blue-600 hover:bg-blue-700 text-white px-12 py-4 rounded-lg text-base sm:text-lg font-semibold transition">
+        <i class="fas fa-shopping-cart mr-2"></i>Order Your AirScales Today
+      </a>
+    </div>
+  </section>
+
+  {% include '_footer.html.twig' %}
+</div>
 {% endblock %}

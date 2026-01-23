@@ -39,9 +39,22 @@ class Device
     #[ORM\Column(length: 64, nullable: true)]
     private ?string $firmwareVersion = null;
 
+    #[ORM\Column(type: 'datetime', nullable: true)]
+    private ?\DateTimeInterface $firmwareDate = null;
+
     #[ORM\ManyToOne(targetEntity: User::class, inversedBy: 'devices')]
     #[ORM\JoinColumn(name: "sold_to_id", referencedColumnName: "id", nullable: true)]
     private ?User $soldTo = null;
+
+    #[ORM\Column(nullable: true)]
+    private ?\DateTimeImmutable $firstActivatedAt = null;
+
+    #[ORM\ManyToOne(targetEntity: User::class)]
+    #[ORM\JoinColumn(name: "first_activated_by_id", referencedColumnName: "id", nullable: true)]
+    private ?User $firstActivatedBy = null;
+
+    #[ORM\Column(type: 'boolean')]
+    private bool $subscriptionGranted = false;
 
     #[ORM\Column(nullable: true)]
     private ?\DateTimeImmutable $orderDate = null;
@@ -61,6 +74,12 @@ class Device
     #[ORM\OneToMany(mappedBy: 'device', targetEntity: MicroData::class, orphanRemoval: true)]
     private Collection $microData;
 
+    #[ORM\OneToMany(mappedBy: 'device', targetEntity: DeviceChannel::class, orphanRemoval: true, cascade: ['persist', 'remove'])]
+    #[ORM\OrderBy(['displayOrder' => 'ASC', 'channelIndex' => 'ASC'])]
+    private Collection $deviceChannels;
+
+    // DEPRECATED: Old single-channel regression coefficients - keep for backward compatibility
+    // Use DeviceChannel entities instead for per-channel calibration
     #[ORM\Column(type: 'float', nullable: true)]
     private ?float $regressionIntercept = null;
 
@@ -101,11 +120,31 @@ class Device
     #[ORM\Column(type: 'string', length: 17, nullable: true)]
     private ?string $masterDeviceMac = null; // MAC of master device if this is a slave
 
+    // Virtual Steer Axle fields
+    #[ORM\Column(type: 'boolean')]
+    private bool $hasVirtualSteer = false;
+
+    #[ORM\Column(type: 'float', nullable: true)]
+    private ?float $wheelbase = null; // inches - distance from steer to drive axle centers
+
+    #[ORM\Column(type: 'float', nullable: true)]
+    private ?float $kingpinDistance = null; // inches - distance from drive axle center to kingpin (optional, can be learned)
+
+    #[ORM\Column(type: 'float', nullable: true)]
+    private ?float $virtualSteerIntercept = null; // learned empty steer weight
+
+    #[ORM\Column(type: 'float', nullable: true)]
+    private ?float $virtualSteerCoeff = null; // learned coefficient for drive weight effect
+
+    #[ORM\Column(type: 'integer', nullable: true)]
+    private ?int $virtualSteerDisplayOrder = null; // display order position for virtual steer in channel list
+
     public function __construct()
     {
         $this->calibrations = new ArrayCollection();
         $this->microData = new ArrayCollection();
         $this->deviceAccesses = new ArrayCollection();
+        $this->deviceChannels = new ArrayCollection();
     }
 
     // Basic getters/setters
@@ -120,8 +159,20 @@ class Device
     public function setDeviceType(?string $deviceType): static { $this->deviceType = $deviceType; return $this; }
     public function getFirmwareVersion(): ?string { return $this->firmwareVersion; }
     public function setFirmwareVersion(?string $firmwareVersion): static { $this->firmwareVersion = $firmwareVersion; return $this; }
+    public function getFirmwareDate(): ?\DateTimeInterface { return $this->firmwareDate; }
+    public function setFirmwareDate(?\DateTimeInterface $firmwareDate): static { $this->firmwareDate = $firmwareDate; return $this; }
     public function getSoldTo(): ?User { return $this->soldTo; }
     public function setSoldTo(?User $soldTo): static { $this->soldTo = $soldTo; return $this; }
+
+    public function getFirstActivatedAt(): ?\DateTimeImmutable { return $this->firstActivatedAt; }
+    public function setFirstActivatedAt(?\DateTimeImmutable $firstActivatedAt): static { $this->firstActivatedAt = $firstActivatedAt; return $this; }
+
+    public function getFirstActivatedBy(): ?User { return $this->firstActivatedBy; }
+    public function setFirstActivatedBy(?User $firstActivatedBy): static { $this->firstActivatedBy = $firstActivatedBy; return $this; }
+
+    public function isSubscriptionGranted(): bool { return $this->subscriptionGranted; }
+    public function setSubscriptionGranted(bool $subscriptionGranted): static { $this->subscriptionGranted = $subscriptionGranted; return $this; }
+
     public function getOrderDate(): ?\DateTimeImmutable { return $this->orderDate; }
     public function setOrderDate(?\DateTimeImmutable $orderDate): static { $this->orderDate = $orderDate; return $this; }
     public function getShipDate(): ?\DateTimeImmutable { return $this->shipDate; }
@@ -135,6 +186,7 @@ class Device
     public function getCalibrations(): Collection { return $this->calibrations; }
     public function getMicroData(): Collection { return $this->microData; }
     public function getDeviceAccesses(): Collection { return $this->deviceAccesses; }
+    public function getDeviceChannels(): Collection { return $this->deviceChannels; }
 
     public function addCalibration(Calibration $calibration): static
     {
@@ -174,7 +226,39 @@ class Device
         return $this;
     }
 
-    // Regression coefficients
+    public function addDeviceChannel(DeviceChannel $deviceChannel): self
+    {
+        if (!$this->deviceChannels->contains($deviceChannel)) {
+            $this->deviceChannels->add($deviceChannel);
+            $deviceChannel->setDevice($this);
+        }
+        return $this;
+    }
+
+    public function removeDeviceChannel(DeviceChannel $deviceChannel): self
+    {
+        if ($this->deviceChannels->removeElement($deviceChannel)) {
+            if ($deviceChannel->getDevice() === $this) {
+                $deviceChannel->setDevice(null);
+            }
+        }
+        return $this;
+    }
+
+    /**
+     * Get a specific channel by index (1 or 2)
+     */
+    public function getChannel(int $channelIndex): ?DeviceChannel
+    {
+        foreach ($this->deviceChannels as $channel) {
+            if ($channel->getChannelIndex() === $channelIndex) {
+                return $channel;
+            }
+        }
+        return null;
+    }
+
+    // Regression coefficients (DEPRECATED - use DeviceChannel instead)
     public function getRegressionIntercept(): ?float { return $this->regressionIntercept; }
     public function setRegressionIntercept(?float $regressionIntercept): self { $this->regressionIntercept = $regressionIntercept; return $this; }
     public function getRegressionAirPressureCoeff(): ?float { return $this->regressionAirPressureCoeff; }
@@ -202,10 +286,40 @@ class Device
     public function getMasterDeviceMac(): ?string { return $this->masterDeviceMac; }
     public function setMasterDeviceMac(?string $masterDeviceMac): self { $this->masterDeviceMac = $masterDeviceMac; return $this; }
 
+    // Virtual Steer getters/setters
+    public function hasVirtualSteer(): bool { return $this->hasVirtualSteer; }
+    public function setHasVirtualSteer(bool $hasVirtualSteer): self { $this->hasVirtualSteer = $hasVirtualSteer; return $this; }
+
+    public function getWheelbase(): ?float { return $this->wheelbase; }
+    public function setWheelbase(?float $wheelbase): self { $this->wheelbase = $wheelbase; return $this; }
+
+    public function getKingpinDistance(): ?float { return $this->kingpinDistance; }
+    public function setKingpinDistance(?float $kingpinDistance): self { $this->kingpinDistance = $kingpinDistance; return $this; }
+
+    public function getVirtualSteerIntercept(): ?float { return $this->virtualSteerIntercept; }
+    public function setVirtualSteerIntercept(?float $virtualSteerIntercept): self { $this->virtualSteerIntercept = $virtualSteerIntercept; return $this; }
+
+    public function getVirtualSteerCoeff(): ?float { return $this->virtualSteerCoeff; }
+    public function setVirtualSteerCoeff(?float $virtualSteerCoeff): self { $this->virtualSteerCoeff = $virtualSteerCoeff; return $this; }
+
+    public function getVirtualSteerDisplayOrder(): ?int { return $this->virtualSteerDisplayOrder; }
+    public function setVirtualSteerDisplayOrder(?int $virtualSteerDisplayOrder): self { $this->virtualSteerDisplayOrder = $virtualSteerDisplayOrder; return $this; }
+
     // Mesh helper methods
     public function isMeshMaster(): bool { return $this->currentRole === 'master'; }
     public function isMeshSlave(): bool { return $this->currentRole === 'slave'; }
     public function isInMeshNetwork(): bool { return in_array($this->currentRole, ['master', 'slave']); }
+
+    // Device claiming helper methods
+    public function canBeClaimed(): bool
+    {
+        return $this->soldTo === null && $this->subscriptionGranted === false;
+    }
+
+    public function isClaimed(): bool
+    {
+        return $this->soldTo !== null || $this->firstActivatedBy !== null;
+    }
 
     // Display methods
     public function __toString(): string

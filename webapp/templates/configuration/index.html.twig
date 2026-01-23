@@ -1,0 +1,398 @@
+{# templates/configuration/index.html.twig #}
+{% extends 'base_app.html.twig' %}
+
+{% block title %}Configuration Manager{% endblock %}
+{% block header_page_title %}Truck & Trailer Configuration Manager{% endblock %}
+
+{% block body %}
+
+    <!-- Flash Messages -->
+    {% for type, messages in app.flashes %}
+      {% for message in messages %}
+        <div class="mx-4 mt-4 p-3 rounded-lg border-l-4 {% if type == 'success' %}bg-green-900/50 border-green-500 text-green-100{% elseif type == 'warning' %}bg-yellow-900/50 border-yellow-500 text-yellow-100{% else %}bg-red-900/50 border-red-500 text-red-100{% endif %}">
+          {{ message }}
+        </div>
+      {% endfor %}
+    {% endfor %}
+
+    <!-- Action Bar -->
+    <div class="mx-4 mt-4 flex items-center gap-3">
+      {# Add button #}
+      <button onclick="showAddForm()"
+              id="add-btn"
+              class="flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-2.5 bg-sky-600 hover:bg-sky-700 text-white text-sm font-medium rounded-lg transition-colors">
+        <i class="fas fa-plus"></i>
+        <span>Add</span>
+      </button>
+
+      {# Select/Delete button - toggles between modes #}
+      <button onclick="toggleSelectMode()"
+              id="select-btn"
+              class="flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-2.5 bg-gray-700 hover:bg-gray-600 text-white text-sm font-medium rounded-lg transition-colors">
+        <i class="fas fa-check-circle" id="select-icon"></i>
+        <span id="select-text">Select</span>
+      </button>
+
+      {# Selection count - shown when items selected #}
+      <span id="selection-count" class="text-sm text-gray-400 hidden">
+        <span id="count-num">0</span> selected
+      </span>
+
+      {# Cancel button - shown in select mode #}
+      <button onclick="exitSelectMode()"
+              id="cancel-btn"
+              class="hidden px-4 py-2.5 text-sm text-gray-400 hover:text-white transition-colors">
+        Cancel
+      </button>
+    </div>
+
+    <!-- Add Form (hidden by default) -->
+    <div id="add-form" class="mx-4 mt-3 hidden">
+      <form onsubmit="quickAddConfiguration(event)" class="flex gap-2">
+        <input type="text"
+               id="quick-add-name"
+               placeholder="Configuration name..."
+               class="flex-1 px-4 py-2 bg-gray-800 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-sky-500"
+               required>
+        <button type="submit"
+                class="px-4 py-2 bg-sky-600 hover:bg-sky-700 rounded-lg text-sm font-medium transition-colors">
+          Create
+        </button>
+        <button type="button"
+                onclick="hideAddForm()"
+                class="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm transition-colors">
+          Cancel
+        </button>
+      </form>
+    </div>
+
+    <section class="m-4">
+      {% if configurations|length == 0 %}
+        {# Empty state #}
+        <div class="p-8 text-center bg-gray-800 border border-gray-700 rounded-lg">
+          <div class="text-gray-400 mb-2">No configurations yet</div>
+          <div class="text-sm text-gray-500">Click "Add" above to create your first configuration</div>
+        </div>
+      {% else %}
+        {# Configuration list - sortable #}
+        <div id="config-list" class="space-y-3">
+          {% for config in configurations %}
+            <div class="config-item" data-config-id="{{ config.id }}">
+              {{ include('configuration/_config_card.html.twig', {config: config}) }}
+            </div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    </section>
+
+<script>
+// State
+let isSelectMode = false;
+let draggedItem = null;
+let dragStartY = 0;
+let dragStartIndex = 0;
+
+// Select mode functions
+function toggleSelectMode() {
+  if (isSelectMode) {
+    // If items are selected, delete them
+    const checkboxes = document.querySelectorAll('.config-select:checked');
+    if (checkboxes.length > 0) {
+      deleteSelected();
+    } else {
+      exitSelectMode();
+    }
+  } else {
+    enterSelectMode();
+  }
+}
+
+function enterSelectMode() {
+  isSelectMode = true;
+
+  // Show checkboxes
+  document.querySelectorAll('.config-select').forEach(cb => {
+    cb.classList.remove('hidden');
+  });
+
+  // Hide add button, show cancel
+  document.getElementById('add-btn').classList.add('hidden');
+  document.getElementById('cancel-btn').classList.remove('hidden');
+
+  // Update select button appearance
+  updateSelectButton();
+
+  // Hide drag handles in select mode
+  document.querySelectorAll('.drag-handle').forEach(h => h.classList.add('hidden'));
+}
+
+function exitSelectMode() {
+  isSelectMode = false;
+
+  // Hide and uncheck all checkboxes
+  document.querySelectorAll('.config-select').forEach(cb => {
+    cb.classList.add('hidden');
+    cb.checked = false;
+  });
+
+  // Show add button, hide cancel and selection count
+  document.getElementById('add-btn').classList.remove('hidden');
+  document.getElementById('cancel-btn').classList.add('hidden');
+  document.getElementById('selection-count').classList.add('hidden');
+
+  // Reset select button
+  const selectBtn = document.getElementById('select-btn');
+  selectBtn.classList.remove('bg-red-600', 'hover:bg-red-700');
+  selectBtn.classList.add('bg-gray-700', 'hover:bg-gray-600');
+  document.getElementById('select-icon').className = 'fas fa-check-circle';
+  document.getElementById('select-text').textContent = 'Select';
+
+  // Show drag handles again
+  document.querySelectorAll('.drag-handle').forEach(h => h.classList.remove('hidden'));
+}
+
+function updateSelection() {
+  const checkboxes = document.querySelectorAll('.config-select:checked');
+  const count = checkboxes.length;
+  const selectionCount = document.getElementById('selection-count');
+  const countNum = document.getElementById('count-num');
+
+  if (count > 0) {
+    selectionCount.classList.remove('hidden');
+    countNum.textContent = count;
+  } else {
+    selectionCount.classList.add('hidden');
+  }
+
+  updateSelectButton();
+}
+
+function updateSelectButton() {
+  const checkboxes = document.querySelectorAll('.config-select:checked');
+  const count = checkboxes.length;
+  const selectBtn = document.getElementById('select-btn');
+  const selectIcon = document.getElementById('select-icon');
+  const selectText = document.getElementById('select-text');
+
+  if (count > 0) {
+    // Delete mode
+    selectBtn.classList.remove('bg-gray-700', 'hover:bg-gray-600');
+    selectBtn.classList.add('bg-red-600', 'hover:bg-red-700');
+    selectIcon.className = 'fas fa-trash';
+    selectText.textContent = 'Delete';
+  } else if (isSelectMode) {
+    // Select mode but nothing selected
+    selectBtn.classList.remove('bg-red-600', 'hover:bg-red-700');
+    selectBtn.classList.add('bg-gray-700', 'hover:bg-gray-600');
+    selectIcon.className = 'fas fa-check-circle';
+    selectText.textContent = 'Select';
+  } else {
+    // Normal mode
+    selectBtn.classList.remove('bg-red-600', 'hover:bg-red-700');
+    selectBtn.classList.add('bg-gray-700', 'hover:bg-gray-600');
+    selectIcon.className = 'fas fa-check-circle';
+    selectText.textContent = 'Select';
+  }
+}
+
+function deleteSelected() {
+  const checkboxes = document.querySelectorAll('.config-select:checked');
+  const ids = Array.from(checkboxes).map(cb => cb.dataset.configId);
+
+  if (ids.length === 0) return;
+
+  const msg = ids.length === 1
+    ? 'Delete this configuration? This cannot be undone.'
+    : `Delete ${ids.length} configurations? This cannot be undone.`;
+
+  if (!confirm(msg)) return;
+
+  Promise.all(ids.map(id =>
+    fetch(`/configuration/${id}/delete`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' }
+    }).then(r => r.json())
+  ))
+  .then(results => {
+    const failed = results.filter(r => !r.success);
+    if (failed.length > 0) {
+      alert(`${failed.length} configuration(s) failed to delete`);
+    }
+    window.location.reload();
+  })
+  .catch(err => {
+    alert('Failed to delete configurations');
+    console.error(err);
+  });
+}
+
+// Drag and drop
+function initDragAndDrop() {
+  const container = document.getElementById('config-list');
+  if (!container) return;
+
+  const items = container.querySelectorAll('.config-item');
+
+  items.forEach((item) => {
+    const card = item.querySelector('.p-4');
+    if (card) {
+      const dragHandle = document.createElement('div');
+      dragHandle.className = 'drag-handle cursor-grab active:cursor-grabbing px-2 text-gray-500 hover:text-gray-300 touch-none';
+      dragHandle.innerHTML = '<i class="fas fa-grip-vertical"></i>';
+      dragHandle.setAttribute('draggable', 'false');
+
+      const flexContainer = card.querySelector('.flex');
+      if (flexContainer) {
+        flexContainer.insertBefore(dragHandle, flexContainer.firstChild);
+      }
+
+      dragHandle.addEventListener('mousedown', (e) => startDrag(e, item));
+      dragHandle.addEventListener('touchstart', (e) => startDrag(e, item), { passive: false });
+    }
+  });
+
+  document.addEventListener('mousemove', onDrag);
+  document.addEventListener('mouseup', endDrag);
+  document.addEventListener('touchmove', onDrag, { passive: false });
+  document.addEventListener('touchend', endDrag);
+}
+
+function startDrag(e, item) {
+  if (isSelectMode) return; // Don't drag in select mode
+  e.preventDefault();
+  draggedItem = item;
+
+  const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+  dragStartY = clientY;
+
+  const container = document.getElementById('config-list');
+  const items = Array.from(container.querySelectorAll('.config-item'));
+  dragStartIndex = items.indexOf(item);
+
+  item.classList.add('opacity-50', 'bg-sky-900/20');
+}
+
+function onDrag(e) {
+  if (!draggedItem) return;
+  e.preventDefault();
+
+  const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+  const container = document.getElementById('config-list');
+  const items = Array.from(container.querySelectorAll('.config-item'));
+
+  for (let i = 0; i < items.length; i++) {
+    const item = items[i];
+    if (item === draggedItem) continue;
+
+    const rect = item.getBoundingClientRect();
+    const midY = rect.top + rect.height / 2;
+
+    if (clientY < midY && items.indexOf(draggedItem) > i) {
+      container.insertBefore(draggedItem, item);
+      break;
+    } else if (clientY > midY && items.indexOf(draggedItem) < i) {
+      container.insertBefore(draggedItem, item.nextSibling);
+      break;
+    }
+  }
+}
+
+function endDrag() {
+  if (!draggedItem) return;
+
+  draggedItem.classList.remove('opacity-50', 'bg-sky-900/20');
+
+  const container = document.getElementById('config-list');
+  const items = Array.from(container.querySelectorAll('.config-item'));
+  const newIndex = items.indexOf(draggedItem);
+
+  if (newIndex !== dragStartIndex) {
+    saveOrder(items);
+  }
+
+  draggedItem = null;
+}
+
+function saveOrder(items) {
+  const order = items.map((item, index) => ({
+    id: parseInt(item.dataset.configId),
+    sortOrder: index
+  }));
+
+  fetch('/configuration/reorder', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ order: order })
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (!data.success) {
+      console.error('Failed to save order:', data.error);
+    }
+  })
+  .catch(err => {
+    console.error('Failed to save order:', err);
+  });
+}
+
+// Add form
+function showAddForm() {
+  document.getElementById('add-form').classList.remove('hidden');
+  document.getElementById('quick-add-name').focus();
+}
+
+function hideAddForm() {
+  document.getElementById('add-form').classList.add('hidden');
+  document.getElementById('quick-add-name').value = '';
+}
+
+function quickAddConfiguration(e) {
+  e.preventDefault();
+  const input = document.getElementById('quick-add-name');
+  const name = input.value.trim();
+
+  if (!name) return;
+
+  fetch('/configuration/quick-add', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: name })
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.success) {
+      window.location.reload();
+    } else {
+      alert('Error: ' + (data.error || 'Unknown error'));
+    }
+  })
+  .catch(err => {
+    alert('Failed to create configuration');
+    console.error(err);
+  });
+}
+
+function toggleDashboard(configId, isActive) {
+  fetch(`/configuration/${configId}/toggle-dashboard`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ isActive: isActive })
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (!data.success) {
+      document.getElementById(`dashboard-toggle-${configId}`).checked = !isActive;
+      alert('Error: ' + (data.error || 'Unknown error'));
+    }
+  })
+  .catch(err => {
+    document.getElementById(`dashboard-toggle-${configId}`).checked = !isActive;
+    alert('Failed to update configuration');
+    console.error(err);
+  });
+}
+
+// Initialize
+document.addEventListener('DOMContentLoaded', initDragAndDrop);
+</script>
+{% endblock %}

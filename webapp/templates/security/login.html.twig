@@ -1,28 +1,184 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}Log in!{% endblock %}
+{% block title %}Sign In - AirScales{% endblock %}
 
 {% block body %}
-<form method="post">
-    {% if error %}
-        <div class="alert alert-danger">{{ error.messageKey|trans(error.messageData, 'security') }}</div>
-    {% endif %}
-
-    {% if app.user %}
-        <div class="mb-3">
-            You are logged in as {{ app.user.userIdentifier }}, <a href="{{ path('app_logout') }}">Logout</a>
+<div class="bg-gray-900 text-gray-100 min-h-screen flex flex-col">
+  <!-- Navigation -->
+  <nav class="bg-gray-800 border-b border-gray-700">
+    <div class="container mx-auto px-6 py-4">
+      <div class="flex items-center justify-between">
+        <a href="{{ path('app_homepage') }}" class="text-2xl font-bold text-blue-400">AirScales</a>
+        <div class="flex items-center gap-4">
+          <a href="{{ path('app_homepage') }}" class="text-gray-300 hover:text-blue-400 transition">
+            <i class="fas fa-home mr-2"></i>Home
+          </a>
+          <a href="{{ path('app_register') }}" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition">
+            <i class="fas fa-user-plus mr-2"></i>Sign Up
+          </a>
         </div>
-    {% endif %}
+      </div>
+    </div>
+  </nav>
 
-    <h1 class="h3 mb-3 font-weight-normal">Please sign in</h1>
-    <label for="inputEmail">Email</label>
-    <input type="email" value="{{ last_username }}" name="email" id="inputEmail" class="form-control" autocomplete="email" required autofocus>
-    <label for="inputPassword">Password</label>
-    <input type="password" name="password" id="inputPassword" class="form-control" autocomplete="current-password" required>
-    <input type="hidden" name="_csrf_token" data-controller="csrf-protection" value="{{ csrf_token('authenticate') }}">
+  <!-- Login Form -->
+  <div class="flex-1 flex items-center justify-center px-6 py-12">
+    <div class="max-w-md w-full">
+      <!-- Logo/Header -->
+      <div class="text-center mb-8">
+        <h1 class="text-4xl font-bold text-white mb-2">Welcome Back</h1>
+        <p class="text-gray-400">Sign in to access your AirScales dashboard</p>
+      </div>
 
-    <button class="btn btn-lg btn-primary" type="submit">
-        Sign in
-    </button>
-</form>
+      <!-- Already Logged In Notice -->
+      {% if app.user %}
+        <div class="bg-blue-900/30 border border-blue-500 rounded-lg p-4 mb-6">
+          <div class="flex items-center justify-between">
+            <div class="text-blue-400">
+              <i class="fas fa-info-circle mr-2"></i>
+              You are logged in as <strong>{{ app.user.userIdentifier }}</strong>
+            </div>
+          </div>
+          <div class="mt-4 flex gap-3">
+            <a href="{{ path('app_dashboard') }}" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white text-center px-4 py-2 rounded-lg transition">
+              <i class="fas fa-gauge mr-2"></i>Go to Dashboard
+            </a>
+            <a href="{{ path('app_logout') }}" class="flex-1 bg-gray-600 hover:bg-gray-700 text-white text-center px-4 py-2 rounded-lg transition">
+              <i class="fas fa-sign-out-alt mr-2"></i>Logout
+            </a>
+          </div>
+        </div>
+      {% endif %}
+
+      <!-- Flash Messages -->
+      {% for label, messages in app.flashes %}
+        {% for message in messages %}
+          <div class="{% if label == 'success' %}bg-green-900/30 border-green-500 text-green-400{% elseif label == 'error' %}bg-red-900/30 border-red-500 text-red-400{% elseif label == 'warning' %}bg-yellow-900/30 border-yellow-500 text-yellow-400{% else %}bg-blue-900/30 border-blue-500 text-blue-400{% endif %} border rounded-lg p-4 mb-6">
+            <div class="flex items-start">
+              <i class="fas fa-{% if label == 'success' %}check-circle{% elseif label == 'error' %}exclamation-circle{% elseif label == 'warning' %}exclamation-triangle{% else %}info-circle{% endif %} mr-3 mt-1"></i>
+              <div>{{ message }}</div>
+            </div>
+          </div>
+        {% endfor %}
+      {% endfor %}
+
+      <!-- Error Message -->
+      {% if error %}
+        <div class="bg-red-900/30 border border-red-500 rounded-lg p-4 mb-6">
+          <div class="flex items-start">
+            <i class="fas fa-exclamation-circle text-red-400 mr-3 mt-1"></i>
+            <div class="text-red-400">
+              {{ error.messageKey|trans(error.messageData, 'security') }}
+            </div>
+          </div>
+        </div>
+      {% endif %}
+
+      <!-- Login Form Card -->
+      <div class="bg-gray-800 rounded-lg shadow-2xl border border-gray-700 p-8">
+        <form method="post">
+          <div class="space-y-6">
+            <!-- Email Field -->
+            <div>
+              <label for="inputEmail" class="block text-sm font-semibold text-gray-300 mb-2">
+                <i class="fas fa-envelope mr-2 text-blue-400"></i>Email Address
+              </label>
+              <input
+                type="email"
+                value="{{ last_username }}"
+                name="email"
+                id="inputEmail"
+                class="w-full bg-gray-900 border border-gray-700 text-white rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
+                autocomplete="email"
+                required
+                autofocus
+                placeholder="you@example.com"
+              >
+            </div>
+
+            <!-- Password Field -->
+            <div>
+              <label for="inputPassword" class="block text-sm font-semibold text-gray-300 mb-2">
+                <i class="fas fa-lock mr-2 text-blue-400"></i>Password
+              </label>
+              <input
+                type="password"
+                name="password"
+                id="inputPassword"
+                class="w-full bg-gray-900 border border-gray-700 text-white rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
+                autocomplete="current-password"
+                required
+                placeholder="Enter your password"
+              >
+            </div>
+
+            <!-- Remember Me & Forgot Password -->
+            <div class="flex items-center justify-between">
+              <div class="flex items-center">
+                <input
+                  type="checkbox"
+                  name="_remember_me"
+                  id="remember_me"
+                  class="w-4 h-4 text-blue-600 bg-gray-900 border-gray-700 rounded focus:ring-blue-500"
+                >
+                <label for="remember_me" class="ml-2 text-sm text-gray-400">
+                  Remember me
+                </label>
+              </div>
+              <a href="{{ path('app_forgot_password') }}" class="text-sm text-blue-400 hover:text-blue-300 transition">
+                Forgot password?
+              </a>
+            </div>
+
+            <!-- CSRF Token -->
+            <input type="hidden" name="_csrf_token" data-controller="csrf-protection" value="{{ csrf_token('authenticate') }}">
+
+            <!-- Submit Button -->
+            <button
+              type="submit"
+              class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-lg transition transform hover:scale-105"
+            >
+              <i class="fas fa-sign-in-alt mr-2"></i>Sign In
+            </button>
+          </div>
+        </form>
+
+        <!-- Divider -->
+        <div class="relative my-6">
+          <div class="absolute inset-0 flex items-center">
+            <div class="w-full border-t border-gray-700"></div>
+          </div>
+          <div class="relative flex justify-center text-sm">
+            <span class="px-4 bg-gray-800 text-gray-400">Don't have an account?</span>
+          </div>
+        </div>
+
+        <!-- Sign Up Link -->
+        <div class="text-center">
+          <a
+            href="{{ path('app_register') }}"
+            class="inline-block bg-gray-700 hover:bg-gray-600 text-white font-semibold px-6 py-3 rounded-lg transition"
+          >
+            <i class="fas fa-user-plus mr-2"></i>Create an Account
+          </a>
+        </div>
+      </div>
+
+      <!-- Additional Info -->
+      <div class="mt-8 text-center text-gray-400 text-sm">
+        <p>
+          <i class="fas fa-shield-alt mr-2 text-green-400"></i>
+          Your connection is secure and encrypted
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <footer class="bg-gray-800 border-t border-gray-700 py-6">
+    <div class="container mx-auto px-6 text-center text-gray-400 text-sm">
+      <p>&copy; {{ "now"|date("Y") }} Beaker.ca - AirScales. All rights reserved.</p>
+    </div>
+  </footer>
+</div>
 {% endblock %}

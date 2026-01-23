@@ -23,15 +23,34 @@ class CalibrationController extends AbstractController
     public function calibrateDevice(Device $device, Request $request, EntityManagerInterface $em, DeviceCalibrationRegressor $regressor): Response
     {
         $user = $this->getUser();
-        
+
         // Check if user has access to this device
-        $hasAccess = $device->getSoldTo() === $user || 
+        $hasAccess = $device->getSoldTo() === $user ||
                      $em->getRepository(\App\Entity\DeviceAccess::class)->findOneBy([
                          'device' => $device,
                          'user' => $user,
                          'isActive' => true
                      ]);
-        
+
+        // Also check vehicle-based access
+        if (!$hasAccess && $device->getVehicle()) {
+            $vehicle = $device->getVehicle();
+            // Check if user owns the vehicle
+            if ($vehicle->getCreatedBy() === $user) {
+                $hasAccess = true;
+            } else {
+                // Check if user is connected to the vehicle
+                $connection = $em->getRepository(\App\Entity\UserConnectedVehicle::class)->findOneBy([
+                    'user' => $user,
+                    'vehicle' => $vehicle,
+                    'isConnected' => true
+                ]);
+                if ($connection) {
+                    $hasAccess = true;
+                }
+            }
+        }
+
         if (!$hasAccess) {
             throw $this->createAccessDeniedException('You do not have access to this device.');
         }
@@ -50,16 +69,29 @@ class CalibrationController extends AbstractController
         $calibration->setDevice($device);
         // Set the user who created this calibration
         $calibration->setCreatedBy($user);
-        
+
+        // Default to Channel 1 if not specified
+        $calibration->setDeviceChannel($device->getChannel(1));
+
         // Pre-fill with latest sensor data if available
         if ($latestData) {
-            $calibration->setAirPressure($latestData->getMainAirPressure());
-            $calibration->setAmbientAirPressure($latestData->getAtmosphericPressure());
-            $calibration->setAirTemperature($latestData->getTemperature());
-            $calibration->setElevation($latestData->getElevation());
+            if ($latestData->getMainAirPressure() !== null) {
+                $calibration->setAirPressure($latestData->getMainAirPressure());
+            }
+            if ($latestData->getAtmosphericPressure() !== null) {
+                $calibration->setAmbientAirPressure($latestData->getAtmosphericPressure());
+            }
+            if ($latestData->getTemperature() !== null) {
+                $calibration->setAirTemperature($latestData->getTemperature());
+            }
+            if ($latestData->getElevation() !== null) {
+                $calibration->setElevation($latestData->getElevation());
+            }
         }
-        
-        $form = $this->createForm(CalibrationType::class, $calibration);
+
+        $form = $this->createForm(CalibrationType::class, $calibration, [
+            'device' => $device
+        ]);
         $form->handleRequest($request);
         
         if ($form->isSubmitted() && $form->isValid()) {
@@ -91,38 +123,97 @@ class CalibrationController extends AbstractController
     public function calibrationHistory(Device $device, EntityManagerInterface $em): Response
     {
         $user = $this->getUser();
-        
+
         // Check access
-        $hasAccess = $device->getSoldTo() === $user || 
+        $hasAccess = $device->getSoldTo() === $user ||
                      $em->getRepository(\App\Entity\DeviceAccess::class)->findOneBy([
                          'device' => $device,
                          'user' => $user,
                          'isActive' => true
                      ]);
-        
+
+        // Also check vehicle-based access
+        if (!$hasAccess && $device->getVehicle()) {
+            $vehicle = $device->getVehicle();
+            // Check if user owns the vehicle
+            if ($vehicle->getCreatedBy() === $user) {
+                $hasAccess = true;
+            } else {
+                // Check if user is connected to the vehicle
+                $connection = $em->getRepository(\App\Entity\UserConnectedVehicle::class)->findOneBy([
+                    'user' => $user,
+                    'vehicle' => $vehicle,
+                    'isConnected' => true
+                ]);
+                if ($connection) {
+                    $hasAccess = true;
+                }
+            }
+        }
+
         if (!$hasAccess) {
             throw $this->createAccessDeniedException('You do not have access to this device.');
         }
         
         $calibrations = $em->getRepository(Calibration::class)
             ->createQueryBuilder('c')
+            ->leftJoin('c.deviceChannel', 'dc')
+            ->addSelect('dc')
             ->where('c.device = :device')
             ->setParameter('device', $device)
-            ->orderBy('c.created_at', 'DESC')  // Using created_at from TimestampableTrait
+            ->orderBy('dc.channelIndex', 'ASC')
+            ->addOrderBy('c.created_at', 'DESC')
             ->getQuery()
             ->getResult();
-        
+
+        // Group calibrations by channel
+        $calibrationsByChannel = [];
+        foreach ($calibrations as $cal) {
+            $channelId = $cal->getDeviceChannel() ? $cal->getDeviceChannel()->getId() : 'unknown';
+            if (!isset($calibrationsByChannel[$channelId])) {
+                $calibrationsByChannel[$channelId] = [
+                    'channel' => $cal->getDeviceChannel(),
+                    'calibrations' => []
+                ];
+            }
+            $calibrationsByChannel[$channelId]['calibrations'][] = $cal;
+        }
+
+        // ALWAYS show all enabled channels (even if no calibrations yet) so the sections exist for linking
+        foreach ($device->getDeviceChannels() as $channel) {
+            if ($channel->isEnabled() && !isset($calibrationsByChannel[$channel->getId()])) {
+                $calibrationsByChannel[$channel->getId()] = [
+                    'channel' => $channel,
+                    'calibrations' => []
+                ];
+            }
+        }
+
+        // Sort by channel index
+        uasort($calibrationsByChannel, function($a, $b) {
+            $aIndex = $a['channel'] ? $a['channel']->getChannelIndex() : 999;
+            $bIndex = $b['channel'] ? $b['channel']->getChannelIndex() : 999;
+            return $aIndex <=> $bIndex;
+        });
+
+        // Get regression coefficients per channel
+        $channelCoeffs = [];
+        foreach ($device->getDeviceChannels() as $channel) {
+            $channelCoeffs[$channel->getId()] = [
+                'channel' => $channel,
+                'intercept' => $channel->getRegressionIntercept(),
+                'airPressure' => $channel->getRegressionAirPressureCoeff(),
+                'ambientPressure' => $channel->getRegressionAmbientPressureCoeff(),
+                'airTemp' => $channel->getRegressionAirTempCoeff(),
+                'rSquared' => $channel->getRegressionRsq(),
+                'rmse' => $channel->getRegressionRmse()
+            ];
+        }
+
         return $this->render('calibration/history.html.twig', [
             'device' => $device,
-            'calibrations' => $calibrations,
-            'regressionCoeffs' => [
-                'intercept' => $device->getRegressionIntercept(),
-                'airPressure' => $device->getRegressionAirPressureCoeff(),
-                'ambientPressure' => $device->getRegressionAmbientPressureCoeff(),
-                'airTemp' => $device->getRegressionAirTempCoeff(),
-                'rSquared' => $device->getRegressionRsq(),
-                'rmse' => $device->getRegressionRmse()
-            ]
+            'calibrationsByChannel' => $calibrationsByChannel,
+            'channelCoeffs' => $channelCoeffs
         ]);
     }
     
@@ -241,10 +332,36 @@ class CalibrationController extends AbstractController
     public function forceRegression(Device $device, EntityManagerInterface $em, DeviceCalibrationRegressor $regressor): JsonResponse
     {
         $user = $this->getUser();
-        
-        // Check access (only device owner can force regression)
-        if ($device->getSoldTo() !== $user) {
-            return new JsonResponse(['error' => 'Only device owner can force regression'], 403);
+
+        // Check access (device owner OR users with active access)
+        $hasAccess = $device->getSoldTo() === $user ||
+                     $em->getRepository(\App\Entity\DeviceAccess::class)->findOneBy([
+                         'device' => $device,
+                         'user' => $user,
+                         'isActive' => true
+                     ]);
+
+        // Also check vehicle-based access
+        if (!$hasAccess && $device->getVehicle()) {
+            $vehicle = $device->getVehicle();
+            // Check if user owns the vehicle
+            if ($vehicle->getCreatedBy() === $user) {
+                $hasAccess = true;
+            } else {
+                // Check if user is connected to the vehicle
+                $connection = $em->getRepository(\App\Entity\UserConnectedVehicle::class)->findOneBy([
+                    'user' => $user,
+                    'vehicle' => $vehicle,
+                    'isConnected' => true
+                ]);
+                if ($connection) {
+                    $hasAccess = true;
+                }
+            }
+        }
+
+        if (!$hasAccess) {
+            return new JsonResponse(['error' => 'Access denied'], 403);
         }
         
         $success = $regressor->run($device);
@@ -269,7 +386,119 @@ class CalibrationController extends AbstractController
             'message' => 'Not enough calibration data for regression analysis (minimum 2 points required)'
         ], 400);
     }
-    
+
+    #[Route('/device/{deviceId}/edit/{id}', name: 'calibration_edit', methods: ['GET', 'POST'])]
+    #[IsGranted('ROLE_USER')]
+    public function editCalibration(int $deviceId, int $id, Request $request, EntityManagerInterface $em, DeviceCalibrationRegressor $regressor): Response
+    {
+        $user = $this->getUser();
+        $device = $em->getRepository(Device::class)->find($deviceId);
+
+        if (!$device) {
+            throw $this->createNotFoundException('Device not found');
+        }
+
+        // Check access
+        $hasAccess = $device->getSoldTo() === $user ||
+                     $em->getRepository(\App\Entity\DeviceAccess::class)->findOneBy([
+                         'device' => $device,
+                         'user' => $user,
+                         'isActive' => true
+                     ]);
+
+        if (!$hasAccess) {
+            throw $this->createAccessDeniedException('You do not have access to this device.');
+        }
+
+        $calibration = $em->getRepository(Calibration::class)->find($id);
+
+        if (!$calibration || $calibration->getDevice() !== $device) {
+            throw $this->createNotFoundException('Calibration not found');
+        }
+
+        $form = $this->createForm(CalibrationType::class, $calibration, [
+            'device' => $device
+        ]);
+        $form->handleRequest($request);
+
+        if ($form->isSubmitted() && $form->isValid()) {
+            $em->flush();
+
+            // Recalculate regression
+            $regressionSuccess = $regressor->run($device);
+
+            if ($regressionSuccess) {
+                $this->addFlash('success', 'Calibration updated and regression model recalculated!');
+            } else {
+                $this->addFlash('warning', 'Calibration updated, but more data points are needed for regression analysis.');
+            }
+
+            return $this->redirectToRoute('device_calibration_history', ['id' => $device->getId()]);
+        }
+
+        return $this->render('calibration/edit.html.twig', [
+            'device' => $device,
+            'calibration' => $calibration,
+            'form' => $form
+        ]);
+    }
+
+    #[Route('/device/{deviceId}/delete/{id}', name: 'calibration_delete', methods: ['POST'])]
+    #[IsGranted('ROLE_USER')]
+    public function deleteCalibration(int $deviceId, int $id, EntityManagerInterface $em, DeviceCalibrationRegressor $regressor): JsonResponse
+    {
+        $user = $this->getUser();
+        $device = $em->getRepository(Device::class)->find($deviceId);
+
+        if (!$device) {
+            return new JsonResponse(['success' => false, 'message' => 'Device not found'], 404);
+        }
+
+        // Check access
+        $hasAccess = $device->getSoldTo() === $user ||
+                     $em->getRepository(\App\Entity\DeviceAccess::class)->findOneBy([
+                         'device' => $device,
+                         'user' => $user,
+                         'isActive' => true
+                     ]);
+
+        if (!$hasAccess) {
+            return new JsonResponse(['success' => false, 'message' => 'Access denied'], 403);
+        }
+
+        $calibration = $em->getRepository(Calibration::class)->find($id);
+
+        if (!$calibration || $calibration->getDevice() !== $device) {
+            return new JsonResponse(['success' => false, 'message' => 'Calibration not found'], 404);
+        }
+
+        // Delete calibration
+        $em->remove($calibration);
+        $em->flush();
+
+        // Recalculate regression with remaining points
+        $remainingCalibrations = $device->getCalibrations()->count();
+
+        if ($remainingCalibrations > 0) {
+            $regressor->run($device);
+        } else {
+            // No calibrations left, clear regression coefficients
+            $device->setRegressionIntercept(null);
+            $device->setRegressionAirPressureCoeff(null);
+            $device->setRegressionAmbientPressureCoeff(null);
+            $device->setRegressionAirTempCoeff(null);
+            $device->setRegressionRsq(null);
+            $device->setRegressionRmse(null);
+            $em->flush();
+        }
+
+        return new JsonResponse([
+            'success' => true,
+            'message' => 'Calibration deleted successfully',
+            'remaining_calibrations' => $remainingCalibrations
+        ]);
+    }
+
     private function formatTimeDifference(\DateTimeInterface $timestamp): string
     {
         $now = new \DateTime();

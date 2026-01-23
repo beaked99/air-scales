@@ -1,0 +1,65 @@
+{# templates/base_app.html.twig - Mobile-optimized base template for logged-in users #}
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5, user-scalable=yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#111827">
+    <title>{% block title %}Air Scales{% endblock %}</title>
+
+    {{ encore_entry_link_tags('app') }}
+
+    {% block stylesheets %}
+      <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+      <style>
+        /* Mobile touch optimization */
+        * {
+          -webkit-tap-highlight-color: rgba(0, 0, 0, 0.1);
+        }
+
+        /* Prevent text selection during drag */
+        .touch-none {
+          -webkit-user-select: none;
+          user-select: none;
+          -webkit-touch-callout: none;
+        }
+
+        /* Better touch targets */
+        .touch-manipulation {
+          touch-action: manipulation;
+        }
+
+        /* Smooth transitions for drag feedback */
+        .transition-all {
+          transition: all 0.15s ease-in-out;
+        }
+      </style>
+    {% endblock %}
+
+    {{ encore_entry_script_tags('app') }}
+
+    {% block javascripts %}{% endblock %}
+  </head>
+  <body class="bg-gray-900 text-gray-100">
+    <div class="min-h-screen text-white bg-gray-900">
+
+      {# Header - pass page_title variable #}
+      {% include '_app_header.html.twig' with {page_title: block('header_page_title')|default('Air Scales')} %}
+
+      <main class="pb-20">
+        {% block body %}{% endblock %}
+      </main>
+
+      {# Footer #}
+      {{ include('_app_footer.html.twig') }}
+
+    </div>
+  </body>
+</html>
+
+{% block header_page_title %}{% endblock %}
+{% block app_header_actions %}{% endblock %}
+{% block app_header_subtitle %}{% endblock %}

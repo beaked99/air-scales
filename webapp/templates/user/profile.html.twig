@@ -1,0 +1,656 @@
+{% extends 'base_app.html.twig' %}
+
+{% block title %}Profile - {{ user.fullName }}{% endblock %}
+{% block header_page_title %}My Profile{% endblock %}
+
+{% block body %}
+  <div class="max-w-4xl mx-auto p-4">
+
+    <!-- Success/Error Messages -->
+    <div id="message-container" class="mb-6 hidden">
+      <div id="success-message" class="bg-green-900/30 border border-green-500 rounded-lg p-4 mb-4 hidden">
+        <div class="flex items-center">
+          <i class="fas fa-check-circle text-green-400 text-xl mr-3"></i>
+          <span class="text-green-400 font-semibold" id="success-text"></span>
+        </div>
+      </div>
+      <div id="error-message" class="bg-red-900/30 border border-red-500 rounded-lg p-4 mb-4 hidden">
+        <div class="flex items-center">
+          <i class="fas fa-exclamation-circle text-red-400 text-xl mr-3"></i>
+          <span class="text-red-400 font-semibold" id="error-text"></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Account Information (Editable) -->
+    <div class="bg-gray-800 rounded-lg p-6 mb-6">
+      <h2 class="text-xl font-semibold text-white mb-4">Account Information</h2>
+      <form id="profile-form" class="space-y-4">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label for="first_name" class="block text-gray-400 text-sm mb-2">First Name</label>
+            <input
+              type="text"
+              id="first_name"
+              name="first_name"
+              value="{{ user.firstName }}"
+              class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:border-green-400"
+              required
+            >
+          </div>
+          <div>
+            <label for="last_name" class="block text-gray-400 text-sm mb-2">Last Name</label>
+            <input
+              type="text"
+              id="last_name"
+              name="last_name"
+              value="{{ user.lastName }}"
+              class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:border-green-400"
+              required
+            >
+          </div>
+        </div>
+        <div>
+          <label for="email" class="block text-gray-400 text-sm mb-2">Email</label>
+          <input
+            type="email"
+            id="email"
+            name="email"
+            value="{{ user.email }}"
+            class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:border-green-400"
+            required
+          >
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="text-gray-400 text-sm">Member Since:</span>
+          <span class="text-white">{{ user.createdAt|date('M j, Y') }}</span>
+        </div>
+        <button
+          type="submit"
+          class="bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-6 rounded"
+        >
+          Save Changes
+        </button>
+      </form>
+    </div>
+
+    <!-- Change Password -->
+    <div class="bg-gray-800 rounded-lg p-6 mb-6">
+      <h2 class="text-xl font-semibold text-white mb-4">Change Password</h2>
+      <form id="password-form" class="space-y-4">
+        <div>
+          <label for="current_password" class="block text-gray-400 text-sm mb-2">Current Password</label>
+          <input
+            type="password"
+            id="current_password"
+            name="current_password"
+            class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:border-green-400"
+            required
+          >
+        </div>
+        <div>
+          <label for="new_password" class="block text-gray-400 text-sm mb-2">New Password</label>
+          <input
+            type="password"
+            id="new_password"
+            name="new_password"
+            class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:border-green-400"
+            minlength="8"
+            required
+          >
+          <p class="text-xs text-gray-400 mt-1">Minimum 8 characters</p>
+        </div>
+        <div>
+          <label for="confirm_password" class="block text-gray-400 text-sm mb-2">Confirm New Password</label>
+          <input
+            type="password"
+            id="confirm_password"
+            name="confirm_password"
+            class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:border-green-400"
+            minlength="8"
+            required
+          >
+        </div>
+        <button
+          type="submit"
+          class="bg-yellow-600 hover:bg-yellow-700 text-white font-semibold py-2 px-6 rounded"
+        >
+          Change Password
+        </button>
+      </form>
+    </div>
+
+    <!-- Subscription Status -->
+    <div class="bg-gray-800 rounded-lg p-6 mb-6">
+      <h2 class="text-xl font-semibold text-white mb-4">Subscription Status</h2>
+
+      {% if not subscription %}
+        <!-- No Subscription -->
+        <div class="bg-yellow-900/30 border border-yellow-600 rounded-lg p-4 mb-4">
+          <div class="flex items-center">
+            <i class="fas fa-exclamation-triangle text-yellow-400 text-2xl mr-3"></i>
+            <div>
+              <div class="font-semibold text-yellow-400">No Active Subscription</div>
+              <div class="text-sm text-gray-300">Subscribe to view full weight readings</div>
+            </div>
+          </div>
+        </div>
+        <div class="flex gap-4">
+          <button
+            onclick="subscribeMonthly()"
+            class="bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-6 rounded"
+          >
+            Subscribe Now - $5/month
+          </button>
+          <button
+            onclick="subscribeYearly()"
+            class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-6 rounded"
+          >
+            Subscribe Yearly - $50/year (Save $10!)
+          </button>
+        </div>
+      {% else %}
+        <!-- Has Subscription -->
+
+        {% if isPromotional %}
+          <!-- Promotional/Legacy User -->
+          <div class="bg-purple-900/30 border border-purple-500 rounded-lg p-4 mb-4">
+            <div class="flex items-center">
+              <i class="fas fa-crown text-purple-400 text-2xl mr-3"></i>
+              <div>
+                <div class="font-semibold text-purple-400">Legacy Account</div>
+                <div class="text-sm text-gray-300">You have unlimited free access to all features</div>
+              </div>
+            </div>
+          </div>
+        {% elseif hasDeviceTrial and deviceTrialEndsAt %}
+          <!-- Device Trial Period -->
+          <div class="bg-blue-900/30 border border-blue-500 rounded-lg p-4 mb-4">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center">
+                <i class="fas fa-gift text-blue-400 text-2xl mr-3"></i>
+                <div>
+                  <div class="font-semibold text-blue-400">6-Month Device Trial</div>
+                  <div class="text-sm text-gray-300">Included with device purchase</div>
+                </div>
+              </div>
+              <div class="text-right">
+                {% if daysRemaining > 30 %}
+                  <div class="text-blue-400 font-bold">{{ (daysRemaining / 30)|round }} months left</div>
+                {% elseif daysRemaining > 0 %}
+                  <div class="text-yellow-400 font-bold">{{ daysRemaining }} days left</div>
+                {% else %}
+                  <div class="text-red-400 font-bold">Expired</div>
+                {% endif %}
+                <div class="text-xs text-gray-400">Expires {{ deviceTrialEndsAt|date('M j, Y') }}</div>
+              </div>
+            </div>
+          </div>
+          <div class="flex gap-4">
+            <button
+              onclick="subscribeMonthly()"
+              class="bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded"
+            >
+              Subscribe Monthly - $5/mo
+            </button>
+            <button
+              onclick="subscribeYearly()"
+              class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded"
+            >
+              Subscribe Yearly - $50/yr
+            </button>
+          </div>
+        {% elseif subscriptionStatus == 'active' %}
+          <!-- Active Paid Subscription -->
+          <div class="bg-green-900/30 border border-green-500 rounded-lg p-4 mb-4">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center">
+                <i class="fas fa-check-circle text-green-400 text-2xl mr-3"></i>
+                <div>
+                  <div class="font-semibold text-green-400">Active Subscription</div>
+                  <div class="text-sm text-gray-300">
+                    {{ subscription.planType|capitalize|default('Monthly') }} Plan - ${{ subscription.planType == 'yearly' ? '50/year' : '5/month' }}
+                  </div>
+                </div>
+              </div>
+              {% if expiresAt %}
+              <div class="text-right">
+                <div class="text-green-400 font-bold">{{ daysRemaining }} days left</div>
+                <div class="text-xs text-gray-400">Renews {{ expiresAt|date('M j, Y') }}</div>
+              </div>
+              {% endif %}
+            </div>
+          </div>
+          {% if subscription.scheduledPlanType %}
+          <div class="bg-yellow-900/30 border border-yellow-500 rounded-lg p-3 mb-4">
+            <div class="flex items-center justify-between">
+              <div class="text-yellow-400 text-sm">
+                <i class="fas fa-clock mr-2"></i>
+                Scheduled to {% if subscription.scheduledPlanType == 'yearly' %}upgrade to yearly{% else %}downgrade to monthly{% endif %} on {{ subscription.scheduledChangeEffectiveAt|date('M j, Y') }}
+              </div>
+            </div>
+          </div>
+          {% endif %}
+          <div class="flex gap-4">
+            <button
+              onclick="openStripePortal()"
+              class="bg-gray-600 hover:bg-gray-700 text-white font-semibold py-2 px-4 rounded"
+            >
+              <i class="fas fa-credit-card mr-2"></i>Manage Payment Method
+            </button>
+            {% if subscription.scheduledPlanType %}
+            <button
+              onclick="cancelScheduledChange()"
+              class="bg-orange-600 hover:bg-orange-700 text-white font-semibold py-2 px-4 rounded"
+            >
+              <i class="fas fa-undo mr-2"></i>Cancel Scheduled Change
+            </button>
+            {% elseif subscription.planType == 'monthly' %}
+            <button
+              onclick="upgradeToYearly()"
+              class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded"
+            >
+              <i class="fas fa-arrow-up mr-2"></i>Upgrade to Yearly (Save $10)
+            </button>
+            {% elseif subscription.planType == 'yearly' %}
+            <button
+              onclick="downgradeToMonthly()"
+              class="bg-yellow-600 hover:bg-yellow-700 text-white font-semibold py-2 px-4 rounded"
+            >
+              <i class="fas fa-arrow-down mr-2"></i>Downgrade to Monthly
+            </button>
+            {% endif %}
+            <button
+              onclick="cancelSubscription()"
+              class="bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded"
+            >
+              <i class="fas fa-times mr-2"></i>Cancel Subscription
+            </button>
+          </div>
+        {% elseif subscriptionStatus == 'canceled' %}
+          <!-- Canceled - In Grace Period -->
+          <div class="bg-orange-900/30 border border-orange-500 rounded-lg p-4 mb-4">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center">
+                <i class="fas fa-exclamation-circle text-orange-400 text-2xl mr-3"></i>
+                <div>
+                  <div class="font-semibold text-orange-400">Subscription Canceled</div>
+                  <div class="text-sm text-gray-300">Your subscription will not renew</div>
+                </div>
+              </div>
+              {% if daysRemaining %}
+              <div class="text-right">
+                <div class="text-orange-400 font-bold">{{ daysRemaining }} days left</div>
+                <div class="text-xs text-gray-400">Access ends {{ expiresAt|date('M j, Y') }}</div>
+              </div>
+              {% endif %}
+            </div>
+          </div>
+          <button
+            onclick="reactivateSubscription()"
+            class="bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded"
+          >
+            <i class="fas fa-redo mr-2"></i>Reactivate Subscription
+          </button>
+        {% elseif subscriptionStatus == 'past_due' %}
+          <!-- Past Due -->
+          <div class="bg-red-900/30 border border-red-500 rounded-lg p-4 mb-4">
+            <div class="flex items-center">
+              <i class="fas fa-exclamation-triangle text-red-400 text-2xl mr-3"></i>
+              <div>
+                <div class="font-semibold text-red-400">Payment Failed</div>
+                <div class="text-sm text-gray-300">Please update your payment method</div>
+              </div>
+            </div>
+          </div>
+          <button
+            onclick="openStripePortal()"
+            class="bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded"
+          >
+            <i class="fas fa-credit-card mr-2"></i>Update Payment Method
+          </button>
+        {% elseif subscriptionStatus == 'inactive' %}
+          <!-- Inactive Subscription -->
+          <div class="bg-yellow-900/30 border border-yellow-600 rounded-lg p-4 mb-4">
+            <div class="flex items-center">
+              <i class="fas fa-exclamation-triangle text-yellow-400 text-2xl mr-3"></i>
+              <div>
+                <div class="font-semibold text-yellow-400">No Active Subscription</div>
+                <div class="text-sm text-gray-300">Subscribe to view full weight readings</div>
+              </div>
+            </div>
+          </div>
+          <div class="flex gap-4">
+            <button
+              onclick="subscribeMonthly()"
+              class="bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-6 rounded"
+            >
+              Subscribe Now - $5/month
+            </button>
+            <button
+              onclick="subscribeYearly()"
+              class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-6 rounded"
+            >
+              Subscribe Yearly - $50/year (Save $10!)
+            </button>
+          </div>
+        {% else %}
+          <!-- Other Status -->
+          <div class="bg-gray-700 rounded-lg p-4">
+            <div class="text-gray-300">
+              Status: <span class="font-semibold">{{ subscriptionStatus|capitalize }}</span>
+            </div>
+          </div>
+        {% endif %}
+
+      {% endif %}
+    </div>
+
+    <!-- Devices & Usage -->
+    <div class="bg-gray-800 rounded-lg p-6 mb-6">
+      <h2 class="text-xl font-semibold text-white mb-4">My Devices & Usage</h2>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div class="bg-gray-700 rounded-lg p-4">
+          <div class="text-gray-400 text-sm">Owned Devices</div>
+          <div class="text-2xl font-bold text-white">{{ user.devices|length }}</div>
+        </div>
+        <div class="bg-gray-700 rounded-lg p-4">
+          <div class="text-gray-400 text-sm">My Vehicles</div>
+          <div class="text-2xl font-bold text-white">{{ user.vehicles|length }}</div>
+        </div>
+        <div class="bg-gray-700 rounded-lg p-4">
+          <div class="text-gray-400 text-sm">Account Type</div>
+          <div class="text-lg font-bold text-green-400">
+            {% if isPromotional %}
+              Legacy
+            {% elseif hasDeviceTrial %}
+              Trial
+            {% elseif subscription and subscriptionStatus == 'active' %}
+              Pro
+            {% else %}
+              Free
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+<script>
+// Profile Update
+document.getElementById('profile-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+
+  const formData = {
+    first_name: document.getElementById('first_name').value,
+    last_name: document.getElementById('last_name').value,
+    email: document.getElementById('email').value
+  };
+
+  try {
+    const response = await fetch('{{ path('profile_update') }}', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(formData)
+    });
+
+    const data = await response.json();
+
+    if (data.success) {
+      showSuccess(data.message);
+    } else {
+      showError(data.error || 'Update failed');
+    }
+  } catch (error) {
+    showError('Network error');
+  }
+});
+
+// Password Change
+document.getElementById('password-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+
+  const currentPassword = document.getElementById('current_password').value;
+  const newPassword = document.getElementById('new_password').value;
+  const confirmPassword = document.getElementById('confirm_password').value;
+
+  if (newPassword !== confirmPassword) {
+    showError('New passwords do not match');
+    return;
+  }
+
+  try {
+    const response = await fetch('{{ path('profile_change_password') }}', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        current_password: currentPassword,
+        new_password: newPassword
+      })
+    });
+
+    const data = await response.json();
+
+    if (data.success) {
+      showSuccess(data.message);
+      document.getElementById('password-form').reset();
+    } else {
+      showError(data.error || 'Password change failed');
+    }
+  } catch (error) {
+    showError('Network error');
+  }
+});
+
+// Subscription Actions
+async function cancelSubscription() {
+  if (!confirm('Are you sure you want to cancel your subscription? You will retain access until the end of your current billing period.')) {
+    return;
+  }
+
+  try {
+    const response = await fetch('{{ path('subscription_cancel') }}', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' }
+    });
+
+    const data = await response.json();
+
+    if (data.success) {
+      showSuccess(data.message);
+      setTimeout(() => location.reload(), 2000);
+    } else {
+      showError(data.error || 'Cancellation failed');
+    }
+  } catch (error) {
+    showError('Network error');
+  }
+}
+
+async function reactivateSubscription() {
+  try {
+    const response = await fetch('{{ path('subscription_reactivate') }}', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' }
+    });
+
+    const data = await response.json();
+
+    if (data.success) {
+      showSuccess(data.message);
+      setTimeout(() => location.reload(), 2000);
+    } else {
+      showError(data.error || 'Reactivation failed');
+    }
+  } catch (error) {
+    showError('Network error');
+  }
+}
+
+async function openStripePortal() {
+  try {
+    const response = await fetch('{{ path('subscription_portal') }}');
+    const data = await response.json();
+
+    if (data.url) {
+      // Redirect to Stripe Customer Portal
+      window.location.href = data.url;
+    } else if (data.error) {
+      showError(data.error);
+    }
+  } catch (error) {
+    showError('Network error');
+  }
+}
+
+async function upgradeToYearly() {
+  if (!confirm('Upgrade to yearly plan? This will take effect at your next renewal date. You\'ll save $10/year!')) {
+    return;
+  }
+
+  try {
+    const response = await fetch('{{ path('subscription_upgrade_yearly') }}', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' }
+    });
+
+    const data = await response.json();
+
+    if (data.success) {
+      showSuccess(data.message);
+      setTimeout(() => location.reload(), 2000);
+    } else {
+      showError(data.error || 'Upgrade failed');
+    }
+  } catch (error) {
+    showError('Network error');
+  }
+}
+
+async function downgradeToMonthly() {
+  if (!confirm('Downgrade to monthly plan? This will take effect at your next renewal date.')) {
+    return;
+  }
+
+  try {
+    const response = await fetch('{{ path('subscription_downgrade_monthly') }}', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' }
+    });
+
+    const data = await response.json();
+
+    if (data.success) {
+      showSuccess(data.message);
+      setTimeout(() => location.reload(), 2000);
+    } else {
+      showError(data.error || 'Downgrade failed');
+    }
+  } catch (error) {
+    showError('Network error');
+  }
+}
+
+async function cancelScheduledChange() {
+  if (!confirm('Cancel your scheduled plan change? You will remain on your current plan.')) {
+    return;
+  }
+
+  try {
+    const response = await fetch('{{ path('subscription_cancel_scheduled_change') }}', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' }
+    });
+
+    const data = await response.json();
+
+    if (data.success) {
+      showSuccess(data.message);
+      setTimeout(() => location.reload(), 2000);
+    } else {
+      showError(data.error || 'Cancellation failed');
+    }
+  } catch (error) {
+    showError('Network error');
+  }
+}
+
+async function subscribeMonthly() {
+  try {
+    const response = await fetch('{{ path('subscription_checkout_monthly') }}', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
+
+    const data = await response.json();
+
+    if (data.url) {
+      // Redirect to Stripe Checkout
+      window.location.href = data.url;
+    } else if (data.error) {
+      showError(data.error);
+    }
+  } catch (error) {
+    showError('Failed to start checkout. Please try again.');
+  }
+}
+
+async function subscribeYearly() {
+  try {
+    const response = await fetch('{{ path('subscription_checkout_yearly') }}', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
+
+    const data = await response.json();
+
+    if (data.url) {
+      // Redirect to Stripe Checkout
+      window.location.href = data.url;
+    } else if (data.error) {
+      showError(data.error);
+    }
+  } catch (error) {
+    showError('Failed to start checkout. Please try again.');
+  }
+}
+
+// Message Display
+function showSuccess(message) {
+  const container = document.getElementById('message-container');
+  const successDiv = document.getElementById('success-message');
+  const errorDiv = document.getElementById('error-message');
+
+  document.getElementById('success-text').textContent = message;
+  container.classList.remove('hidden');
+  successDiv.classList.remove('hidden');
+  errorDiv.classList.add('hidden');
+
+  setTimeout(() => {
+    successDiv.classList.add('hidden');
+    container.classList.add('hidden');
+  }, 5000);
+}
+
+function showError(message) {
+  const container = document.getElementById('message-container');
+  const successDiv = document.getElementById('success-message');
+  const errorDiv = document.getElementById('error-message');
+
+  document.getElementById('error-text').textContent = message;
+  container.classList.remove('hidden');
+  errorDiv.classList.remove('hidden');
+  successDiv.classList.add('hidden');
+
+  setTimeout(() => {
+    errorDiv.classList.add('hidden');
+    container.classList.add('hidden');
+  }, 5000);
+}
+</script>
+{% endblock %}

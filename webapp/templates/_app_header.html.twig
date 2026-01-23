@@ -1,0 +1,23 @@
+{# templates/_app_header.html.twig - Reusable header for logged-in app pages #}
+{% set current_route = app.request.attributes.get('_route') %}
+
+<header class="sticky top-0 z-50 px-4 py-3 bg-gray-800 border-b border-gray-700 shadow-md">
+  <div class="flex items-center justify-between">
+    <div class="flex items-center gap-3 flex-1 min-w-0">
+      <h1 class="text-xl font-semibold text-white">{{ page_title|default('Air Scales') }}</h1>
+    </div>
+
+    <div class="flex items-center gap-3 flex-shrink-0">
+      {% block header_actions %}{% endblock %}
+
+      {# User profile link #}
+      <a href="{{ path('user_profile') }}"
+         class="flex items-center gap-2 px-3 py-2 text-sm rounded-lg transition-colors {% if current_route == 'user_profile' %}bg-sky-600 text-white{% else %}text-gray-300 hover:bg-gray-700{% endif %}"
+         title="Profile">
+        <i class="fas fa-user-circle text-lg"></i>
+        <span class="hidden sm:inline">{{ app.user.firstName ?? 'Account' }}</span>
+      </a>
+    </div>
+  </div>
+  {% block header_subtitle %}{% endblock %}
+</header>

@@ -1,0 +1,326 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ vehicle }} - Vehicle Details{% endblock %}
+
+{% block body %}
+<div class="min-h-screen bg-gray-900 text-gray-100 p-6">
+  <div class="max-w-7xl mx-auto">
+    <!-- Header -->
+    <div class="flex justify-between items-center mb-6">
+      <h1 class="text-3xl font-bold text-green-400">{{ vehicle }}</h1>
+      <div class="flex gap-2">
+        <button id="edit-vehicle-btn" class="bg-yellow-600 hover:bg-yellow-700 text-white font-semibold py-2 px-4 rounded">
+          Edit Vehicle
+        </button>
+        <a href="{{ path('vehicles') }}" class="bg-gray-600 hover:bg-gray-700 text-white font-semibold py-2 px-4 rounded">
+          ← Back to Vehicles
+        </a>
+      </div>
+    </div>
+
+    <!-- Vehicle Information Card -->
+    <div class="bg-gray-800 rounded-lg p-6 mb-8">
+      <h2 class="text-xl font-semibold text-white mb-4">Vehicle Information</h2>
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
+        {% if vehicle.nickname %}
+          <div>
+            <span class="text-gray-400">Nickname:</span>
+            <span class="text-gray-100 ml-2 font-semibold italic">"{{ vehicle.nickname }}"</span>
+          </div>
+        {% endif %}
+        <div>
+          <span class="text-gray-400">Year:</span>
+          <span class="text-gray-100 ml-2">{{ vehicle.year }}</span>
+        </div>
+        <div>
+          <span class="text-gray-400">Make:</span>
+          <span class="text-gray-100 ml-2">{{ vehicle.make }}</span>
+        </div>
+        <div>
+          <span class="text-gray-400">Model:</span>
+          <span class="text-gray-100 ml-2">{{ vehicle.model }}</span>
+        </div>
+        {% if vehicle.vin %}
+          <div>
+            <span class="text-gray-400">VIN:</span>
+            <span class="text-gray-100 ml-2 font-mono">{{ vehicle.vin }}</span>
+          </div>
+        {% endif %}
+        {% if vehicle.licensePlate %}
+          <div>
+            <span class="text-gray-400">License Plate:</span>
+            <span class="text-gray-100 ml-2 font-mono">{{ vehicle.licensePlate }}</span>
+          </div>
+        {% endif %}
+        <div>
+          <span class="text-gray-400">Created:</span>
+          <span class="text-gray-100 ml-2">{{ vehicle.createdAt|date('M j, Y') }}</span>
+        </div>
+        {% if vehicle.lastSeen %}
+          <div>
+            <span class="text-gray-400">Last Seen:</span>
+            <span class="text-gray-100 ml-2">{{ vehicle.lastSeen|date('M j, Y g:i A') }}</span>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Attached Devices -->
+    <div class="bg-gray-800 rounded-lg mb-8">
+      <div class="p-6 border-b border-gray-700">
+        <h2 class="text-xl font-semibold text-white">Attached Devices ({{ vehicle.devices|length }})</h2>
+      </div>
+
+      {% if vehicle.devices|length > 0 %}
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead class="bg-gray-700">
+              <tr>
+                <th class="p-3 text-left text-gray-200">Device</th>
+                <th class="p-3 text-left text-gray-200">Serial Number</th>
+                <th class="p-3 text-left text-gray-200">MAC Address</th>
+                <th class="p-3 text-center text-gray-200">Calibrations</th>
+                <th class="p-3 text-center text-gray-200">Status</th>
+                <th class="p-3 text-center text-gray-200">Actions</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-700">
+              {% for device in vehicle.devices %}
+                <tr class="hover:bg-gray-750">
+                  <td class="p-3 text-gray-100">
+                    <a href="{{ path('device_detail', {id: device.id}) }}" class="text-blue-400 hover:text-blue-300">
+                      Device #{{ device.id }}
+                    </a>
+                  </td>
+                  <td class="p-3 text-gray-300 font-mono">{{ device.serialNumber ?: 'N/A' }}</td>
+                  <td class="p-3 text-gray-300 font-mono">{{ device.macAddress ?: 'N/A' }}</td>
+                  <td class="p-3 text-center">
+                    {% set calibrationCount = device.calibrations|length %}
+                    {% if calibrationCount > 0 %}
+                      <a href="{{ path('device_calibration_history', {id: device.id}) }}"
+                         class="text-green-400 hover:text-green-300 font-semibold">
+                        {{ calibrationCount }} point{{ calibrationCount > 1 ? 's' : '' }}
+                      </a>
+                    {% else %}
+                      <span class="text-gray-500">None</span>
+                    {% endif %}
+                  </td>
+                  <td class="p-3 text-center">
+                    {% if device.regressionIntercept is not null %}
+                      <span class="text-green-400 text-xs font-semibold px-2 py-1 bg-green-900 rounded">
+                        Calibrated
+                      </span>
+                    {% else %}
+                      <span class="text-yellow-400 text-xs font-semibold px-2 py-1 bg-yellow-900 rounded">
+                        Needs Calibration
+                      </span>
+                    {% endif %}
+                  </td>
+                  <td class="p-3 text-center">
+                    <div class="flex items-center justify-center gap-2">
+                      <a href="{{ path('device_detail', {id: device.id}) }}"
+                         class="text-blue-400 hover:text-blue-300 text-sm">
+                        View
+                      </a>
+                      <button class="detach-device-btn text-red-400 hover:text-red-300 text-sm"
+                              data-device-id="{{ device.id }}"
+                              data-device-name="Device #{{ device.id }}"
+                              data-calibration-count="{{ calibrationCount }}">
+                        Detach
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <div class="p-6 text-center">
+          <p class="text-gray-400 mb-4">No devices attached to this vehicle</p>
+          <p class="text-gray-500 text-sm">Devices can be assigned from the device detail page</p>
+        </div>
+      {% endif %}
+    </div>
+
+    <!-- Navigation -->
+    <div class="text-center space-x-4">
+      <a href="{{ path('vehicles') }}" class="text-blue-400 hover:text-blue-200">
+        ← Back to Vehicles
+      </a>
+      <a href="{{ path('app_dashboard') }}" class="text-blue-400 hover:text-blue-200">
+        Dashboard
+      </a>
+    </div>
+  </div>
+</div>
+
+<!-- Edit Vehicle Modal -->
+<div id="vehicle-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+  <div class="bg-gray-800 rounded-lg p-6 w-full max-w-md">
+    <h2 class="text-2xl font-bold text-white mb-4">Edit Vehicle</h2>
+
+    <form id="vehicle-form">
+      <div class="space-y-4">
+        <div>
+          <label class="block text-gray-300 text-sm font-semibold mb-2">Year *</label>
+          <input type="number" id="vehicle-year" min="1900" max="2100" required
+                 value="{{ vehicle.year }}"
+                 class="w-full bg-gray-700 text-white px-4 py-2 rounded border border-gray-600 focus:border-green-500 focus:outline-none">
+        </div>
+
+        <div>
+          <label class="block text-gray-300 text-sm font-semibold mb-2">Make *</label>
+          <input type="text" id="vehicle-make" required
+                 value="{{ vehicle.make }}"
+                 class="w-full bg-gray-700 text-white px-4 py-2 rounded border border-gray-600 focus:border-green-500 focus:outline-none">
+        </div>
+
+        <div>
+          <label class="block text-gray-300 text-sm font-semibold mb-2">Model *</label>
+          <input type="text" id="vehicle-model" required
+                 value="{{ vehicle.model }}"
+                 class="w-full bg-gray-700 text-white px-4 py-2 rounded border border-gray-600 focus:border-green-500 focus:outline-none">
+        </div>
+
+        <div>
+          <label class="block text-gray-300 text-sm font-semibold mb-2">Nickname</label>
+          <input type="text" id="vehicle-nickname" placeholder="e.g., Big Red, Unit 42"
+                 value="{{ vehicle.nickname }}"
+                 class="w-full bg-gray-700 text-white px-4 py-2 rounded border border-gray-600 focus:border-green-500 focus:outline-none">
+        </div>
+
+        <div>
+          <label class="block text-gray-300 text-sm font-semibold mb-2">VIN</label>
+          <input type="text" id="vehicle-vin" maxlength="17" placeholder="17-character VIN"
+                 value="{{ vehicle.vin }}"
+                 class="w-full bg-gray-700 text-white px-4 py-2 rounded border border-gray-600 focus:border-green-500 focus:outline-none font-mono">
+        </div>
+
+        <div>
+          <label class="block text-gray-300 text-sm font-semibold mb-2">License Plate</label>
+          <input type="text" id="vehicle-license-plate" placeholder="ABC-1234"
+                 value="{{ vehicle.licensePlate }}"
+                 class="w-full bg-gray-700 text-white px-4 py-2 rounded border border-gray-600 focus:border-green-500 focus:outline-none font-mono">
+        </div>
+      </div>
+
+      <div class="flex gap-4 mt-6">
+        <button type="submit" class="flex-1 bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded">
+          Save Changes
+        </button>
+        <button type="button" id="cancel-modal-btn" class="flex-1 bg-gray-600 hover:bg-gray-700 text-white font-semibold py-2 px-4 rounded">
+          Cancel
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+const vehicleId = {{ vehicle.id }};
+const modal = document.getElementById('vehicle-modal');
+const vehicleForm = document.getElementById('vehicle-form');
+
+// Edit vehicle button
+document.getElementById('edit-vehicle-btn')?.addEventListener('click', () => {
+  modal.classList.remove('hidden');
+});
+
+// Cancel button
+document.getElementById('cancel-modal-btn')?.addEventListener('click', () => {
+  modal.classList.add('hidden');
+});
+
+// Close modal on outside click
+modal?.addEventListener('click', function(e) {
+  if (e.target === modal) {
+    modal.classList.add('hidden');
+  }
+});
+
+// Form submission
+vehicleForm?.addEventListener('submit', function(e) {
+  e.preventDefault();
+
+  const data = {
+    year: parseInt(document.getElementById('vehicle-year').value),
+    make: document.getElementById('vehicle-make').value.trim(),
+    model: document.getElementById('vehicle-model').value.trim(),
+    nickname: document.getElementById('vehicle-nickname').value.trim() || null,
+    vin: document.getElementById('vehicle-vin').value.trim().toUpperCase() || null,
+    license_plate: document.getElementById('vehicle-license-plate').value.trim().toUpperCase() || null
+  };
+
+  fetch(`/api/vehicle/update/${vehicleId}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(data)
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.success) {
+      alert('Vehicle updated successfully!');
+      location.reload();
+    } else {
+      alert('Error: ' + (data.message || 'Failed to update vehicle'));
+    }
+  })
+  .catch(error => {
+    console.error('Error:', error);
+    alert('Failed to update vehicle');
+  });
+});
+
+// Detach device buttons
+document.querySelectorAll('.detach-device-btn').forEach(btn => {
+  btn.addEventListener('click', function() {
+    const deviceId = this.dataset.deviceId;
+    const deviceName = this.dataset.deviceName;
+    const calibrationCount = parseInt(this.dataset.calibrationCount);
+
+    let message = `Detach ${deviceName} from this vehicle?`;
+
+    if (calibrationCount > 0) {
+      message += `\n\n⚠️ WARNING: This device has ${calibrationCount} calibration point${calibrationCount > 1 ? 's' : ''}.\nAll calibration data will be permanently deleted!`;
+    }
+
+    message += '\n\nThis action cannot be undone.';
+
+    if (!confirm(message)) {
+      return;
+    }
+
+    const button = this;
+    button.disabled = true;
+    button.textContent = 'Detaching...';
+
+    fetch(`/api/vehicle/detach-device/${deviceId}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.success) {
+        alert(data.message);
+        location.reload();
+      } else {
+        alert('Error: ' + (data.message || 'Failed to detach device'));
+        button.disabled = false;
+        button.textContent = 'Detach';
+      }
+    })
+    .catch(error => {
+      console.error('Error:', error);
+      alert('Failed to detach device');
+      button.disabled = false;
+      button.textContent = 'Detach';
+    });
+  });
+});
+</script>
+{% endblock %}

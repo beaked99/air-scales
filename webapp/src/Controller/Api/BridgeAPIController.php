@@ -5,8 +5,12 @@ namespace App\Controller\Api;
 use App\Entity\Device;
 use App\Entity\DeviceAccess;
 use App\Entity\MicroData;
+use App\Entity\MicroDataChannel;
 use App\Entity\User;
 use App\Entity\UserConnectedVehicle;
+use App\Entity\Vehicle;
+use App\Service\DeviceChannelService;
+use App\Service\VirtualSteerCalculator;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -19,12 +23,17 @@ use Psr\Log\LoggerInterface;
 class BridgeAPIController extends AbstractController
 {
     #[Route('/register', name: 'register', methods: ['POST'])]
-    public function register(Request $request, EntityManagerInterface $em, LoggerInterface $logger): JsonResponse
+    public function register(
+        Request $request,
+        EntityManagerInterface $em,
+        LoggerInterface $logger,
+        DeviceChannelService $channelService,
+        VirtualSteerCalculator $virtualSteerCalculator
+    ): JsonResponse
     {
         try {
             $data = json_decode($request->getContent(), true);
             
-            // Add JSON parsing error check
             if (json_last_error() !== JSON_ERROR_NONE) {
                 $logger->error('Invalid JSON received at /api/bridge/register', ['error' => json_last_error_msg()]);
                 return new JsonResponse(['error' => 'Invalid JSON'], 400);
@@ -38,10 +47,13 @@ class BridgeAPIController extends AbstractController
                 return new JsonResponse(['error' => 'MAC address required'], 400);
             }
             
+            // Normalize MAC address
+            $macAddress = strtoupper($macAddress);
+            
             $logger->info('ESP32 registration request via Bridge API', ['mac_address' => $macAddress]);
             
-            // Find or create device
-            $device = $em->getRepository(Device::class)->findOneBy(['macAddress' => $macAddress]);
+            // Find device (check both MAC variants for ESP32 BLE/WiFi difference)
+            $device = $this->findDeviceByMac($em, $macAddress);
             
             if (!$device) {
                 $logger->info('Creating new device during registration', ['mac_address' => $macAddress]);
@@ -50,31 +62,38 @@ class BridgeAPIController extends AbstractController
                 $device->setDeviceType($deviceType);
                 $device->setFirmwareVersion($firmwareVersion);
                 $device->setSerialNumber($data['serial_number'] ?? null);
-                
+
                 $em->persist($device);
                 $em->flush();
+
+                // Initialize default channels (Channel 1 and Channel 2)
+                $channelService->initializeDefaultChannels($device);
             } else {
-                // Update firmware version if newer
                 if ($device->getFirmwareVersion() !== $firmwareVersion) {
                     $device->setFirmwareVersion($firmwareVersion);
                     $em->flush();
                 }
+
+                // Ensure existing devices have channels
+                $channelService->initializeDefaultChannels($device);
             }
             
-            // Prepare response with coefficients (only if they exist)
             $response = [
                 'device_id' => $device->getId(),
                 'mac_address' => $device->getMacAddress(),
                 'status' => 'registered'
             ];
-            
-            // Only include regression coefficients if device has been calibrated
-            $hasCalibration = $device->getRegressionIntercept() !== null ||
-                             $device->getRegressionAirPressureCoeff() !== null ||
-                             $device->getRegressionAmbientPressureCoeff() !== null ||
-                             $device->getRegressionAirTempCoeff() !== null;
 
-            if ($hasCalibration) {
+            // Return calibration for all channels
+            $channelCalibrations = $channelService->getAllChannelCalibrations($device);
+            if (!empty($channelCalibrations)) {
+                $response['channel_calibrations'] = $channelCalibrations;
+            }
+
+            // DEPRECATED: Legacy single-channel calibration for backward compatibility
+            $hasOldCalibration = $device->getRegressionIntercept() !== null ||
+                                $device->getRegressionAirPressureCoeff() !== null;
+            if ($hasOldCalibration) {
                 $response['regression_coefficients'] = [
                     'intercept' => $device->getRegressionIntercept() ?? 0.0,
                     'air_pressure_coeff' => $device->getRegressionAirPressureCoeff() ?? 0.0,
@@ -83,14 +102,8 @@ class BridgeAPIController extends AbstractController
                     'r_squared' => $device->getRegressionRsq() ?? 0.0,
                     'rmse' => $device->getRegressionRmse() ?? 0.0
                 ];
-                $logger->info('Sending regression coefficients during registration', [
-                    'device_id' => $device->getId(),
-                    'coefficients' => $response['regression_coefficients']
-                ]);
-            } else {
-                $logger->info('No calibration data available during registration', ['device_id' => $device->getId()]);
             }
-            
+
             return new JsonResponse($response);
             
         } catch (\Exception $e) {
@@ -112,27 +125,72 @@ class BridgeAPIController extends AbstractController
         try {
             $data = json_decode($request->getContent(), true);
             
-            // Add JSON parsing error check
             if (json_last_error() !== JSON_ERROR_NONE) {
                 $logger->error('Invalid JSON received at /api/bridge/connect', ['error' => json_last_error_msg()]);
                 return new JsonResponse(['error' => 'Invalid JSON'], 400);
             }
             
             $macAddress = $data['mac_address'] ?? null;
-            $userId = $data['user_id'] ?? null; // From PWA authentication
+            $userId = $data['user_id'] ?? null;
+            $deviceName = $data['device_name'] ?? null;
             
             if (!$macAddress || !$userId) {
                 return new JsonResponse(['error' => 'MAC address and user ID required'], 400);
             }
             
+            // Normalize MAC address
+            $macAddress = strtoupper($macAddress);
+            
+            // Try to extract WiFi MAC from device name (e.g., "AirScale-9C:13:9E:BA:DC:90")
+            $wifiMac = $this->extractMacFromDeviceName($deviceName);
+            
             $logger->info('ESP32 connection request via Bridge API', [
                 'mac_address' => $macAddress,
+                'device_name' => $deviceName,
+                'wifi_mac_extracted' => $wifiMac,
                 'user_id' => $userId
             ]);
             
-            $device = $em->getRepository(Device::class)->findOneBy(['macAddress' => $macAddress]);
+            // Find device - prefer WiFi MAC from device name, then try provided MAC
+            $device = null;
+            
+            if ($wifiMac) {
+                $device = $this->findDeviceByMac($em, $wifiMac);
+                if ($device) {
+                    $logger->info('Found device using WiFi MAC from device name', [
+                        'wifi_mac' => $wifiMac,
+                        'device_id' => $device->getId()
+                    ]);
+                }
+            }
+            
             if (!$device) {
-                return new JsonResponse(['error' => 'Device not found'], 404);
+                $device = $this->findDeviceByMac($em, $macAddress);
+            }
+            
+            if (!$device) {
+                $logger->info('Auto-registering new device during BLE connection', ['mac_address' => $wifiMac ?? $macAddress]);
+
+                $device = new Device();
+                $device->setMacAddress($wifiMac ?? $macAddress);
+                $device->setDeviceType($data['device_type'] ?? 'ESP32');
+                $device->setSerialNumber($deviceName);
+
+                $em->persist($device);
+                $em->flush();
+
+                $logger->info('Device auto-registered successfully', ['device_id' => $device->getId()]);
+            } else {
+                // Update MAC address if it's NULL (device created before BLE connection)
+                if (!$device->getMacAddress() && ($wifiMac || $macAddress)) {
+                    $device->setMacAddress($wifiMac ?? $macAddress);
+                    $em->flush();
+
+                    $logger->info('Updated NULL MAC address for existing device', [
+                        'device_id' => $device->getId(),
+                        'mac_address' => $wifiMac ?? $macAddress
+                    ]);
+                }
             }
             
             $user = $em->getRepository(User::class)->find($userId);
@@ -152,7 +210,6 @@ class BridgeAPIController extends AbstractController
                 $access->setUser($user);
                 $access->setFirstSeenAt(new \DateTimeImmutable());
             }
-
             
             $access->setIsActive(true);
             $access->setLastConnectedAt(new \DateTime());
@@ -177,15 +234,32 @@ class BridgeAPIController extends AbstractController
             }
             
             $em->flush();
-            
+
             $logger->info('ESP32 connected via Bridge API successfully', [
                 'device_id' => $device->getId(),
                 'user_id' => $userId
             ]);
-            
+
+            // Get user's vehicles for assignment modal
+            $userVehicles = $em->getRepository(Vehicle::class)->findBy([
+                'created_by' => $user
+            ], ['updated_at' => 'DESC']);
+
+            $vehicleList = [];
+            foreach ($userVehicles as $v) {
+                $vehicleList[] = [
+                    'id' => $v->getId(),
+                    'name' => $v->__toString()
+                ];
+            }
+
             return new JsonResponse([
                 'status' => 'connected',
                 'device_id' => $device->getId(),
+                'mac_address' => $device->getMacAddress(),
+                'vehicle_id' => $device->getVehicle()?->getId(),
+                'needs_assignment' => $device->getVehicle() === null,
+                'user_vehicles' => $vehicleList,
                 'vehicle_info' => $device->getVehicle() ? [
                     'id' => $device->getVehicle()->getId(),
                     'name' => $device->getVehicle()->__toString(),
@@ -208,18 +282,19 @@ class BridgeAPIController extends AbstractController
     
     #[Route('/data', name: 'data', methods: ['POST'])]
     public function receiveDataViaPhone(
-        Request $request, 
+        Request $request,
         EntityManagerInterface $em,
-        LoggerInterface $logger
+        LoggerInterface $logger,
+        DeviceChannelService $channelService
     ): JsonResponse {
         try {
             $data = json_decode($request->getContent(), true);
             
-            // Add error checking for JSON parsing
             if (json_last_error() !== JSON_ERROR_NONE) {
                 $logger->error('Invalid JSON received at /api/bridge/data', ['error' => json_last_error_msg()]);
                 return new JsonResponse(['error' => 'Invalid JSON'], 400);
             }
+            
             // Check if this is mesh aggregated data or single device data
             if (isset($data['mesh_data']) && $data['mesh_data'] === true) {
                 return $this->meshData($request, $em, $logger);
@@ -230,11 +305,13 @@ class BridgeAPIController extends AbstractController
                 return new JsonResponse(['error' => 'MAC address required'], 400);
             }
             
+            // Normalize MAC address
+            $macAddress = strtoupper($macAddress);
+            
             $logger->info('Data received via Bridge API', ['mac_address' => $macAddress]);
             
-            $device = $em->getRepository(Device::class)->findOneBy(['macAddress' => $macAddress]);
+            $device = $this->findDeviceByMac($em, $macAddress);
             if (!$device) {
-                // Auto-provision device (same as DirectAPIController)
                 $logger->info('Auto-provisioning device via Bridge API', ['mac_address' => $macAddress]);
                 $device = new Device();
                 $device->setMacAddress($macAddress);
@@ -242,89 +319,263 @@ class BridgeAPIController extends AbstractController
                 $device->setSerialNumber($data['serial_number'] ?? null);
                 $em->persist($device);
                 $em->flush();
+
+                // Initialize channels for new device
+                $channelService->initializeDefaultChannels($device);
+            } else {
+                // Update MAC address if it's NULL
+                if (!$device->getMacAddress()) {
+                    $device->setMacAddress($macAddress);
+                    $em->flush();
+
+                    $logger->info('Updated NULL MAC address for existing device', [
+                        'device_id' => $device->getId(),
+                        'mac_address' => $macAddress
+                    ]);
+                }
+
+                // Ensure device has channels
+                $channelService->initializeDefaultChannels($device);
             }
-            
+
+            // Update firmware version and date if provided
+            if (isset($data['firmware_version']) && $data['firmware_version'] !== null) {
+                $device->setFirmwareVersion($data['firmware_version']);
+            }
+            if (isset($data['firmware_date']) && $data['firmware_date'] !== null) {
+                try {
+                    $firmwareDate = new \DateTime($data['firmware_date']);
+                    $device->setFirmwareDate($firmwareDate);
+                } catch (\Exception $e) {
+                    $logger->warning('Invalid firmware_date format', ['firmware_date' => $data['firmware_date']]);
+                }
+            }
+            if (isset($data['firmware_version']) || isset($data['firmware_date'])) {
+                $em->flush(); // Save firmware info
+            }
+
             // Handle batch data from phone (multiple readings) or single reading
-            $dataPoints = isset($data['batch_data']) && is_array($data['batch_data']) ? $data['batch_data'] : [$data];
+            error_log('📦 BridgeAPI: Received data payload: ' . json_encode($data));
+
+            // Check for new format with data_points array
+            if (isset($data['data_points']) && is_array($data['data_points'])) {
+                $dataPoints = $data['data_points'];
+            } elseif (isset($data['batch_data']) && is_array($data['batch_data'])) {
+                $dataPoints = $data['batch_data'];
+            } else {
+                // Legacy: single data point without wrapper
+                $dataPoints = [$data];
+            }
+
+            error_log('📊 BridgeAPI: Processing ' . count($dataPoints) . ' data points');
             $processedCount = 0;
             $lastWeight = 0;
             
             foreach ($dataPoints as $point) {
-                // Validate required fields for each point
                 if (!is_array($point)) {
                     $logger->warning('Invalid data point in batch', ['point' => $point]);
                     continue;
                 }
-                
-                // Create MicroData record
+
+                error_log('🔍 BridgeAPI: Processing data point: ' . json_encode($point));
+
                 $microData = new MicroData();
                 $microData->setDevice($device);
                 $microData->setMacAddress($macAddress);
-                $microData->setMainAirPressure($point['main_air_pressure'] ?? 0.0);
-                $microData->setAtmosphericPressure($point['atmospheric_pressure'] ?? 0.0);
-                $microData->setTemperature($point['temperature'] ?? 0.0);
-                $microData->setElevation($point['elevation'] ?? 0.0);
-                $microData->setGpsLat($point['gps_lat'] ?? 0.0);
-                $microData->setGpsLng($point['gps_lng'] ?? 0.0);
-                
-                // Handle timestamp from phone or ESP32
+
+                // Environmental data (shared across all channels)
+                $microData->setAtmosphericPressure($point['atmospheric_pressure'] ?? null);
+                $microData->setTemperature($point['temperature'] ?? null);
+                $microData->setElevation($point['elevation'] ?? null);
+
+                // ESP-NOW signal strength (from ESP32 mesh network)
+                $microData->setEspnowRssi($point['espnow_rssi'] ?? null);
+
+                // GPS from phone (optional enrichment - DEPRECATED in firmware)
+                $microData->setGpsLat($point['gps_lat'] ?? null);
+                $microData->setGpsLng($point['gps_lng'] ?? null);
+                $microData->setGpsAccuracyM($point['gps_accuracy_m'] ?? null);
+
                 $timestamp = $point['timestamp'] ?? 'now';
                 try {
                     if (is_numeric($timestamp) && $timestamp < 1000000000) {
-                        // This looks like millis() from ESP32, use server time instead
                         $microData->setTimestamp(new \DateTimeImmutable());
                     } else {
                         $microData->setTimestamp(new \DateTimeImmutable($timestamp));
                     }
                 } catch (\Exception $e) {
-                    $logger->warning('Invalid timestamp, using server time', ['timestamp' => $timestamp, 'error' => $e->getMessage()]);
+                    $logger->warning('Invalid timestamp, using server time', ['timestamp' => $timestamp]);
                     $microData->setTimestamp(new \DateTimeImmutable());
                 }
-                
-                // OPTION C: Use ESP32 weight if provided, otherwise calculate server-side
-                $lastWeight = $this->calculateWeight($device, $microData, $point['weight'] ?? null);
-                $microData->setWeight($lastWeight);
-                
+
+                // Handle channel data (new format) or legacy single-channel data
+                if (isset($point['channels']) && is_array($point['channels'])) {
+                    // New multi-channel format
+                    error_log('🔵 BridgeAPI: Processing channel data for device ' . $device->getId() . ', channel_count=' . count($point['channels']));
+                    $logger->info('Processing channel data', [
+                        'device_id' => $device->getId(),
+                        'channel_count' => count($point['channels']),
+                        'channels' => $point['channels']
+                    ]);
+
+                    $totalWeight = 0;
+                    $totalAirPressure = 0;
+                    $channelCount = 0;
+
+                    foreach ($point['channels'] as $channelData) {
+                        $channelIndex = $channelData['channel_index'] ?? null;
+                        if ($channelIndex === null) {
+                            $logger->warning('Channel index is null, skipping');
+                            continue;
+                        }
+
+                        $deviceChannel = $device->getChannel($channelIndex);
+                        if (!$deviceChannel) {
+                            error_log('⚠️ BridgeAPI: DeviceChannel not found for device ' . $device->getId() . ', channel_index=' . $channelIndex);
+                            $logger->warning('Channel not found for device', [
+                                'device_id' => $device->getId(),
+                                'channel_index' => $channelIndex
+                            ]);
+                            continue;
+                        }
+
+                        error_log('✅ BridgeAPI: Creating MicroDataChannel - device=' . $device->getId() . ', ch=' . $channelIndex . ', device_channel_id=' . $deviceChannel->getId() . ', air_pressure=' . ($channelData['air_pressure'] ?? 'null'));
+                        $logger->info('Creating MicroDataChannel', [
+                            'device_id' => $device->getId(),
+                            'channel_index' => $channelIndex,
+                            'device_channel_id' => $deviceChannel->getId(),
+                            'air_pressure' => $channelData['air_pressure'] ?? null,
+                            'weight' => $channelData['weight'] ?? null
+                        ]);
+
+                        $microDataChannel = new MicroDataChannel();
+                        $microDataChannel->setMicroData($microData);
+                        $microDataChannel->setDeviceChannel($deviceChannel);
+                        $microDataChannel->setAirPressure($channelData['air_pressure'] ?? null);
+
+                        // Calculate weight if not provided but channel has regression coefficients
+                        $channelWeight = $channelData['weight'] ?? null;
+                        if ($channelWeight === null && isset($channelData['air_pressure'])) {
+                            $intercept = $deviceChannel->getRegressionIntercept();
+                            $airPressureCoeff = $deviceChannel->getRegressionAirPressureCoeff();
+
+                            if ($intercept !== null && $airPressureCoeff !== null) {
+                                $channelWeight = $intercept + ($channelData['air_pressure'] * $airPressureCoeff);
+                                $channelWeight = max(0, $channelWeight);
+                                error_log('⚖️ BridgeAPI: Calculated weight for device ' . $device->getId() . ' channel ' . $channelIndex . ': ' . round($channelWeight, 2) . ' lbs (from ' . $channelData['air_pressure'] . ' psi)');
+                            }
+                        }
+
+                        $microDataChannel->setWeight($channelWeight);
+
+                        $microData->addMicroDataChannel($microDataChannel);
+                        error_log('📝 BridgeAPI: Added MicroDataChannel to MicroData, total channels=' . $microData->getMicroDataChannels()->count());
+
+                        // Accumulate for aggregation
+                        if (isset($channelData['air_pressure'])) {
+                            $totalAirPressure += $channelData['air_pressure'];
+                            $channelCount++;
+                        }
+                        if ($channelWeight !== null) {
+                            $totalWeight += $channelWeight;
+                        }
+                        $lastWeight = $channelWeight ?? 0.0; // Track last weight for response
+                    }
+
+                    // Aggregate channel data into main MicroData fields
+                    if ($channelCount > 0) {
+                        $microData->setMainAirPressure($totalAirPressure / $channelCount);
+                        error_log('📊 BridgeAPI: Set main_air_pressure=' . ($totalAirPressure / $channelCount) . ' (avg of ' . $channelCount . ' channels)');
+                    }
+                    $microData->setWeight($totalWeight);
+                    error_log('📊 BridgeAPI: Set total weight=' . $totalWeight);
+                } else {
+                    // Legacy single-channel format (backward compatibility)
+                    $microData->setMainAirPressure($point['main_air_pressure'] ?? null);
+                    $lastWeight = $this->calculateWeight($device, $microData, $point['weight'] ?? null);
+                    $microData->setWeight($lastWeight);
+                }
+
                 $em->persist($microData);
+                error_log('💾 BridgeAPI: Persisted MicroData id=' . ($microData->getId() ?? 'new') . ' with ' . $microData->getMicroDataChannels()->count() . ' channels');
                 $processedCount++;
             }
-            
+
+            error_log('🚀 BridgeAPI: Flushing ' . $processedCount . ' MicroData records to database');
             $em->flush();
+            error_log('✅ BridgeAPI: Flush complete');
             
             $logger->info('Data processed via Bridge API successfully', [
                 'device_id' => $device->getId(),
                 'points_processed' => $processedCount,
                 'last_weight' => $lastWeight
             ]);
-            
-            // Return response optimized for mobile data usage
+
+            // Calculate virtual steer weight if device has it enabled
+            $virtualSteerWeight = null;
+            if ($device->hasVirtualSteer() && $totalWeight > 0) {
+                $virtualSteerWeight = $virtualSteerCalculator->calculateSteerWeight($device, $totalWeight);
+                if ($virtualSteerWeight !== null) {
+                    error_log('🚗 BridgeAPI: Calculated virtual steer weight for device ' . $device->getId() . ': ' . round($virtualSteerWeight, 2) . ' lbs');
+                }
+            }
+
             $response = [
                 'status' => $processedCount > 1 ? 'batch_received' : 'data_received',
                 'points_processed' => $processedCount,
                 'device_id' => $device->getId(),
                 'calculated_weight' => $lastWeight,
+                'virtual_steer_weight' => $virtualSteerWeight,
                 'timestamp' => (new \DateTimeImmutable())->format('Y-m-d H:i:s')
             ];
             
-            // Only send coefficients if they exist and if requested (save mobile data)
             $sendCoefficients = $data['request_coefficients'] ?? false;
-            $hasCalibration = $device->getRegressionIntercept() !== null ||
-                             $device->getRegressionAirPressureCoeff() !== null ||
-                             $device->getRegressionAmbientPressureCoeff() !== null ||
-                             $device->getRegressionAirTempCoeff() !== null;
-            
-            if ($sendCoefficients && $hasCalibration) {
-                $response['regression_coefficients'] = [
-                    'intercept' => $device->getRegressionIntercept() ?? 0.0,
-                    'air_pressure_coeff' => $device->getRegressionAirPressureCoeff() ?? 0.0,
-                    'ambient_pressure_coeff' => $device->getRegressionAmbientPressureCoeff() ?? 0.0,
-                    'air_temp_coeff' => $device->getRegressionAirTempCoeff() ?? 0.0
-                ];
-                $logger->info('Sending regression coefficients via Bridge API', [
-                    'device_id' => $device->getId()
-                ]);
+
+            if ($sendCoefficients) {
+                // Return calibration for all channels (new format)
+                $channelCalibrations = $channelService->getAllChannelCalibrations($device);
+                if (!empty($channelCalibrations)) {
+                    $response['channel_calibrations'] = $channelCalibrations;
+                }
+
+                // DEPRECATED: Legacy single-channel calibration for backward compatibility
+                $hasOldCalibration = $device->getRegressionIntercept() !== null ||
+                                    $device->getRegressionAirPressureCoeff() !== null;
+                if ($hasOldCalibration) {
+                    $response['regression_coefficients'] = [
+                        'intercept' => $device->getRegressionIntercept() ?? 0.0,
+                        'air_pressure_coeff' => $device->getRegressionAirPressureCoeff() ?? 0.0,
+                        'ambient_pressure_coeff' => $device->getRegressionAmbientPressureCoeff() ?? 0.0,
+                        'air_temp_coeff' => $device->getRegressionAirTempCoeff() ?? 0.0
+                    ];
+                }
+
+                // If this is a hub/master device, include coefficients for slave devices
+                if ($device->isMeshMaster() && $device->getConnectedSlaves()) {
+                    $slaveCoefficients = [];
+
+                    foreach ($device->getConnectedSlaves() as $slaveMac) {
+                        // Find slave device by MAC address
+                        $slaveDevice = $em->getRepository(Device::class)->findOneBy(['macAddress' => strtoupper($slaveMac)]);
+
+                        if ($slaveDevice) {
+                            $slaveChannelCalibrations = $channelService->getAllChannelCalibrations($slaveDevice);
+                            if (!empty($slaveChannelCalibrations)) {
+                                $slaveCoefficients[$slaveMac] = [
+                                    'device_id' => $slaveDevice->getId(),
+                                    'channel_calibrations' => $slaveChannelCalibrations
+                                ];
+                                error_log('📡 BridgeAPI: Including coefficients for slave device ' . $slaveDevice->getId() . ' (MAC: ' . $slaveMac . ')');
+                            }
+                        }
+                    }
+
+                    if (!empty($slaveCoefficients)) {
+                        $response['slave_coefficients'] = $slaveCoefficients;
+                    }
+                }
             }
-            
+
             return new JsonResponse($response);
             
         } catch (\Exception $e) {
@@ -352,7 +603,6 @@ class BridgeAPIController extends AbstractController
             'device_id' => $device->getId()
         ];
         
-        // Only include regression coefficients if they exist
         $hasCalibration = $device->getRegressionIntercept() !== null ||
                          $device->getRegressionAirPressureCoeff() !== null ||
                          $device->getRegressionAmbientPressureCoeff() !== null ||
@@ -387,9 +637,77 @@ class BridgeAPIController extends AbstractController
         ]);
     }
     
+    /**
+     * Find device by MAC address, checking both the exact MAC and ±1 variants
+     * (ESP32 has different MACs for WiFi and Bluetooth, typically off by 1)
+     */
+    private function findDeviceByMac(EntityManagerInterface $em, string $macAddress): ?Device
+    {
+        $macAddress = strtoupper($macAddress);
+        
+        // Try exact match first
+        $device = $em->getRepository(Device::class)->findOneBy(['macAddress' => $macAddress]);
+        if ($device) {
+            return $device;
+        }
+        
+        // Try +1 variant (BLE MAC is usually WiFi MAC +1)
+        $alternateMacPlus = $this->adjustMacAddress($macAddress, 1);
+        if ($alternateMacPlus) {
+            $device = $em->getRepository(Device::class)->findOneBy(['macAddress' => $alternateMacPlus]);
+            if ($device) {
+                return $device;
+            }
+        }
+        
+        // Try -1 variant
+        $alternateMacMinus = $this->adjustMacAddress($macAddress, -1);
+        if ($alternateMacMinus) {
+            $device = $em->getRepository(Device::class)->findOneBy(['macAddress' => $alternateMacMinus]);
+            if ($device) {
+                return $device;
+            }
+        }
+        
+        return null;
+    }
+    
+    /**
+     * Adjust MAC address by incrementing/decrementing the last byte
+     */
+    private function adjustMacAddress(string $mac, int $adjustment): ?string
+    {
+        $parts = explode(':', $mac);
+        if (count($parts) !== 6) {
+            return null;
+        }
+        
+        $lastByte = hexdec($parts[5]);
+        $newLastByte = ($lastByte + $adjustment + 256) % 256;
+        $parts[5] = strtoupper(sprintf('%02X', $newLastByte));
+        
+        return implode(':', $parts);
+    }
+    
+    /**
+     * Extract WiFi MAC from device name (e.g., "AirScale-9C:13:9E:BA:DC:90")
+     */
+    private function extractMacFromDeviceName(?string $deviceName): ?string
+    {
+        if (!$deviceName) {
+            return null;
+        }
+        
+        // Match pattern like "AirScale-XX:XX:XX:XX:XX:XX"
+        if (preg_match('/AirScale-([0-9A-Fa-f:]{17})/i', $deviceName, $matches)) {
+            return strtoupper($matches[1]);
+        }
+        
+        return null;
+    }
+    
     private function calculateWeight(Device $device, MicroData $microData, ?float $providedWeight = null): float
     {
-        // OPTION C: Use ESP32 weight if provided, otherwise calculate server-side
         if ($providedWeight !== null) {
             return $providedWeight;
         }
@@ -399,7 +717,6 @@ class BridgeAPIController extends AbstractController
         $ambientPressureCoeff = $device->getRegressionAmbientPressureCoeff() ?? 0.0;
         $airTempCoeff = $device->getRegressionAirTempCoeff() ?? 0.0;
         
-        // If no calibration data, return 0
         if (!$intercept && !$airPressureCoeff && !$ambientPressureCoeff && !$airTempCoeff) {
             return 0.0;
         }
@@ -409,10 +726,10 @@ class BridgeAPIController extends AbstractController
                   ($microData->getAtmosphericPressure() * $ambientPressureCoeff) +
                   ($microData->getTemperature() * $airTempCoeff);
         
-        return max(0, $weight); // Don't allow negative weights
+        return max(0, $weight);
     }
 
-    // Mesh networking methods (keeping all existing functionality)
+    // Mesh networking methods
 
     #[Route('/mesh/register', name: 'mesh_register', methods: ['POST'])]
     public function meshRegister(Request $request, EntityManagerInterface $em, LoggerInterface $logger): JsonResponse
@@ -424,7 +741,7 @@ class BridgeAPIController extends AbstractController
                 return new JsonResponse(['error' => 'Invalid JSON'], 400);
             }
             
-            $macAddress = $data['mac_address'] ?? null;
+            $macAddress = strtoupper($data['mac_address'] ?? '');
             $role = $data['role'] ?? 'discovery';
             $masterMac = $data['master_mac'] ?? null;
             $connectedSlaves = $data['connected_slaves'] ?? [];
@@ -440,9 +757,8 @@ class BridgeAPIController extends AbstractController
                 'master_mac' => $masterMac
             ]);
             
-            $device = $em->getRepository(Device::class)->findOneBy(['macAddress' => $macAddress]);
+            $device = $this->findDeviceByMac($em, $macAddress);
             if (!$device) {
-                // Auto-provision
                 $device = new Device();
                 $device->setMacAddress($macAddress);
                 $device->setDeviceType($data['device_type'] ?? 'ESP32');
@@ -450,7 +766,6 @@ class BridgeAPIController extends AbstractController
                 $em->persist($device);
             }
             
-            // Update mesh information
             $device->setCurrentRole($role);
             $device->setLastMeshActivity(new \DateTime());
             $device->setSignalStrength($signalStrength);
@@ -481,7 +796,7 @@ class BridgeAPIController extends AbstractController
                 return new JsonResponse(['error' => 'Invalid JSON'], 400);
             }
             
-            $masterMac = $data['master_mac'] ?? null;
+            $masterMac = strtoupper($data['master_mac'] ?? '');
             $aggregatedData = $data['aggregated_data'] ?? [];
             $meshTopology = $data['mesh_topology'] ?? [];
             
@@ -494,22 +809,20 @@ class BridgeAPIController extends AbstractController
                 'device_count' => count($aggregatedData)
             ]);
             
-            $masterDevice = $em->getRepository(Device::class)->findOneBy(['macAddress' => $masterMac]);
+            $masterDevice = $this->findDeviceByMac($em, $masterMac);
             if (!$masterDevice) {
                 return new JsonResponse(['error' => 'Master device not found'], 404);
             }
             
-            // Process aggregated data from all devices in the mesh
             $totalWeight = 0;
             $processedDevices = [];
             
             foreach ($aggregatedData as $deviceData) {
-                $deviceMac = $deviceData['mac_address'] ?? null;
+                $deviceMac = strtoupper($deviceData['mac_address'] ?? '');
                 if (!$deviceMac) continue;
                 
-                $device = $em->getRepository(Device::class)->findOneBy(['macAddress' => $deviceMac]);
+                $device = $this->findDeviceByMac($em, $deviceMac);
                 if (!$device) {
-                    // Auto-provision slave device
                     $device = new Device();
                     $device->setMacAddress($deviceMac);
                     $device->setDeviceType('ESP32');
@@ -518,11 +831,9 @@ class BridgeAPIController extends AbstractController
                     $em->persist($device);
                 }
                 
-                // Update mesh activity
                 $device->setLastMeshActivity(new \DateTime());
                 $device->setSignalStrength($deviceData['signal_strength'] ?? null);
                 
-                // Create MicroData record
                 $microData = new MicroData();
                 $microData->setDevice($device);
                 $microData->setMacAddress($deviceMac);
@@ -534,7 +845,6 @@ class BridgeAPIController extends AbstractController
                 $microData->setGpsLng($deviceData['gps_lng'] ?? 0.0);
                 $microData->setTimestamp(new \DateTimeImmutable());
                 
-                // OPTION C: Calculate weight (ESP32 provides weight or server calculates)
                 $weight = $this->calculateWeight($device, $microData, $deviceData['weight'] ?? null);
                 $microData->setWeight($weight);
                 $totalWeight += $weight;
@@ -547,7 +857,6 @@ class BridgeAPIController extends AbstractController
                 ];
             }
             
-            // Update master device with mesh topology
             $masterDevice->setConnectedSlaves(array_column($processedDevices, 'mac_address'));
             $masterDevice->setMeshConfiguration([
                 'topology' => $meshTopology,
@@ -580,31 +889,27 @@ class BridgeAPIController extends AbstractController
     #[Route('/mesh/topology', name: 'mesh_topology', methods: ['GET'])]
     public function getMeshTopology(Request $request, EntityManagerInterface $em): JsonResponse
     {
-        $userMac = $request->query->get('mac_address');
+        $userMac = strtoupper($request->query->get('mac_address', ''));
         if (!$userMac) {
             return new JsonResponse(['error' => 'MAC address required'], 400);
         }
         
-        // Find the user's device
-        $userDevice = $em->getRepository(Device::class)->findOneBy(['macAddress' => $userMac]);
+        $userDevice = $this->findDeviceByMac($em, $userMac);
         if (!$userDevice) {
             return new JsonResponse(['error' => 'Device not found'], 404);
         }
         
-        // Find all devices in the same mesh network
         $meshDevices = [];
         
         if ($userDevice->isMeshMaster()) {
-            // User is master - get all slaves
             $meshDevices = $em->getRepository(Device::class)->findBy([
                 'masterDeviceMac' => $userMac
             ]);
-            $meshDevices[] = $userDevice; // Include master
+            $meshDevices[] = $userDevice;
         } elseif ($userDevice->isMeshSlave()) {
-            // User is slave - get master and other slaves
             $masterMac = $userDevice->getMasterDeviceMac();
             if ($masterMac) {
-                $masterDevice = $em->getRepository(Device::class)->findOneBy(['macAddress' => $masterMac]);
+                $masterDevice = $this->findDeviceByMac($em, $masterMac);
                 if ($masterDevice) {
                     $meshDevices[] = $masterDevice;
                     $slaves = $em->getRepository(Device::class)->findBy([
@@ -615,7 +920,6 @@ class BridgeAPIController extends AbstractController
             }
         }
         
-        // Format response
         $topology = [];
         foreach ($meshDevices as $device) {
             $topology[] = [
@@ -647,7 +951,7 @@ class BridgeAPIController extends AbstractController
         try {
             $data = json_decode($request->getContent(), true);
             
-            $macAddress = $data['mac_address'] ?? null;
+            $macAddress = strtoupper($data['mac_address'] ?? '');
             $newRole = $data['role'] ?? null;
             $masterMac = $data['master_mac'] ?? null;
             
@@ -655,7 +959,7 @@ class BridgeAPIController extends AbstractController
                 return new JsonResponse(['error' => 'MAC address and role required'], 400);
             }
             
-            $device = $em->getRepository(Device::class)->findOneBy(['macAddress' => $macAddress]);
+            $device = $this->findDeviceByMac($em, $macAddress);
             if (!$device) {
                 return new JsonResponse(['error' => 'Device not found'], 404);
             }
@@ -666,7 +970,6 @@ class BridgeAPIController extends AbstractController
                 'new_role' => $newRole
             ]);
             
-            // Update device role
             $device->setCurrentRole($newRole);
             $device->setLastMeshActivity(new \DateTime());
             
@@ -674,7 +977,6 @@ class BridgeAPIController extends AbstractController
                 $device->setMasterDeviceMac($masterMac);
             } elseif ($newRole === 'master') {
                 $device->setMasterDeviceMac(null);
-                // Clear any existing master's slave list and update it
                 $oldSlaves = $em->getRepository(Device::class)->findBy([
                     'masterDeviceMac' => $macAddress
                 ]);

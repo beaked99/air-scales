@@ -1,0 +1,32 @@
+{# Public footer #}
+<footer class="bg-gray-800 border-t border-gray-700 py-12">
+  <div class="container mx-auto px-6">
+    <div class="grid md:grid-cols-3 gap-8">
+      <div>
+        <h4 class="text-lg font-semibold text-white mb-4">Product</h4>
+        <ul class="space-y-2">
+          <li><a href="{{ path('app_homepage') }}#features" class="text-gray-400 hover:text-blue-400 transition">Features</a></li>
+          <li><a href="{{ path('product_details') }}" class="text-gray-400 hover:text-blue-400 transition">Product Details</a></li>
+          <li><a href="{{ path('app_homepage') }}#how-it-works" class="text-gray-400 hover:text-blue-400 transition">How It Works</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4 class="text-lg font-semibold text-white mb-4">Support</h4>
+        <ul class="space-y-2">
+          <li><a href="{{ path('faq') }}" class="text-gray-400 hover:text-blue-400 transition">FAQ</a></li>
+          <li><a href="#" class="text-gray-400 hover:text-blue-400 transition">Installation Guide</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4 class="text-lg font-semibold text-white mb-4">Legal</h4>
+        <ul class="space-y-2">
+          <li><a href="{{ path('privacy_policy') }}" class="text-gray-400 hover:text-blue-400 transition">Privacy Policy</a></li>
+          <li><a href="{{ path('terms_of_service') }}" class="text-gray-400 hover:text-blue-400 transition">Terms of Service</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="border-t border-gray-700 mt-12 pt-8 text-center text-gray-400">
+      <p>&copy; {{ "now"|date("Y") }} beaker.ca - AirScales. All Rights Reserved.</p>
+    </div>
+  </div>
+</footer>

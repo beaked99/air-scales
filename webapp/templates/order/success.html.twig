@@ -1,0 +1,123 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Order Confirmed - AirScales{% endblock %}
+
+{% block body %}
+  <div class="min-h-screen flex flex-col">
+    {% include '_header.html.twig' %}
+    <section class="container mx-auto px-6 py-12 max-w-3xl">
+    <div class="text-center mb-8">
+      <div class="inline-block bg-green-600 text-white w-20 h-20 rounded-full flex items-center justify-center text-4xl mb-6">
+        <i class="fas fa-check"></i>
+      </div>
+      <h1 class="text-3xl sm:text-4xl font-bold text-white mb-4">Order Confirmed!</h1>
+      <p class="text-sm sm:text-base text-gray-400">Thank you for your order. We'll ship your AirScales device soon.</p>
+    </div>
+
+    <div class="bg-gray-800 rounded-lg border border-gray-700 p-8 mb-8">
+      <h2 class="text-xl sm:text-2xl font-bold text-white mb-6">Order Details</h2>
+
+      <div class="space-y-4 text-sm sm:text-base">
+        <div class="flex justify-between border-b border-gray-700 pb-3">
+          <span class="text-gray-400">Order Number</span>
+          <span class="text-white font-semibold">#{{ order.id }}</span>
+        </div>
+
+        {% if order.orderItems %}
+          <div class="border-b border-gray-700 pb-3">
+            <div class="text-gray-400 mb-2">Items Ordered</div>
+            {% for item in order.orderItems %}
+              <div class="flex justify-between text-white ml-4">
+                <span>{{ item.quantity }}x {{ item.product_name }}</span>
+                <span>${{ item.line_total }}</span>
+              </div>
+            {% endfor %}
+          </div>
+
+          {% if order.subtotal %}
+            <div class="flex justify-between border-b border-gray-700 pb-3">
+              <span class="text-gray-400">Subtotal</span>
+              <span class="text-white">${{ order.subtotal }}</span>
+            </div>
+          {% endif %}
+
+          {% if order.discountAmount and order.discountAmount > 0 %}
+            <div class="flex justify-between border-b border-gray-700 pb-3">
+              <span class="text-gray-400">Discount</span>
+              <span class="text-green-400">-${{ order.discountAmount }}</span>
+            </div>
+          {% endif %}
+
+          <div class="flex justify-between border-b border-gray-700 pb-3">
+            <span class="text-gray-400 font-semibold">Total</span>
+            <span class="text-white font-bold text-lg sm:text-xl">${{ order.totalPaid }}</span>
+          </div>
+        {% else %}
+          <div class="flex justify-between border-b border-gray-700 pb-3">
+            <span class="text-gray-400">Product</span>
+            <span class="text-white">{{ order.product ? order.product.name : 'N/A' }}</span>
+          </div>
+
+          <div class="flex justify-between border-b border-gray-700 pb-3">
+            <span class="text-gray-400">Quantity</span>
+            <span class="text-white">{{ order.quantity }}</span>
+          </div>
+
+          <div class="flex justify-between border-b border-gray-700 pb-3">
+            <span class="text-gray-400">Total</span>
+            <span class="text-white font-bold">${{ order.totalPaid }}</span>
+          </div>
+        {% endif %}
+
+        <div class="flex justify-between border-b border-gray-700 pb-3">
+          <span class="text-gray-400">Status</span>
+          <span class="text-green-400 font-semibold">{{ order.status|upper }}</span>
+        </div>
+
+        <div class="flex justify-between">
+          <span class="text-gray-400">Shipping Address</span>
+          <span class="text-white text-right">{{ order.shippingAddress|nl2br }}</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="bg-blue-900/30 border border-blue-500 rounded-lg p-6 mb-8">
+      <h3 class="text-lg sm:text-xl font-bold text-white mb-3">What's Next?</h3>
+      <ul class="space-y-2 text-sm sm:text-base text-gray-300">
+        <li><i class="fas fa-check-circle text-blue-400 mr-2"></i>You'll receive an email confirmation shortly</li>
+        <li><i class="fas fa-check-circle text-blue-400 mr-2"></i>We'll process your order within 1-2 business days</li>
+        <li><i class="fas fa-check-circle text-blue-400 mr-2"></i>Please allow up to 3-5 months for shipping</li>
+        <li><i class="fas fa-check-circle text-blue-400 mr-2"></i>You'll receive tracking information via email</li>
+      </ul>
+    </div>
+
+    <div class="bg-green-900/30 border border-green-500 rounded-lg p-6 mb-8">
+      <h3 class="text-lg sm:text-xl font-bold text-white mb-3"><i class="fas fa-gift mr-2"></i>Your Free Subscription</h3>
+      <p class="text-sm sm:text-base text-gray-300">
+        {% if order.quantity == 1 %}
+          Your order includes <strong>6 months of premium AirScales App subscription</strong>. When you connect your device for the first time, you'll have the option to activate the premium subscription on your account.
+        {% else %}
+          Your order includes <strong>{{ order.quantity * 6 }} months of premium AirScales App subscription (6 months × {{ order.quantity }} devices)</strong>. When you connect each device for the first time, you'll have the option to activate its premium subscription on your account or assign it to another user.
+        {% endif %}
+      </p>
+    </div>
+
+    <div class="bg-gray-800 border border-gray-700 rounded-lg p-6 mb-8">
+      <h3 class="text-lg sm:text-xl font-bold text-white mb-3">Receipt & Invoice</h3>
+      <p class="text-sm sm:text-base text-gray-300 mb-4">
+        Stripe will email you a detailed receipt shortly. You can also access your receipt anytime through your Stripe customer portal.
+      </p>
+      <a href="mailto:kevin@beaker.ca?subject=Order%20%23{{ order.id }}%20Receipt%20Request" class="inline-block bg-gray-700 hover:bg-gray-600 text-white text-sm sm:text-base px-6 py-3 rounded-lg transition">
+        <i class="fas fa-envelope mr-2"></i>Request Custom Invoice
+      </a>
+    </div>
+
+    <div class="text-center">
+      <a href="{{ path('app_dashboard') }}" class="inline-block bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-lg text-base sm:text-lg font-semibold transition">
+        <i class="fas fa-gauge mr-2"></i>Go to Dashboard
+      </a>
+    </div>
+    </section>
+    {% include '_footer.html.twig' %}
+  </div>
+{% endblock %}

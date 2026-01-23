@@ -1,0 +1,503 @@
+{# templates/settings/index.html.twig #}
+{% extends 'base_app.html.twig' %}
+
+{% block title %}Settings{% endblock %}
+{% block header_page_title %}Settings{% endblock %}
+
+{% block body %}
+  <div class="max-w-2xl mx-auto p-4 space-y-6">
+
+    <!-- Success/Error Toast (hidden by default) -->
+    <div id="toast" class="fixed top-4 right-4 z-50 hidden transform transition-all duration-300">
+      <div id="toast-content" class="px-4 py-3 rounded-lg shadow-lg text-white font-medium"></div>
+    </div>
+
+    <!-- Units Section -->
+    <section class="bg-gray-800 rounded-lg p-6 border border-gray-700">
+      <h2 class="text-lg font-semibold text-white mb-4">
+        <i class="fas fa-ruler-combined text-sky-400 mr-2"></i>Display Units
+      </h2>
+
+      <!-- Pressure Unit Toggle -->
+      <div class="mb-6">
+        <label class="block text-gray-300 text-sm font-medium mb-3">Pressure Unit</label>
+        <div class="flex gap-2">
+          <button
+            id="btn-psi"
+            onclick="setPressureUnit('psi')"
+            class="flex-1 py-3 px-4 rounded-lg font-semibold transition-all duration-200 {{ user.pressureUnit == 'psi' ? 'bg-sky-600 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600' }}"
+          >
+            PSI
+          </button>
+          <button
+            id="btn-kpa"
+            onclick="setPressureUnit('kpa')"
+            class="flex-1 py-3 px-4 rounded-lg font-semibold transition-all duration-200 {{ user.pressureUnit == 'kpa' ? 'bg-sky-600 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600' }}"
+          >
+            kPa
+          </button>
+        </div>
+        <p class="text-xs text-gray-500 mt-2">
+          {{ user.pressureUnit == 'psi' ? '1 PSI = 6.895 kPa' : '1 kPa = 0.145 PSI' }}
+        </p>
+      </div>
+
+      <!-- Weight Unit Toggle -->
+      <div>
+        <label class="block text-gray-300 text-sm font-medium mb-3">Weight Unit</label>
+        <div class="flex gap-2">
+          <button
+            id="btn-lbs"
+            onclick="setWeightUnit('lbs')"
+            class="flex-1 py-3 px-4 rounded-lg font-semibold transition-all duration-200 {{ user.weightUnit == 'lbs' ? 'bg-sky-600 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600' }}"
+          >
+            Pounds (lbs)
+          </button>
+          <button
+            id="btn-kg"
+            onclick="setWeightUnit('kg')"
+            class="flex-1 py-3 px-4 rounded-lg font-semibold transition-all duration-200 {{ user.weightUnit == 'kg' ? 'bg-sky-600 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600' }}"
+          >
+            Kilograms (kg)
+          </button>
+        </div>
+        <p class="text-xs text-gray-500 mt-2">
+          {{ user.weightUnit == 'lbs' ? '1 lb = 0.4536 kg' : '1 kg = 2.205 lbs' }}
+        </p>
+      </div>
+    </section>
+
+    <!-- Bluetooth Section -->
+    <section class="bg-gray-800 rounded-lg p-6 border border-gray-700">
+      <h2 class="text-lg font-semibold text-white mb-4">
+        <i class="fas fa-bluetooth-b text-sky-400 mr-2"></i>Bluetooth Settings
+      </h2>
+
+      <!-- BLE Auto-Switch Toggle -->
+      <div class="flex items-center justify-between">
+        <div class="flex-1 pr-4">
+          <div class="text-gray-200 font-medium">Auto-Switch to Stronger Signal</div>
+          <p class="text-xs text-gray-500 mt-1">
+            Automatically switch to AirScale devices with 20+ dBm better signal every 60 seconds
+          </p>
+        </div>
+        <label class="relative inline-flex items-center cursor-pointer">
+          <input
+            type="checkbox"
+            id="ble-auto-switch"
+            class="sr-only peer"
+            {{ user.bleAutoSwitch ? 'checked' : '' }}
+            onchange="setBleAutoSwitch(this.checked)"
+          >
+          <div class="w-11 h-6 bg-gray-600 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-sky-500 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-sky-600"></div>
+        </label>
+      </div>
+    </section>
+
+    <!-- Firmware Section -->
+    <section class="bg-gray-800 rounded-lg p-6 border border-gray-700">
+      <h2 class="text-lg font-semibold text-white mb-4">
+        <i class="fas fa-microchip text-sky-400 mr-2"></i>Firmware Updates
+      </h2>
+
+      <!-- Auto-Update Toggle -->
+      <div class="flex items-center justify-between">
+        <div class="flex-1 pr-4">
+          <div class="text-gray-200 font-medium">Auto-Update Firmware</div>
+          <p class="text-xs text-gray-500 mt-1">
+            Automatically download and install firmware updates when connected via Bluetooth
+          </p>
+        </div>
+        <label class="relative inline-flex items-center cursor-pointer">
+          <input
+            type="checkbox"
+            id="auto-update-firmware"
+            class="sr-only peer"
+            {{ user.autoUpdateFirmware ? 'checked' : '' }}
+            onchange="setAutoUpdateFirmware(this.checked)"
+          >
+          <div class="w-11 h-6 bg-gray-600 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-sky-500 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-sky-600"></div>
+        </label>
+      </div>
+
+      <!-- Manual Update Check Button -->
+      <div class="mt-4 pt-4 border-t border-gray-700">
+        <button
+          id="check-update-btn"
+          onclick="checkForFirmwareUpdate()"
+          class="w-full py-3 px-4 bg-gray-700 hover:bg-gray-600 text-gray-200 rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
+        >
+          <i class="fas fa-sync-alt" id="update-check-icon"></i>
+          <span id="update-check-text">Check for Updates</span>
+        </button>
+
+        <!-- Update Available - Install Button (hidden by default) -->
+        <button
+          id="install-update-btn"
+          onclick="installFirmwareUpdate()"
+          class="hidden w-full mt-2 py-3 px-4 bg-green-600 hover:bg-green-500 text-white rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
+        >
+          <i class="fas fa-download" id="install-icon"></i>
+          <span id="install-text">Install Update</span>
+        </button>
+
+        <!-- Progress bar (hidden by default) -->
+        <div id="ota-progress" class="hidden mt-3">
+          <div class="w-full bg-gray-700 rounded-full h-2">
+            <div id="ota-progress-bar" class="bg-sky-500 h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
+          </div>
+          <p id="ota-progress-text" class="text-xs text-gray-400 mt-1 text-center">Preparing...</p>
+        </div>
+
+        <p id="firmware-status" class="text-xs text-gray-500 mt-2 text-center"></p>
+      </div>
+    </section>
+
+    <!-- Account Section -->
+    <section class="bg-gray-800 rounded-lg p-6 border border-gray-700">
+      <h2 class="text-lg font-semibold text-white mb-4">
+        <i class="fas fa-user-cog text-sky-400 mr-2"></i>Account
+      </h2>
+
+      <div class="space-y-3">
+        <a href="{{ path('user_profile') }}" class="flex items-center justify-between p-3 bg-gray-700 hover:bg-gray-650 rounded-lg transition-colors">
+          <div class="flex items-center gap-3">
+            <i class="fas fa-user text-gray-400"></i>
+            <span class="text-gray-200">Edit Profile</span>
+          </div>
+          <i class="fas fa-chevron-right text-gray-500"></i>
+        </a>
+
+        <a href="{{ path('app_logout') }}" class="flex items-center justify-between p-3 bg-gray-700 hover:bg-red-900/30 rounded-lg transition-colors group">
+          <div class="flex items-center gap-3">
+            <i class="fas fa-sign-out-alt text-gray-400 group-hover:text-red-400"></i>
+            <span class="text-gray-200 group-hover:text-red-400">Sign Out</span>
+          </div>
+          <i class="fas fa-chevron-right text-gray-500 group-hover:text-red-400"></i>
+        </a>
+      </div>
+    </section>
+
+    <!-- App Info -->
+    <section class="text-center text-gray-500 text-xs py-4">
+      <p>Air Scales v1.0</p>
+      <p class="mt-1">Logged in as {{ user.email }}</p>
+    </section>
+
+  </div>
+
+<script>
+// Current settings state
+let currentPressureUnit = '{{ user.pressureUnit }}';
+let currentWeightUnit = '{{ user.weightUnit }}';
+
+// Show toast notification
+function showToast(message, isSuccess = true) {
+  const toast = document.getElementById('toast');
+  const content = document.getElementById('toast-content');
+
+  content.textContent = message;
+  content.className = `px-4 py-3 rounded-lg shadow-lg text-white font-medium ${isSuccess ? 'bg-green-600' : 'bg-red-600'}`;
+
+  toast.classList.remove('hidden');
+  toast.classList.add('translate-x-0');
+
+  setTimeout(() => {
+    toast.classList.add('hidden');
+  }, 2500);
+}
+
+// Update button styles
+function updateButtonStyles(type, value) {
+  if (type === 'pressure') {
+    document.getElementById('btn-psi').className = value === 'psi'
+      ? 'flex-1 py-3 px-4 rounded-lg font-semibold transition-all duration-200 bg-sky-600 text-white'
+      : 'flex-1 py-3 px-4 rounded-lg font-semibold transition-all duration-200 bg-gray-700 text-gray-300 hover:bg-gray-600';
+    document.getElementById('btn-kpa').className = value === 'kpa'
+      ? 'flex-1 py-3 px-4 rounded-lg font-semibold transition-all duration-200 bg-sky-600 text-white'
+      : 'flex-1 py-3 px-4 rounded-lg font-semibold transition-all duration-200 bg-gray-700 text-gray-300 hover:bg-gray-600';
+  } else if (type === 'weight') {
+    document.getElementById('btn-lbs').className = value === 'lbs'
+      ? 'flex-1 py-3 px-4 rounded-lg font-semibold transition-all duration-200 bg-sky-600 text-white'
+      : 'flex-1 py-3 px-4 rounded-lg font-semibold transition-all duration-200 bg-gray-700 text-gray-300 hover:bg-gray-600';
+    document.getElementById('btn-kg').className = value === 'kg'
+      ? 'flex-1 py-3 px-4 rounded-lg font-semibold transition-all duration-200 bg-sky-600 text-white'
+      : 'flex-1 py-3 px-4 rounded-lg font-semibold transition-all duration-200 bg-gray-700 text-gray-300 hover:bg-gray-600';
+  }
+}
+
+// Set pressure unit
+async function setPressureUnit(unit) {
+  if (unit === currentPressureUnit) return;
+
+  // Optimistic UI update
+  updateButtonStyles('pressure', unit);
+
+  try {
+    const response = await fetch('{{ path('settings_pressure_unit') }}', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ unit: unit })
+    });
+
+    const data = await response.json();
+
+    if (data.success) {
+      currentPressureUnit = unit;
+      showToast(`Pressure unit set to ${unit.toUpperCase()}`);
+
+      // Broadcast change to other components (e.g., dashboard)
+      window.dispatchEvent(new CustomEvent('settingsChanged', {
+        detail: { pressureUnit: unit }
+      }));
+    } else {
+      // Revert on failure
+      updateButtonStyles('pressure', currentPressureUnit);
+      showToast(data.error || 'Failed to update', false);
+    }
+  } catch (error) {
+    // Revert on error
+    updateButtonStyles('pressure', currentPressureUnit);
+    showToast('Network error', false);
+  }
+}
+
+// Set weight unit
+async function setWeightUnit(unit) {
+  if (unit === currentWeightUnit) return;
+
+  // Optimistic UI update
+  updateButtonStyles('weight', unit);
+
+  try {
+    const response = await fetch('{{ path('settings_weight_unit') }}', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ unit: unit })
+    });
+
+    const data = await response.json();
+
+    if (data.success) {
+      currentWeightUnit = unit;
+      showToast(`Weight unit set to ${unit === 'lbs' ? 'pounds' : 'kilograms'}`);
+
+      // Broadcast change to other components
+      window.dispatchEvent(new CustomEvent('settingsChanged', {
+        detail: { weightUnit: unit }
+      }));
+    } else {
+      // Revert on failure
+      updateButtonStyles('weight', currentWeightUnit);
+      showToast(data.error || 'Failed to update', false);
+    }
+  } catch (error) {
+    // Revert on error
+    updateButtonStyles('weight', currentWeightUnit);
+    showToast('Network error', false);
+  }
+}
+
+// Set BLE auto-switch
+async function setBleAutoSwitch(enabled) {
+  try {
+    const response = await fetch('{{ path('settings_ble_auto_switch_set') }}', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ enabled: enabled })
+    });
+
+    const data = await response.json();
+
+    if (data.success) {
+      showToast(`Auto-switch ${enabled ? 'enabled' : 'disabled'}`);
+
+      // Also update BLE module if available
+      if (window.AirScalesBLE && window.AirScalesBLE.setAutoSwitch) {
+        window.AirScalesBLE.autoSwitchEnabled = enabled;
+      }
+    } else {
+      // Revert checkbox on failure
+      document.getElementById('ble-auto-switch').checked = !enabled;
+      showToast(data.error || 'Failed to update', false);
+    }
+  } catch (error) {
+    // Revert checkbox on error
+    document.getElementById('ble-auto-switch').checked = !enabled;
+    showToast('Network error', false);
+  }
+}
+
+// Set auto-update firmware
+async function setAutoUpdateFirmware(enabled) {
+  try {
+    const response = await fetch('{{ path('settings_auto_update_firmware') }}', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ enabled: enabled })
+    });
+
+    const data = await response.json();
+
+    if (data.success) {
+      showToast(`Auto-update ${enabled ? 'enabled' : 'disabled'}`);
+    } else {
+      // Revert checkbox on failure
+      document.getElementById('auto-update-firmware').checked = !enabled;
+      showToast(data.error || 'Failed to update', false);
+    }
+  } catch (error) {
+    // Revert checkbox on error
+    document.getElementById('auto-update-firmware').checked = !enabled;
+    showToast('Network error', false);
+  }
+}
+
+// Store available update info
+let availableUpdate = null;
+
+// Check for firmware updates
+async function checkForFirmwareUpdate() {
+  const icon = document.getElementById('update-check-icon');
+  const text = document.getElementById('update-check-text');
+  const status = document.getElementById('firmware-status');
+  const installBtn = document.getElementById('install-update-btn');
+
+  // Hide install button while checking
+  installBtn.classList.add('hidden');
+  availableUpdate = null;
+
+  // Show loading state
+  icon.classList.add('fa-spin');
+  text.textContent = 'Checking...';
+
+  try {
+    // Get current device firmware version from BLE if connected
+    let currentVersion = null;
+    if (window.AirScalesBLE && window.AirScalesBLE.isConnected()) {
+      currentVersion = window.AirScalesBLE.getConnectedDeviceFirmware();
+    }
+
+    if (!currentVersion) {
+      status.textContent = 'Connect to a device via Bluetooth to check for updates';
+      status.className = 'text-xs text-yellow-500 mt-2 text-center';
+      return;
+    }
+
+    const response = await fetch('/api/firmware/check', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        current_version: currentVersion
+        // device_type omitted - checks all firmware versions
+      })
+    });
+
+    const data = await response.json();
+
+    if (data.update_available) {
+      availableUpdate = data;
+      status.innerHTML = `<span class="text-green-400">Update available!</span> v${data.latest_version} (${data.file_size_formatted})`;
+      status.className = 'text-xs mt-2 text-center';
+
+      // Show install button
+      installBtn.classList.remove('hidden');
+      document.getElementById('install-text').textContent = `Install v${data.latest_version}`;
+
+      showToast(`Firmware v${data.latest_version} available!`);
+    } else {
+      status.textContent = `You're running the latest firmware (v${currentVersion})`;
+      status.className = 'text-xs text-gray-500 mt-2 text-center';
+      showToast('Firmware is up to date');
+    }
+  } catch (error) {
+    status.textContent = 'Failed to check for updates';
+    status.className = 'text-xs text-red-500 mt-2 text-center';
+    showToast('Update check failed', false);
+  } finally {
+    icon.classList.remove('fa-spin');
+    text.textContent = 'Check for Updates';
+  }
+}
+
+// Install firmware update via BLE OTA
+async function installFirmwareUpdate() {
+  if (!availableUpdate || !availableUpdate.download_url) {
+    showToast('No update available', false);
+    return;
+  }
+
+  if (!window.AirScalesBLE || !window.AirScalesBLE.isConnected()) {
+    showToast('Device not connected', false);
+    return;
+  }
+
+  const installBtn = document.getElementById('install-update-btn');
+  const installIcon = document.getElementById('install-icon');
+  const installText = document.getElementById('install-text');
+  const progressDiv = document.getElementById('ota-progress');
+  const progressBar = document.getElementById('ota-progress-bar');
+  const progressText = document.getElementById('ota-progress-text');
+  const status = document.getElementById('firmware-status');
+
+  // Confirm with user
+  if (!confirm(`Install firmware v${availableUpdate.latest_version}?\n\nThe device will reboot after the update completes.`)) {
+    return;
+  }
+
+  // Disable button and show progress
+  installBtn.disabled = true;
+  installIcon.classList.remove('fa-download');
+  installIcon.classList.add('fa-spinner', 'fa-spin');
+  installText.textContent = 'Installing...';
+  progressDiv.classList.remove('hidden');
+
+  try {
+    await window.AirScalesBLE.performOtaUpdate(availableUpdate.download_url, (progress) => {
+      // Update progress bar
+      progressBar.style.width = `${progress.percent}%`;
+      progressText.textContent = progress.message;
+
+      // Change bar color based on phase
+      if (progress.phase === 'error') {
+        progressBar.classList.remove('bg-sky-500');
+        progressBar.classList.add('bg-red-500');
+      } else if (progress.phase === 'complete') {
+        progressBar.classList.remove('bg-sky-500');
+        progressBar.classList.add('bg-green-500');
+      }
+    });
+
+    status.innerHTML = '<span class="text-green-400">Update installed!</span> Device is rebooting...';
+    status.className = 'text-xs mt-2 text-center';
+    showToast('Firmware update complete!');
+
+    // Hide install button
+    installBtn.classList.add('hidden');
+    availableUpdate = null;
+
+  } catch (error) {
+    status.innerHTML = `<span class="text-red-400">Update failed:</span> ${error.message}`;
+    status.className = 'text-xs mt-2 text-center';
+    showToast('Firmware update failed', false);
+
+    // Reset progress bar
+    progressBar.classList.remove('bg-red-500', 'bg-green-500');
+    progressBar.classList.add('bg-sky-500');
+
+  } finally {
+    // Re-enable button
+    installBtn.disabled = false;
+    installIcon.classList.remove('fa-spinner', 'fa-spin');
+    installIcon.classList.add('fa-download');
+    installText.textContent = 'Install Update';
+
+    // Hide progress after a delay
+    setTimeout(() => {
+      progressDiv.classList.add('hidden');
+      progressBar.style.width = '0%';
+    }, 3000);
+  }
+}
+</script>
+{% endblock %}

@@ -1,0 +1,1019 @@
+{# templates/configuration/edit.html.twig #}
+{% extends 'base_app.html.twig' %}
+
+{% block title %}Edit {{ configuration.name }}{% endblock %}
+
+{% block body %}
+<div class="min-h-screen text-white bg-gray-900">
+
+  <!-- Header -->
+  <header class="sticky top-0 z-50 px-4 py-3 bg-gray-800 border-b border-gray-700 shadow-md">
+    <div class="flex items-center justify-between">
+      <div>
+        <h1 class="text-xl font-semibold text-white">Edit Configuration</h1>
+        <div class="text-sm text-gray-400 mt-1">{{ configuration.name }}</div>
+      </div>
+      <a href="{{ path('configuration_show', {id: configuration.id}) }}" class="text-sm text-sky-400 hover:text-sky-300">
+        ← Back
+      </a>
+    </div>
+  </header>
+
+  <main class="pb-20">
+
+    <!-- Flash Messages -->
+    {% for type, messages in app.flashes %}
+      {% for message in messages %}
+        <div class="mx-4 mt-4 p-3 rounded-lg border-l-4 {% if type == 'success' %}bg-green-900/50 border-green-500 text-green-100{% elseif type == 'warning' %}bg-yellow-900/50 border-yellow-500 text-yellow-100{% else %}bg-red-900/50 border-red-500 text-red-100{% endif %}">
+          {{ message }}
+        </div>
+      {% endfor %}
+    {% endfor %}
+
+    <!-- Basic Info -->
+    <section class="m-4 p-4 bg-gray-800 rounded-lg border border-gray-700">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-lg font-semibold">Basic Information</h2>
+        <div id="autosave-status" class="text-xs text-gray-400">
+          <!-- Autosave status will appear here -->
+        </div>
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-gray-300 mb-2">Configuration Name</label>
+        <input type="text" id="config-name-input" value="{{ configuration.name }}" required
+               class="w-full px-3 py-3 bg-gray-700 text-white border border-gray-600 rounded-lg focus:outline-none focus:border-sky-400">
+      </div>
+    </section>
+
+    <!-- Current Devices -->
+    <section class="m-4 p-4 bg-gray-800 rounded-lg border border-gray-700">
+      <h2 class="text-lg font-semibold mb-3">Devices in this Configuration</h2>
+
+      {% if configuration.deviceRoles|length == 0 %}
+        <div class="p-6 text-center text-gray-400">
+          No devices assigned yet
+        </div>
+      {% else %}
+        <div class="space-y-2" id="device-list">
+          {% for deviceRole in configuration.deviceRoles %}
+            {% set device = deviceRole.device %}
+            <div class="p-3 {% if device.hasVirtualSteer %}bg-purple-900/10 border-purple-600{% else %}bg-gray-750 border-gray-600{% endif %} border-2 rounded-lg transition-all device-card"
+                 data-device-role-id="{{ deviceRole.id }}"
+                 data-device-id="{{ device.id }}">
+              <div class="flex items-center justify-between mb-2">
+                <div class="flex items-center gap-3 flex-1">
+                  <!-- Drag handle -->
+                  <div class="text-gray-500 cursor-move touch-none select-none drag-handle" style="-webkit-touch-callout: none;">
+                    <i class="fas fa-grip-vertical text-lg"></i>
+                  </div>
+                  <div class="flex-1 min-w-0">
+                    <div class="font-medium truncate">{{ device.serialNumber ?: 'AS25-' ~ device.id }}</div>
+                  </div>
+                </div>
+                <div class="flex gap-2 flex-shrink-0">
+                  <button onclick="toggleDeviceSettings({{ device.id }})" class="px-3 py-1 text-sm bg-gray-600 hover:bg-gray-500 rounded touch-manipulation">
+                    <i class="fas fa-cog"></i>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Channel List -->
+              <div class="mt-3 space-y-1" id="channel-list-{{ device.id }}">
+                {# Build combined sorted array of channels + virtual steer #}
+                {# IMPORTANT: Virtual steer is NOT a physical channel - it's a UI element only! #}
+                {# ESP32 firmware sends ch1_weight, ch2_weight which map to channel_index 1 and 2 #}
+                {# Virtual steer uses displayOrder=0 for visual positioning only #}
+                {% set allChannelItems = [] %}
+
+                {# Add virtual steer if enabled #}
+                {% if device.hasVirtualSteer %}
+                  {% set allChannelItems = allChannelItems|merge([{
+                    'type': 'virtual-steer',
+                    'order': device.virtualSteerDisplayOrder ?? 0,
+                    'device': device
+                  }]) %}
+                {% endif %}
+
+                {# Add regular channels #}
+                {% for channel in device.deviceChannels %}
+                  {% if channel.enabled %}
+                    {% set allChannelItems = allChannelItems|merge([{
+                      'type': 'channel',
+                      'order': channel.displayOrder ?? (channel.channelIndex + 100),
+                      'channel': channel
+                    }]) %}
+                  {% endif %}
+                {% endfor %}
+
+                {# Sort by order #}
+                {% set allChannelItems = allChannelItems|sort((a, b) => a.order <=> b.order) %}
+
+                {# Display sorted channels #}
+                {% for item in allChannelItems %}
+                  {% if item.type == 'virtual-steer' %}
+                    {# Virtual Steer #}
+                    <div class="flex items-center justify-between py-2 px-2 bg-purple-900/20 border-2 border-purple-700/30 rounded transition-all channel-item"
+                         data-channel-type="virtual-steer"
+                         data-device-id="{{ item.device.id }}">
+                      <div class="flex items-center gap-2 flex-1">
+                        <div class="text-purple-500 cursor-move touch-none select-none" style="-webkit-touch-callout: none;">
+                          <i class="fas fa-grip-vertical text-xs"></i>
+                        </div>
+                        <span class="text-sm text-purple-300">
+                          <i class="fas fa-calculator mr-1"></i>Channel 0 - Virtual Steer
+                        </span>
+                      </div>
+                      <span class="text-xs text-purple-400">
+                        {% if item.device.virtualSteerIntercept %}
+                          Trained
+                        {% else %}
+                          Needs calibration
+                        {% endif %}
+                      </span>
+                    </div>
+                  {% else %}
+                    {# Regular Channel #}
+                    {% set channel = item.channel %}
+                    <div class="flex items-center justify-between py-2 px-2 bg-gray-700/50 border-2 border-gray-600/30 rounded transition-all channel-item channel-live-data-{{ device.id }}-{{ channel.channelIndex }}"
+                         data-channel-id="{{ channel.id }}"
+                         data-device-id="{{ device.id }}"
+                         data-channel-index="{{ channel.channelIndex }}">
+                      <div class="flex items-center gap-2 flex-1">
+                        <div class="text-gray-500 cursor-move touch-none select-none" style="-webkit-touch-callout: none;">
+                          <i class="fas fa-grip-vertical text-xs"></i>
+                        </div>
+                        <div class="flex-1">
+                          <div class="text-sm text-gray-300">
+                            Channel {{ channel.channelIndex }}
+                            {% if channel.labelOverride %}
+                              - {{ channel.labelOverride }}
+                            {% endif %}
+                          </div>
+                          <div class="text-xs text-gray-500 mt-0.5">
+                            {% if channel.regressionIntercept %}
+                              <span class="text-green-500">Calibrated</span>
+                            {% else %}
+                              <span class="text-yellow-500">Needs calibration</span>
+                            {% endif %}
+                          </div>
+                        </div>
+                      </div>
+                      <div class="text-xs text-right">
+                        <div class="text-sky-400 font-medium pressure-display">-- psi</div>
+                        <div class="text-green-400 font-medium weight-display">-- lbs</div>
+                      </div>
+                    </div>
+                  {% endif %}
+                {% endfor %}
+              </div>
+
+              <!-- Device Settings Panel (collapsed by default) -->
+              <div id="device-settings-{{ device.id }}" class="hidden mt-3 pt-3 border-t border-gray-500">
+                <h4 class="text-sm font-semibold text-white mb-3">Virtual Steer Axle Settings</h4>
+
+                <div class="space-y-3">
+                  <div class="flex items-center gap-3">
+                    <input type="checkbox" id="has_virtual_steer_{{ device.id }}" {{ device.hasVirtualSteer ? 'checked' : '' }}
+                           onchange="toggleDeviceVirtualSteer({{ device.id }})"
+                           class="w-4 h-4 bg-gray-700 border-gray-600 rounded focus:ring-purple-400">
+                    <label for="has_virtual_steer_{{ device.id }}" class="text-sm text-gray-300">
+                      Enable Virtual Steer for this device
+                    </label>
+                  </div>
+
+                  <div id="virtual-steer-fields-{{ device.id }}" class="{{ device.hasVirtualSteer ? '' : 'hidden' }} space-y-3">
+                    <div>
+                      <label class="block text-xs font-medium text-gray-400 mb-1">
+                        Wheelbase Length (inches)
+                        <span class="text-gray-500">- Steer to drive axle center</span>
+                      </label>
+                      <input type="number" id="wheelbase_{{ device.id }}" value="{{ device.wheelbase }}" step="0.1"
+                             placeholder="e.g., 244"
+                             class="w-full px-3 py-2 text-sm bg-gray-700 text-white border border-gray-600 rounded-lg focus:outline-none focus:border-purple-400">
+                    </div>
+
+                    <div>
+                      <label class="block text-xs font-medium text-gray-400 mb-1">
+                        Kingpin Distance (inches) <span class="text-gray-500">- Optional, system will estimate</span>
+                      </label>
+                      <input type="number" id="kingpin_distance_{{ device.id }}" value="{{ device.kingpinDistance }}" step="0.1"
+                             placeholder="Leave blank to auto-calculate"
+                             class="w-full px-3 py-2 text-sm bg-gray-700 text-white border border-gray-600 rounded-lg focus:outline-none focus:border-purple-400">
+                    </div>
+
+                    <button onclick="saveDeviceVirtualSteer({{ device.id }})"
+                            class="w-full py-2 text-sm font-semibold bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors">
+                      Save Virtual Steer Settings
+                    </button>
+                  </div>
+
+                  <!-- Remove Device -->
+                  <div class="mt-4 pt-4 border-t border-gray-600">
+                    <button onclick="removeDevice({{ deviceRole.id }})" class="w-full py-2 text-sm font-semibold bg-red-600 hover:bg-red-700 rounded-lg transition-colors">
+                      <i class="fas fa-trash-alt mr-2"></i>Remove Device from Configuration
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+      {% endif %}
+
+      <!-- Add Device Form -->
+      <div class="mt-4 pt-4 border-t border-gray-700">
+        <h3 class="text-md font-semibold mb-3">Add Device</h3>
+        {% if devices|length > 0 %}
+          <div class="flex flex-col sm:flex-row gap-2">
+            <select id="device-select" class="flex-1 px-3 py-2 bg-gray-700 text-white border border-gray-600 rounded-lg focus:outline-none focus:border-sky-400">
+              <option value="">Select a device...</option>
+              {% for device in devices %}
+                <option value="{{ device.id }}">{{ device.serialNumber ?: 'AS25-' ~ device.id }}</option>
+              {% endfor %}
+            </select>
+            <select id="role-select" class="flex-1 sm:flex-initial sm:min-w-[140px] px-3 py-2 bg-gray-700 text-white border border-gray-600 rounded-lg focus:outline-none focus:border-sky-400">
+              {% for axleGroup in axleGroups %}
+                <option value="{{ axleGroup.name }}">{{ axleGroup.label ?: axleGroup.name }}</option>
+              {% endfor %}
+            </select>
+            <button onclick="addDevice()" class="px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg whitespace-nowrap">
+              Add
+            </button>
+          </div>
+        {% else %}
+          <div class="text-sm text-gray-400">
+            No devices available. Make sure you have devices registered.
+          </div>
+        {% endif %}
+      </div>
+    </section>
+
+    <!-- Fleet Sharing -->
+    <section class="m-4 p-4 bg-gray-800 rounded-lg border border-gray-700">
+      <h2 class="text-lg font-semibold mb-2">Fleet Sharing</h2>
+      <p class="text-sm text-gray-400 mb-4">
+        Share this configuration with all users in your fleet to avoid duplication
+      </p>
+
+      <div class="flex items-center justify-between p-4 bg-gray-750 border border-gray-600 rounded-lg">
+        <div class="flex items-center gap-3">
+          <div class="flex-shrink-0">
+            <i class="text-xl {% if configuration.isShared %}text-green-400 fas fa-users{% else %}text-gray-400 fas fa-lock{% endif %}"></i>
+          </div>
+          <div>
+            <div class="font-medium text-white">
+              {% if configuration.isShared %}
+                Shared with Fleet
+              {% else %}
+                Private Configuration
+              {% endif %}
+            </div>
+            <div class="text-xs text-gray-400">
+              {% if configuration.isShared %}
+                All users can view and activate this configuration
+              {% else %}
+                Only you can see this configuration
+              {% endif %}
+            </div>
+          </div>
+        </div>
+        <button
+          id="toggle-shared-btn"
+          onclick="toggleShared()"
+          class="px-4 py-2 text-sm font-semibold transition-colors rounded-lg {% if configuration.isShared %}bg-orange-600 hover:bg-orange-700{% else %}bg-green-600 hover:bg-green-700{% endif %}"
+        >
+          {% if configuration.isShared %}
+            <i class="mr-1 fas fa-lock"></i> Make Private
+          {% else %}
+            <i class="mr-1 fas fa-share-alt"></i> Share
+          {% endif %}
+        </button>
+      </div>
+    </section>
+
+    <!-- Danger Zone -->
+    <section class="m-4 p-4 bg-red-900/20 border border-red-700 rounded-lg">
+      <h2 class="text-lg font-semibold text-red-400 mb-3">Danger Zone</h2>
+
+      <button onclick="deleteConfiguration({{ configuration.id }})"
+              class="px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg transition-colors">
+        Delete Configuration
+      </button>
+      <div class="text-xs text-gray-400 mt-2">
+        This will not delete your devices, only this grouping.
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Bottom Navigation -->
+  <nav class="fixed bottom-0 left-0 right-0 bg-gray-900 border-t border-gray-800">
+    <div class="flex items-center justify-around py-3">
+      <!-- Devices -->
+      <a href="{{ path('device_list') }}" class="flex flex-col items-center px-3 py-2 space-y-1 hover:opacity-80 transition">
+        <div class="flex items-center justify-center w-6 h-6 bg-gray-700 rounded-lg">
+          <i class="text-sm text-gray-400 fas fa-tachometer-alt"></i>
+        </div>
+        <span class="text-xs text-gray-400">Devices</span>
+      </a>
+
+      <!-- Fleet -->
+      <a href="{{ path('configuration_index') }}" class="flex flex-col items-center px-3 py-2 space-y-1 hover:opacity-80 transition">
+        <div class="flex items-center justify-center w-6 h-6 bg-gray-700 rounded-lg">
+          <i class="text-sm text-gray-400 fas fa-truck"></i>
+        </div>
+        <span class="text-xs text-gray-400">Fleet</span>
+      </a>
+
+      <!-- Calibrate -->
+      <a href="{{ path('configuration_bulk_calibration', {id: configuration.id}) }}" class="flex flex-col items-center px-3 py-2 space-y-1 hover:opacity-80 transition">
+        <div class="flex items-center justify-center w-6 h-6 bg-gray-700 rounded-lg">
+          <i class="text-sm text-gray-400 fas fa-balance-scale"></i>
+        </div>
+        <span class="text-xs text-gray-400">Calibrate</span>
+      </a>
+
+      <!-- Profile -->
+      <a href="{{ path('user_profile') }}" class="flex flex-col items-center px-3 py-2 space-y-1 hover:opacity-80 transition">
+        <div class="flex items-center justify-center w-6 h-6 bg-gray-700 rounded-lg">
+          <i class="text-sm text-gray-400 fas fa-user"></i>
+        </div>
+        <span class="text-xs text-gray-400">Profile</span>
+      </a>
+    </div>
+  </nav>
+</div>
+
+<script>
+function toggleDeviceSettings(deviceId) {
+  const panel = document.getElementById(`device-settings-${deviceId}`);
+  panel.classList.toggle('hidden');
+}
+
+function toggleDeviceVirtualSteer(deviceId) {
+  const checkbox = document.getElementById(`has_virtual_steer_${deviceId}`);
+  const fields = document.getElementById(`virtual-steer-fields-${deviceId}`);
+
+  // Show/hide fields based on checkbox state
+  if (checkbox.checked) {
+    fields.classList.remove('hidden');
+  } else {
+    fields.classList.add('hidden');
+  }
+
+  // Auto-save when checkbox changes (keep existing wheelbase/kingpin values)
+  const wheelbase = document.getElementById(`wheelbase_${deviceId}`).value;
+  const kingpinDistance = document.getElementById(`kingpin_distance_${deviceId}`).value;
+
+  const data = {
+    has_virtual_steer: checkbox.checked ? '1' : '0',
+    wheelbase: wheelbase || null,
+    kingpin_distance: kingpinDistance || null
+  };
+
+  console.log(`💾 Auto-saving virtual steer settings for device ${deviceId}:`, data);
+
+  fetch(`/device/${deviceId}/update-virtual-steer`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.success) {
+      console.log('✅ Virtual steer settings saved');
+      // Show brief success message without full page reload
+      const successMsg = document.createElement('div');
+      successMsg.className = 'fixed top-4 right-4 bg-green-600 text-white px-4 py-2 rounded-lg shadow-lg z-50';
+      successMsg.textContent = 'Virtual steer ' + (checkbox.checked ? 'enabled' : 'disabled');
+      document.body.appendChild(successMsg);
+      setTimeout(() => successMsg.remove(), 2000);
+    } else {
+      console.error('❌ Failed to save:', data.error);
+      alert('Error: ' + (data.error || 'Unknown error'));
+      // Revert checkbox on error
+      checkbox.checked = !checkbox.checked;
+    }
+  })
+  .catch(err => {
+    console.error('❌ Failed to save settings:', err);
+    alert('Failed to save settings. Check console for details.');
+    // Revert checkbox on error
+    checkbox.checked = !checkbox.checked;
+  });
+}
+
+function saveDeviceVirtualSteer(deviceId) {
+  const hasVirtualSteer = document.getElementById(`has_virtual_steer_${deviceId}`).checked;
+  const wheelbase = document.getElementById(`wheelbase_${deviceId}`).value;
+  const kingpinDistance = document.getElementById(`kingpin_distance_${deviceId}`).value;
+
+  const data = {
+    has_virtual_steer: hasVirtualSteer ? '1' : '0',
+    wheelbase: wheelbase || null,
+    kingpin_distance: kingpinDistance || null
+  };
+
+  fetch(`/device/${deviceId}/update-virtual-steer`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.success) {
+      alert('Virtual Steer settings saved successfully!');
+      window.location.reload();
+    } else {
+      alert('Error: ' + (data.error || 'Unknown error'));
+    }
+  })
+  .catch(err => {
+    alert('Failed to save settings');
+    console.error(err);
+  });
+}
+
+function toggleShared() {
+  fetch('/configuration/{{ configuration.id }}/toggle-shared', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' }
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.success) {
+      window.location.reload();
+    } else {
+      alert('Error: ' + (data.error || 'Unknown error'));
+    }
+  })
+  .catch(err => {
+    alert('Failed to update sharing status');
+    console.error(err);
+  });
+}
+
+function deleteConfiguration(configId) {
+  if (confirm('Are you sure you want to delete this configuration? This cannot be undone.')) {
+    fetch(`/configuration/${configId}/delete`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' }
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.success) {
+        window.location.href = '{{ path('configuration_index') }}';
+      } else {
+        alert('Error: ' + (data.error || 'Unknown error'));
+      }
+    })
+    .catch(err => {
+      alert('Failed to delete configuration');
+      console.error(err);
+    });
+  }
+}
+
+function addDevice() {
+  const deviceId = document.getElementById('device-select').value;
+  const role = document.getElementById('role-select').value;
+
+  if (!deviceId) {
+    alert('Please select a device');
+    return;
+  }
+
+  const formData = new FormData();
+  formData.append('device_id', deviceId);
+  formData.append('role', role);
+
+  fetch(`/configuration/{{ configuration.id }}/add-device`, {
+    method: 'POST',
+    body: formData
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.success) {
+      window.location.reload();
+    } else {
+      alert('Error: ' + (data.error || 'Unknown error'));
+    }
+  })
+  .catch(err => {
+    alert('Failed to add device');
+    console.error(err);
+  });
+}
+
+function removeDevice(deviceRoleId) {
+  if (confirm('Remove this device from the configuration?')) {
+    fetch(`/configuration/{{ configuration.id }}/remove-device/${deviceRoleId}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' }
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.success) {
+        window.location.reload();
+      } else {
+        alert('Error: ' + (data.error || 'Unknown error'));
+      }
+    })
+    .catch(err => {
+      alert('Failed to remove device');
+      console.error(err);
+    });
+  }
+}
+
+// ===== DRAG AND DROP WITH TOUCH SUPPORT =====
+
+// Device card drag-and-drop
+let draggedDeviceCard = null;
+let touchStartY = 0;
+let touchStartX = 0;
+
+document.addEventListener('DOMContentLoaded', () => {
+  initDeviceDragAndDrop();
+  initChannelDragAndDrop();
+  initLiveDataUpdates();
+  initAutosave();
+});
+
+function initDeviceDragAndDrop() {
+  const deviceCards = document.querySelectorAll('.device-card');
+
+  deviceCards.forEach(card => {
+    // Make card draggable via handle only
+    const dragHandle = card.querySelector('.drag-handle');
+    if (!dragHandle) return;
+
+    // Make handle draggable for desktop
+    dragHandle.setAttribute('draggable', 'true');
+
+    // Mouse events on handle
+    dragHandle.addEventListener('dragstart', (e) => handleDeviceDragStart(e, card));
+    dragHandle.addEventListener('dragend', (e) => handleDeviceDragEnd(e, card));
+
+    // Touch events on handle for mobile
+    dragHandle.addEventListener('touchstart', (e) => handleDeviceTouchStart(e, card), {passive: false});
+    dragHandle.addEventListener('touchmove', handleDeviceTouchMove, {passive: false});
+    dragHandle.addEventListener('touchend', handleDeviceTouchEnd, {passive: false});
+
+    // Drag over and drop on the card itself
+    card.addEventListener('dragover', handleDeviceDragOver);
+    card.addEventListener('drop', handleDeviceDrop);
+  });
+}
+
+function handleDeviceDragStart(e, card) {
+  draggedDeviceCard = card;
+  card.style.opacity = '0.5';
+  e.dataTransfer.effectAllowed = 'move';
+}
+
+function handleDeviceDragOver(e) {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+
+  const target = e.currentTarget;
+  if (draggedDeviceCard && draggedDeviceCard !== target) {
+    target.style.borderColor = '#0ea5e9';
+  }
+  return false;
+}
+
+function handleDeviceDrop(e) {
+  e.stopPropagation();
+  e.preventDefault();
+
+  const target = e.currentTarget;
+  if (draggedDeviceCard && draggedDeviceCard !== target) {
+    const container = document.getElementById('device-list');
+    const allCards = Array.from(container.children);
+    const draggedIndex = allCards.indexOf(draggedDeviceCard);
+    const targetIndex = allCards.indexOf(target);
+
+    if (draggedIndex < targetIndex) {
+      target.parentNode.insertBefore(draggedDeviceCard, target.nextSibling);
+    } else {
+      target.parentNode.insertBefore(draggedDeviceCard, target);
+    }
+
+    saveDeviceOrder();
+  }
+
+  return false;
+}
+
+function handleDeviceDragEnd(e, card) {
+  card.style.opacity = '1';
+
+  // Reset border colors
+  document.querySelectorAll('.device-card').forEach(c => {
+    c.style.borderColor = '';
+  });
+}
+
+function handleDeviceTouchStart(e, card) {
+  const touch = e.touches[0];
+  touchStartY = touch.clientY;
+  touchStartX = touch.clientX;
+  draggedDeviceCard = card;
+
+  // Visual feedback
+  card.style.opacity = '0.7';
+  card.style.transform = 'scale(1.02)';
+}
+
+function handleDeviceTouchMove(e) {
+  if (!draggedDeviceCard) return;
+
+  e.preventDefault(); // Prevent scrolling while dragging
+
+  const touch = e.touches[0];
+  const deltaY = touch.clientY - touchStartY;
+
+  // Only proceed if moving more vertically than horizontally
+  const deltaX = Math.abs(touch.clientX - touchStartX);
+  if (Math.abs(deltaY) < 10 || deltaX > Math.abs(deltaY)) return;
+
+  const container = document.getElementById('device-list');
+  const cards = Array.from(container.children);
+  const currentIndex = cards.indexOf(draggedDeviceCard);
+
+  // Move up
+  if (deltaY < -50 && currentIndex > 0) {
+    const prevCard = cards[currentIndex - 1];
+    container.insertBefore(draggedDeviceCard, prevCard);
+    touchStartY = touch.clientY; // Reset for continuous dragging
+  }
+  // Move down
+  else if (deltaY > 50 && currentIndex < cards.length - 1) {
+    const nextCard = cards[currentIndex + 1];
+    container.insertBefore(nextCard, draggedDeviceCard);
+    touchStartY = touch.clientY; // Reset for continuous dragging
+  }
+}
+
+function handleDeviceTouchEnd(e) {
+  if (!draggedDeviceCard) return;
+
+  draggedDeviceCard.style.opacity = '1';
+  draggedDeviceCard.style.transform = '';
+
+  saveDeviceOrder();
+  draggedDeviceCard = null;
+}
+
+function saveDeviceOrder() {
+  const container = document.getElementById('device-list');
+  const cards = container.children;
+  const order = [];
+
+  for (let i = 0; i < cards.length; i++) {
+    const deviceRoleId = cards[i].getAttribute('data-device-role-id');
+    order.push({
+      id: parseInt(deviceRoleId),
+      sortOrder: i
+    });
+  }
+
+  fetch('/configuration/{{ configuration.id }}/reorder-devices', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ order: order })
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.success) {
+      console.log('✅ Device order saved successfully');
+      // Show brief success message (no reload!)
+      const successMsg = document.createElement('div');
+      successMsg.className = 'fixed top-4 right-4 bg-green-600 text-white px-4 py-2 rounded-lg shadow-lg z-50';
+      successMsg.textContent = '✓ Order saved';
+      document.body.appendChild(successMsg);
+      setTimeout(() => successMsg.remove(), 2000);
+    } else {
+      console.error('Failed to save order:', data.error);
+      alert('Error saving order: ' + (data.error || 'Unknown error'));
+    }
+  })
+  .catch(err => {
+    console.error('Error saving order:', err);
+    alert('Failed to save order. Check console for details.');
+  });
+}
+
+// Channel drag-and-drop with touch support
+let draggedChannelItem = null;
+let channelTouchStartY = 0;
+let channelTouchStartX = 0;
+
+function initChannelDragAndDrop() {
+  const channelItems = document.querySelectorAll('.channel-item');
+
+  channelItems.forEach(item => {
+    // Find drag handle within this channel item
+    const dragHandle = item.querySelector('.cursor-move');
+    if (!dragHandle) return;
+
+    // Make handle draggable for desktop
+    dragHandle.setAttribute('draggable', 'true');
+
+    // Mouse events on handle
+    dragHandle.addEventListener('dragstart', (e) => handleChannelDragStart(e, item));
+    dragHandle.addEventListener('dragend', (e) => handleChannelDragEnd(e, item));
+
+    // Touch events on handle for mobile
+    dragHandle.addEventListener('touchstart', (e) => handleChannelTouchStart(e, item), {passive: false});
+    dragHandle.addEventListener('touchmove', handleChannelTouchMove, {passive: false});
+    dragHandle.addEventListener('touchend', handleChannelTouchEnd, {passive: false});
+
+    // Drag over and drop on the item itself
+    item.addEventListener('dragover', handleChannelDragOver);
+    item.addEventListener('drop', handleChannelDrop);
+  });
+}
+
+function handleChannelDragStart(e, item) {
+  draggedChannelItem = item;
+  item.style.opacity = '0.5';
+  e.dataTransfer.effectAllowed = 'move';
+}
+
+function handleChannelDragOver(e) {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+
+  const target = e.currentTarget;
+  if (draggedChannelItem && draggedChannelItem !== target) {
+    target.style.borderColor = '#0ea5e9';
+  }
+  return false;
+}
+
+function handleChannelDrop(e) {
+  e.stopPropagation();
+  e.preventDefault();
+
+  const target = e.currentTarget;
+  if (draggedChannelItem && draggedChannelItem !== target) {
+    const deviceId = target.getAttribute('data-device-id');
+    const container = document.getElementById(`channel-list-${deviceId}`);
+    const allChannels = Array.from(container.children);
+    const draggedIndex = allChannels.indexOf(draggedChannelItem);
+    const targetIndex = allChannels.indexOf(target);
+
+    if (draggedIndex < targetIndex) {
+      target.parentNode.insertBefore(draggedChannelItem, target.nextSibling);
+    } else {
+      target.parentNode.insertBefore(draggedChannelItem, target);
+    }
+
+    saveChannelOrder(deviceId);
+  }
+
+  return false;
+}
+
+function handleChannelDragEnd(e, item) {
+  item.style.opacity = '1';
+
+  // Reset border colors
+  document.querySelectorAll('.channel-item').forEach(i => {
+    i.style.borderColor = '';
+  });
+}
+
+function handleChannelTouchStart(e, item) {
+  const touch = e.touches[0];
+  channelTouchStartY = touch.clientY;
+  channelTouchStartX = touch.clientX;
+  draggedChannelItem = item;
+
+  item.style.opacity = '0.7';
+  item.style.transform = 'scale(1.02)';
+}
+
+function handleChannelTouchMove(e) {
+  if (!draggedChannelItem) return;
+
+  e.preventDefault();
+
+  const touch = e.touches[0];
+  const deltaY = touch.clientY - channelTouchStartY;
+
+  const deltaX = Math.abs(touch.clientX - channelTouchStartX);
+  if (Math.abs(deltaY) < 10 || deltaX > Math.abs(deltaY)) return;
+
+  const deviceId = draggedChannelItem.getAttribute('data-device-id');
+  const container = document.getElementById(`channel-list-${deviceId}`);
+  const channels = Array.from(container.children);
+  const currentIndex = channels.indexOf(draggedChannelItem);
+
+  if (deltaY < -50 && currentIndex > 0) {
+    const prevChannel = channels[currentIndex - 1];
+    container.insertBefore(draggedChannelItem, prevChannel);
+    channelTouchStartY = touch.clientY;
+  } else if (deltaY > 50 && currentIndex < channels.length - 1) {
+    const nextChannel = channels[currentIndex + 1];
+    container.insertBefore(nextChannel, draggedChannelItem);
+    channelTouchStartY = touch.clientY;
+  }
+}
+
+function handleChannelTouchEnd(e) {
+  if (!draggedChannelItem) return;
+
+  draggedChannelItem.style.opacity = '1';
+  draggedChannelItem.style.transform = '';
+
+  const deviceId = draggedChannelItem.getAttribute('data-device-id');
+  saveChannelOrder(deviceId);
+
+  draggedChannelItem = null;
+}
+
+function saveChannelOrder(deviceId) {
+  const container = document.getElementById(`channel-list-${deviceId}`);
+  const channels = container.children;
+  const order = [];
+
+  for (let i = 0; i < channels.length; i++) {
+    const channelId = channels[i].getAttribute('data-channel-id');
+    const channelType = channels[i].getAttribute('data-channel-type');
+
+    if (channelType === 'virtual-steer') {
+      // Virtual steer doesn't have a channel ID, handle separately
+      order.push({
+        type: 'virtual-steer',
+        displayOrder: i
+      });
+    } else if (channelId) {
+      order.push({
+        type: 'channel',
+        id: parseInt(channelId),
+        displayOrder: i
+      });
+    }
+  }
+
+  fetch(`/device/${deviceId}/reorder-channels`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ order: order })
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.success) {
+      console.log('✅ Channel order saved successfully');
+      // Show brief success message
+      const successMsg = document.createElement('div');
+      successMsg.className = 'fixed top-4 right-4 bg-green-600 text-white px-4 py-2 rounded-lg shadow-lg z-50';
+      successMsg.textContent = '✓ Order saved';
+      document.body.appendChild(successMsg);
+      setTimeout(() => successMsg.remove(), 2000);
+    } else {
+      console.error('Failed to save channel order:', data.error);
+      alert('Failed to save new channel order. Please refresh the page.');
+    }
+  })
+  .catch(err => {
+    console.error('Error saving channel order:', err);
+    alert('Failed to save new channel order. Please refresh the page.');
+  });
+}
+
+// ===== LIVE DATA UPDATES =====
+function initLiveDataUpdates() {
+  // Listen for global BLE data events
+  if (window.AirScalesBLE) {
+    window.AirScalesBLE.addListener((event, data) => {
+      if (event === 'data') {
+        updateConfigPageLiveData(data);
+      }
+    });
+    console.log('📡 Configuration page: Live data listener active');
+  }
+}
+
+function updateConfigPageLiveData(bleData) {
+  const mac = bleData.mac_address;
+  if (!mac) return;
+
+  console.log(`📊 Config page received data for MAC ${mac}:`, bleData);
+
+  // Find device card by MAC address (need to match against data-device-id or find by MAC)
+  // Since we don't store MAC in data attributes, find the device card that contains this MAC in its title
+  const deviceCards = document.querySelectorAll('.device-card');
+  let matchingDeviceId = null;
+
+  deviceCards.forEach(card => {
+    const serialNumber = card.querySelector('.font-medium')?.textContent;
+    // Check if serial number contains the MAC address
+    if (serialNumber && serialNumber.includes(mac.toUpperCase())) {
+      matchingDeviceId = card.getAttribute('data-device-id');
+    }
+  });
+
+  if (!matchingDeviceId) {
+    console.log(`⚠️ No matching device card found for MAC ${mac}`);
+    return;
+  }
+
+  console.log(`✅ Found matching device ID ${matchingDeviceId} for MAC ${mac}`);
+
+  // Update individual channel live data
+  const updateChannelData = (channelIndex, pressure, weight) => {
+    const channelEl = document.querySelector(`.channel-live-data-${matchingDeviceId}-${channelIndex}`);
+    if (channelEl) {
+      const pressureEl = channelEl.querySelector('.pressure-display');
+      const weightEl = channelEl.querySelector('.weight-display');
+
+      if (pressureEl) pressureEl.textContent = `${Number(pressure).toFixed(1)} psi`;
+      if (weightEl) weightEl.textContent = `${Math.round(weight).toLocaleString()} lbs`;
+    }
+  };
+
+  // Update channel 1
+  if (bleData.ch1_air_pressure !== undefined) {
+    updateChannelData(1, bleData.ch1_air_pressure || 0, bleData.ch1_weight || 0);
+  }
+
+  // Update channel 2
+  if (bleData.ch2_air_pressure !== undefined) {
+    updateChannelData(2, bleData.ch2_air_pressure || 0, bleData.ch2_weight || 0);
+  }
+}
+
+// ===== AUTOSAVE FOR CONFIGURATION NAME =====
+let autosaveTimeout = null;
+let originalConfigName = '';
+
+function initAutosave() {
+  const configNameInput = document.getElementById('config-name-input');
+  const statusEl = document.getElementById('autosave-status');
+
+  if (!configNameInput) return;
+
+  // Store original value
+  originalConfigName = configNameInput.value;
+
+  // Autosave on input (debounced)
+  configNameInput.addEventListener('input', () => {
+    clearTimeout(autosaveTimeout);
+    statusEl.innerHTML = '<i class="fas fa-circle text-yellow-400 animate-pulse mr-1"></i>Unsaved changes...';
+
+    autosaveTimeout = setTimeout(() => {
+      saveConfigurationName(configNameInput.value);
+    }, 1000); // Wait 1 second after user stops typing
+  });
+
+  // Save on blur (when user clicks away)
+  configNameInput.addEventListener('blur', () => {
+    if (configNameInput.value !== originalConfigName) {
+      clearTimeout(autosaveTimeout);
+      saveConfigurationName(configNameInput.value);
+    }
+  });
+
+  // Save before page unload
+  window.addEventListener('beforeunload', (e) => {
+    if (configNameInput.value !== originalConfigName) {
+      saveConfigurationName(configNameInput.value);
+    }
+  });
+}
+
+function saveConfigurationName(newName) {
+  const statusEl = document.getElementById('autosave-status');
+
+  if (!newName || newName.trim() === '') {
+    statusEl.innerHTML = '<i class="fas fa-exclamation-circle text-red-400 mr-1"></i>Name cannot be empty';
+    return;
+  }
+
+  statusEl.innerHTML = '<i class="fas fa-spinner fa-spin text-sky-400 mr-1"></i>Saving...';
+
+  fetch('{{ path('configuration_edit', {id: configuration.id}) }}', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: `name=${encodeURIComponent(newName)}`
+  })
+  .then(response => response.text())
+  .then(() => {
+    originalConfigName = newName;
+    statusEl.innerHTML = '<i class="fas fa-check-circle text-green-400 mr-1"></i>Saved';
+    setTimeout(() => {
+      statusEl.innerHTML = '';
+    }, 2000);
+  })
+  .catch(err => {
+    console.error('Autosave failed:', err);
+    statusEl.innerHTML = '<i class="fas fa-times-circle text-red-400 mr-1"></i>Save failed';
+  });
+}
+</script>
+{% endblock %}

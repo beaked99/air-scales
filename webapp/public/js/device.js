@@ -14,15 +14,29 @@ const CONFIG = {
     retryDelay: 2000 // 2 seconds
 };
 
-function initializeDeviceDetailApi(apiUrl, id) {
+// BLE tracking
+let deviceMacAddress = null;
+let bleListenerRemover = null;
+let isReceivingBLEData = false;
+let lastBLEDataTime = 0;
+let lastServerSync = 0; // Track last time we synced to server
+
+function initializeDeviceDetailApi(apiUrl, id, macAddress = null) {
     deviceApiUrl = apiUrl;
     deviceId = id;
-    
-    if (CONFIG.debug) console.log('Device Detail API URL set to:', deviceApiUrl);
-    
-    // Start live data updates
+    deviceMacAddress = macAddress ? macAddress.toUpperCase() : null;
+
+    if (CONFIG.debug) {
+        console.log('Device Detail API URL set to:', deviceApiUrl);
+        console.log('Device MAC Address:', deviceMacAddress);
+    }
+
+    // Set up BLE listeners first (priority)
+    setupBLEListener();
+
+    // Start live data updates (fallback when no BLE)
     startLiveDataUpdates();
-    
+
     // Initialize event listeners
     initializeEventListeners();
 }
@@ -54,10 +68,17 @@ async function updateLiveData() {
         console.error('Device API URL not set');
         return;
     }
-    
+
+    // Skip server polling if we're receiving fresh BLE data
+    const timeSinceLastBLE = Date.now() - lastBLEDataTime;
+    if (isReceivingBLEData && timeSinceLastBLE < 10000) {
+        if (CONFIG.debug) console.log('⏭️ Skipping server update - receiving live BLE data');
+        return;
+    }
+
     try {
         if (CONFIG.debug) console.log(`Fetching device live data from: ${deviceApiUrl}`);
-        
+
         const response = await fetch(deviceApiUrl, {
             method: 'GET',
             headers: {
@@ -66,7 +87,7 @@ async function updateLiveData() {
             },
             credentials: 'same-origin'
         });
-        
+
         if (!response.ok) {
             const errorText = await response.text();
             console.error('HTTP Error:', {
@@ -76,24 +97,24 @@ async function updateLiveData() {
             });
             throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
-        
+
         const data = await response.json();
-        
+
         // Reset retry count on successful request
         retryCount = 0;
-        
+
         if (CONFIG.debug) {
-            console.log('✅ Device live data received:', data);
+            console.log('✅ Device live data received from server:', data);
             console.log(`📊 Weight: ${data.weight} lbs, Pressure: ${data.main_air_pressure} psi`);
         }
-        
+
         // Update the DOM with live data
-        updateDeviceDisplayWithLiveData(data);
-        
+        updateDeviceDisplayWithLiveData(data, 'server');
+
     } catch (error) {
         retryCount++;
         console.error(`❌ Device API Error (attempt ${retryCount}/${CONFIG.maxRetries}):`, error.message);
-        
+
         if (retryCount < CONFIG.maxRetries) {
             console.log(`🔄 Retrying in ${CONFIG.retryDelay / 1000} seconds...`);
             setTimeout(updateLiveData, CONFIG.retryDelay);
@@ -105,56 +126,92 @@ async function updateLiveData() {
 }
 
 // Enhanced DOM update function (matching dashboard pattern)
-function updateDeviceDisplayWithLiveData(data) {
-    if (CONFIG.debug) console.log('🔄 Updating device detail DOM with live data...');
-    
+function updateDeviceDisplayWithLiveData(data, source = 'unknown') {
+    if (CONFIG.debug) console.log(`🔄 Updating device detail DOM with live data from ${source}...`);
+
     // Update current readings section
     updateCurrentReadings(data);
-    
+
     // Update last seen timestamp
-    updateLastSeenTimestamp(data.last_seen);
-    
+    updateLastSeenTimestamp(data.last_seen || 'just now', source);
+
     // Update connection status in bluetooth section
-    updateConnectionStatus(data.connection_status);
-    
+    updateConnectionStatus(data.connection_status || (source === 'bluetooth' ? 'connected' : 'recent'));
+
     if (CONFIG.debug) console.log('✅ Device detail DOM updated successfully');
 }
 
 // Update all sensor readings
 function updateCurrentReadings(data) {
-    // Weight with enhanced formatting
-    updateElementWithClass('weight-display', `${Math.round(data.weight).toLocaleString()} lbs`);
-    
-    // Pressures
-    updateElementWithClass('pressure-display', `${data.main_air_pressure.toFixed(1)} psi`);
-    updateElementWithClass('atmospheric-pressure-display', `${data.atmospheric_pressure.toFixed(1)} psi`);
-    
-    // Temperature 
-    updateElementWithClass('temperature-display', `${Math.round(data.temperature)}°F`);
-    
-    // GPS coordinates
-    updateElementWithClass('gps-display', `${data.gps_lat.toFixed(3)}, ${data.gps_lng.toFixed(3)}`);
-    
+    // Update channel data if available (new format)
+    if (data.channels && Array.isArray(data.channels)) {
+        data.channels.forEach(channelData => {
+            const channelIndex = channelData.channel_index;
+
+            // Update weight
+            const weightDisplay = document.getElementById(`channel-${channelIndex}-weight`);
+            if (weightDisplay && channelData.weight !== null && channelData.weight !== undefined) {
+                weightDisplay.textContent = `${Math.round(channelData.weight).toLocaleString()} lbs`;
+            }
+
+            // Update air pressure
+            const pressureDisplay = document.getElementById(`channel-${channelIndex}-pressure`);
+            if (pressureDisplay && channelData.air_pressure !== null && channelData.air_pressure !== undefined) {
+                pressureDisplay.textContent = `${channelData.air_pressure.toFixed(1)} psi`;
+            }
+        });
+    } else if (data.weight !== undefined || data.main_air_pressure !== undefined) {
+        // Legacy single-channel format (backward compatibility)
+        const weightDisplay = document.getElementById('channel-1-weight');
+        if (weightDisplay && data.weight !== null && data.weight !== undefined) {
+            weightDisplay.textContent = `${Math.round(data.weight).toLocaleString()} lbs`;
+        }
+
+        const pressureDisplay = document.getElementById('channel-1-pressure');
+        if (pressureDisplay && data.main_air_pressure !== null && data.main_air_pressure !== undefined) {
+            pressureDisplay.textContent = `${data.main_air_pressure.toFixed(1)} psi`;
+        }
+    }
+
+    // Environmental data (shared across all channels)
+    if (data.atmospheric_pressure !== null && data.atmospheric_pressure !== undefined) {
+        updateElementWithClass('atmospheric-pressure-display', `${data.atmospheric_pressure.toFixed(1)} psi`);
+    }
+
+    if (data.temperature !== null && data.temperature !== undefined) {
+        updateElementWithClass('temperature-display', `${Math.round(data.temperature)}°F`);
+    }
+
+    // GPS coordinates (from phone)
+    if (data.gps_lat !== null && data.gps_lng !== null && data.gps_lat !== undefined && data.gps_lng !== undefined) {
+        updateElementWithClass('gps-display', `${data.gps_lat.toFixed(3)}, ${data.gps_lng.toFixed(3)}`);
+    }
+
     // Signal strength
     const signalText = data.signal_strength ? `${data.signal_strength} dBm` : '-- dBm';
     updateElementWithClass('signal-display', signalText);
-    
+
     if (CONFIG.debug) console.log('📊 Updated all sensor readings');
 }
 
 // Update last seen with enhanced styling
-function updateLastSeenTimestamp(lastSeen) {
+function updateLastSeenTimestamp(lastSeen, source = 'unknown') {
     const element = document.getElementById('last-updated');
     if (element) {
-        element.textContent = `Updated ${lastSeen}`;
-        
+        const prefix = source === 'bluetooth' ? 'Live • Updated' : 'Updated';
+        element.textContent = `${prefix} ${lastSeen}`;
+
         // Add visual feedback for fresh data
-        element.classList.add('text-sky-400');
-        setTimeout(() => {
-            element.classList.remove('text-sky-400');
-        }, 1000);
-        
-        if (CONFIG.debug) console.log(`📝 Updated timestamp: ${lastSeen}`);
+        if (source === 'bluetooth') {
+            element.classList.add('text-green-400');
+        } else {
+            element.classList.add('text-sky-400');
+            setTimeout(() => {
+                element.classList.remove('text-sky-400');
+            }, 1000);
+        }
+
+        if (CONFIG.debug) console.log(`📝 Updated timestamp: ${lastSeen} (${source})`);
     }
 }
 
@@ -530,9 +587,201 @@ function hideLoading() {
     buttons.forEach(btn => btn.disabled = false);
 }
 
+/****************************
+ * BLE Data Handling
+ ****************************/
+function setupBLEListener() {
+    if (!window.AirScalesBLE) {
+        if (CONFIG.debug) console.log('⚠️ AirScalesBLE not available yet, will retry...');
+
+        // Retry setup after a short delay to wait for BLE initialization
+        setTimeout(() => {
+            if (window.AirScalesBLE) {
+                if (CONFIG.debug) console.log('🔄 AirScalesBLE now available, setting up listener');
+                setupBLEListener();
+            } else {
+                if (CONFIG.debug) console.log('⚠️ AirScalesBLE still not available (web browser mode)');
+            }
+        }, 500);
+        return;
+    }
+
+    // Remove existing listener if any
+    if (bleListenerRemover) {
+        bleListenerRemover();
+        if (CONFIG.debug) console.log('🔄 Removed existing BLE listener');
+    }
+
+    // Add new listener
+    bleListenerRemover = window.AirScalesBLE.addListener((event, data) => {
+        switch (event) {
+            case 'connected':
+                console.log('📱 BLE Connected on device page:', data);
+                break;
+
+            case 'disconnected':
+                console.log('📱 BLE Disconnected on device page');
+                isReceivingBLEData = false;
+                hideLiveIndicator();
+                break;
+
+            case 'data':
+                handleBLEData(data);
+                break;
+        }
+    });
+
+    if (CONFIG.debug) console.log('✅ BLE listener set up for device detail page');
+}
+
+function handleBLEData(data) {
+    if (!data) return;
+
+    // Check if this BLE data is for our device
+    const dataMac = data.mac_address?.toUpperCase();
+
+    // Match by MAC address (direct or mesh)
+    let isForThisDevice = false;
+
+    if (deviceMacAddress && dataMac === deviceMacAddress) {
+        isForThisDevice = true;
+        if (CONFIG.debug) console.log('📡 BLE data matches device MAC:', dataMac);
+    }
+
+    // Check mesh/slave devices
+    if (!isForThisDevice && data.slave_devices && deviceMacAddress) {
+        const matchingSlave = data.slave_devices.find(
+            slave => slave.mac_address?.toUpperCase() === deviceMacAddress
+        );
+        if (matchingSlave) {
+            data = matchingSlave; // Use slave data instead
+            isForThisDevice = true;
+            if (CONFIG.debug) console.log('📡 BLE data matches mesh device MAC:', deviceMacAddress);
+        }
+    }
+
+    if (!isForThisDevice) {
+        // Not for this device, skip
+        return;
+    }
+
+    // Update tracking
+    isReceivingBLEData = true;
+    lastBLEDataTime = Date.now();
+
+    // Show LIVE indicator
+    showLiveIndicator();
+
+    if (CONFIG.debug) {
+        console.log('📡 Live BLE data for this device:', data);
+    }
+
+    // Transform BLE data to match server format
+    const transformedData = {
+        // Multi-channel support
+        channels: data.channels || null,
+
+        // Legacy single-channel support (backward compatibility)
+        weight: data.weight || 0,
+        main_air_pressure: data.main_air_pressure || 0,
+
+        // Environmental data (shared)
+        atmospheric_pressure: data.atmospheric_pressure || 0,
+        temperature: data.temperature || 0,
+        gps_lat: data.gps_lat || 0,
+        gps_lng: data.gps_lng || 0,
+        signal_strength: data.signal_strength || null,
+        connection_status: 'connected',
+        last_seen: 'just now'
+    };
+
+    // Update UI with live BLE data
+    updateDeviceDisplayWithLiveData(transformedData, 'bluetooth');
+
+    // Sync to server (uses original data, not transformed)
+    bufferDataForSync(data);
+}
+
+function showLiveIndicator() {
+    const indicator = document.getElementById('ble-live-indicator');
+    if (indicator) {
+        indicator.classList.remove('hidden');
+    }
+}
+
+function hideLiveIndicator() {
+    const indicator = document.getElementById('ble-live-indicator');
+    if (indicator) {
+        indicator.classList.add('hidden');
+    }
+}
+
+/****************************
+ * Server Sync
+ ****************************/
+function bufferDataForSync(data) {
+    const now = Date.now();
+    if (now - lastServerSync > 30000) { // 30 seconds
+        sendBLEDataToServer(data);
+        lastServerSync = now;
+    }
+}
+
+async function sendBLEDataToServer(data) {
+    try {
+        if (CONFIG.debug) console.log('📤 Sending BLE data to server:', data);
+
+        const response = await fetch('/api/bridge/data', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                ...data,
+                source: 'bluetooth_app',
+                request_coefficients: true,
+            }),
+        });
+
+        if (response.ok) {
+            const result = await response.json();
+            if (CONFIG.debug) console.log('✅ BLE data synced to server:', result);
+
+            // Send coefficients back to device if provided (new multi-channel format)
+            if (result.channel_calibrations && window.AirScalesBLE) {
+                console.log('📊 Channel calibrations received from server:', result.channel_calibrations);
+                for (const channelCal of result.channel_calibrations) {
+                    const coefficients = {
+                        intercept: channelCal.intercept,
+                        air_pressure_coeff: channelCal.air_pressure_coeff,
+                        ambient_pressure_coeff: channelCal.ambient_pressure_coeff,
+                        air_temp_coeff: channelCal.air_temp_coeff
+                    };
+                    await window.AirScalesBLE.sendCoefficients(coefficients, channelCal.channel_index);
+                    console.log('📊 Coefficients sent to device for channel', channelCal.channel_index);
+                }
+            }
+            // DEPRECATED: Legacy single-channel coefficients for backward compatibility
+            else if (result.regression_coefficients && window.AirScalesBLE) {
+                console.log('📊 Legacy regression coefficients received from server:', result.regression_coefficients);
+                await window.AirScalesBLE.sendCoefficients(result.regression_coefficients, 1);
+                console.log('📊 Legacy coefficients sent to device');
+            }
+        } else {
+            const errorText = await response.text();
+            console.error('❌ Server sync failed:', response.status, errorText);
+        }
+    } catch (error) {
+        console.error('❌ Server sync error:', error);
+    }
+}
+
 // Cleanup when page unloads
 window.addEventListener('beforeunload', function() {
     if (updateInterval) {
         clearInterval(updateInterval);
+    }
+
+    // Remove BLE listener
+    if (bleListenerRemover) {
+        bleListenerRemover();
     }
 });

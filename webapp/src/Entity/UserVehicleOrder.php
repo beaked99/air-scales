@@ -6,9 +6,8 @@ use App\Repository\UserVehicleOrderRepository;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity(repositoryClass: UserVehicleOrderRepository::class)]
-#[ORM\Table(name: 'user_vehicle_order', uniqueConstraints: [
-    new ORM\UniqueConstraint(name: 'user_vehicle_unique', columns: ['user_id', 'vehicle_id'])
-])]
+#[ORM\Table(name: 'user_vehicle_order')]
+#[ORM\UniqueConstraint(name: 'user_vehicle_unique', columns: ['user_id', 'vehicle_id'])]
 class UserVehicleOrder
 {
     #[ORM\Id]

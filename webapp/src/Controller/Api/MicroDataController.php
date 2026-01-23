@@ -1,5 +1,7 @@
 <?php
 
+//MicroDataController.php - ESP32 → WiFi → Server. ignores the phone. i have wifi, so therefore i dont need data from your phone to send up to the website. 
+
 namespace App\Controller\Api;
 
 use App\Entity\MicroData;

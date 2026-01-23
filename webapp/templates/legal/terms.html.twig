@@ -1,0 +1,253 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Terms of Service - AirScales{% endblock %}
+
+{% block body %}
+  <div class="min-h-screen flex flex-col">
+    {% include '_header.html.twig' %}
+    <!-- Content -->
+    <div class="container mx-auto px-6 py-12 max-w-4xl">
+    <h1 class="text-4xl font-bold text-white mb-4">Terms of Service</h1>
+    <p class="text-gray-400 mb-8">Last Updated: {{ "now"|date("F j, Y") }}</p>
+
+    <div class="bg-gray-800 rounded-lg border border-gray-700 p-8 space-y-8">
+      <!-- Introduction -->
+      <section>
+        <h2 class="text-2xl font-bold text-white mb-4">1. Acceptance of Terms</h2>
+        <p class="text-gray-300 mb-4">
+          By accessing or using the AirScales load monitoring system, mobile application, web application, hardware devices, and related services (collectively, the "Service"), you agree to be bound by these Terms of Service ("Terms"). If you do not agree to these Terms, do not use the Service.
+        </p>
+        <p class="text-gray-300">
+          These Terms constitute a legally binding agreement between you and Beaker.ca ("Company", "we", "us", or "our").
+        </p>
+      </section>
+
+      <!-- Service Description -->
+      <section>
+        <h2 class="text-2xl font-bold text-white mb-4">2. Service Description</h2>
+        <p class="text-gray-300 mb-4">
+          AirScales is a load monitoring system designed to assist commercial truck and trailer operators in estimating vehicle weight based on air suspension pressure readings. The Service includes:
+        </p>
+        <ul class="list-disc list-inside text-gray-300 space-y-2 ml-4">
+          <li>Hardware devices that monitor air bag pressure sensors</li>
+          <li>Mobile and web applications for viewing weight estimates</li>
+          <li>Cloud storage and data synchronization</li>
+          <li>Alert and notification features</li>
+        </ul>
+      </section>
+
+      <!-- Limitation of Liability -->
+      <section>
+        <h2 class="text-2xl font-bold text-white mb-4">3. Important Limitations and Disclaimers</h2>
+
+        <div class="bg-yellow-900/30 border border-yellow-500 rounded-lg p-4 mb-4">
+          <p class="text-yellow-400 font-semibold mb-2">
+            <i class="fas fa-exclamation-triangle mr-2"></i>CRITICAL NOTICE - READ CAREFULLY
+          </p>
+          <p class="text-gray-300">
+            AirScales provides ESTIMATES ONLY. Weight readings are approximations based on air pressure and should NOT be relied upon as accurate measurements.
+          </p>
+        </div>
+
+        <h3 class="text-xl font-semibold text-white mb-3">3.1 Weight Estimates Only</h3>
+        <p class="text-gray-300 mb-4">
+          You acknowledge and agree that:
+        </p>
+        <ul class="list-disc list-inside text-gray-300 space-y-2 ml-4 mb-4">
+          <li>Weight readings provided by AirScales are <strong>estimates</strong> and <strong>approximations</strong></li>
+          <li>Actual vehicle weight may differ significantly from displayed estimates</li>
+          <li>Multiple factors affect accuracy including calibration, tire pressure, suspension condition, load distribution, terrain, and environmental conditions</li>
+          <li>The Service is intended as a <strong>guidance tool only</strong>, not a certified weighing system</li>
+          <li>You must use certified scales and official weigh stations to verify actual vehicle weight</li>
+        </ul>
+
+        <h3 class="text-xl font-semibold text-white mb-3">3.2 No Liability for Violations or Fines</h3>
+        <p class="text-gray-300 mb-4">
+          <strong>THE COMPANY IS NOT LIABLE FOR:</strong>
+        </p>
+        <ul class="list-disc list-inside text-gray-300 space-y-2 ml-4 mb-4">
+          <li>Any overweight violations, citations, or fines</li>
+          <li>Damage to vehicles, cargo, roads, or bridges due to excess weight</li>
+          <li>Inaccurate weight estimates or system malfunctions</li>
+          <li>Accidents, injuries, or property damage related to vehicle weight</li>
+          <li>Loss of income, business interruption, or consequential damages</li>
+          <li>Regulatory compliance or permit violations</li>
+        </ul>
+
+        <h3 class="text-xl font-semibold text-white mb-3">3.3 User Responsibility</h3>
+        <p class="text-gray-300 mb-4">
+          You are solely responsible for:
+        </p>
+        <ul class="list-disc list-inside text-gray-300 space-y-2 ml-4">
+          <li>Ensuring your vehicle complies with all applicable weight regulations</li>
+          <li>Verifying actual weight using certified scales before operating on public roads</li>
+          <li>Properly calibrating and maintaining the AirScales system</li>
+          <li>Understanding and following all applicable transportation laws and regulations</li>
+          <li>Making final decisions about vehicle loading and operation</li>
+        </ul>
+      </section>
+
+      <!-- User Obligations -->
+      <section>
+        <h2 class="text-2xl font-bold text-white mb-4">4. User Obligations</h2>
+        <p class="text-gray-300 mb-4">
+          By using the Service, you agree to:
+        </p>
+        <ul class="list-disc list-inside text-gray-300 space-y-2 ml-4">
+          <li>Provide accurate registration information</li>
+          <li>Maintain the security of your account credentials</li>
+          <li>Use the Service only for lawful purposes</li>
+          <li>Not attempt to reverse engineer, hack, or compromise the system</li>
+          <li>Not share your subscription access with unauthorized users</li>
+          <li>Comply with all applicable laws and regulations</li>
+          <li>Properly install and maintain hardware devices according to provided instructions</li>
+        </ul>
+      </section>
+
+      <!-- Subscription and Payment -->
+      <section>
+        <h2 class="text-2xl font-bold text-white mb-4">5. Subscription and Payment</h2>
+
+        <h3 class="text-xl font-semibold text-white mb-3">5.1 Subscription Plans</h3>
+        <p class="text-gray-300 mb-4">
+          Access to certain Service features requires an active paid subscription. Available plans include monthly and yearly options. New device purchases include 6 months of free subscription access for one user.
+        </p>
+
+        <h3 class="text-xl font-semibold text-white mb-3">5.2 Billing</h3>
+        <p class="text-gray-300 mb-4">
+          By subscribing, you authorize us to charge your payment method on a recurring basis. Subscriptions automatically renew unless cancelled before the renewal date. You are responsible for all charges incurred under your account.
+        </p>
+
+        <h3 class="text-xl font-semibold text-white mb-3">5.3 Cancellation and Refunds</h3>
+        <p class="text-gray-300 mb-4">
+          You may cancel your subscription at any time. Cancellations take effect at the end of the current billing period. No refunds are provided for partial billing periods. Access to the Service terminates immediately upon subscription expiration.
+        </p>
+
+        <h3 class="text-xl font-semibold text-white mb-3">5.4 Price Changes</h3>
+        <p class="text-gray-300">
+          We reserve the right to modify subscription pricing. Price changes will be communicated at least 30 days in advance and will apply at your next renewal date.
+        </p>
+      </section>
+
+      <!-- Device Hardware -->
+      <section>
+        <h2 class="text-2xl font-bold text-white mb-4">6. Hardware Devices</h2>
+
+        <h3 class="text-xl font-semibold text-white mb-3">6.1 Device Ownership</h3>
+        <p class="text-gray-300 mb-4">
+          Purchased hardware devices are your property. You are responsible for proper installation, maintenance, and care of devices.
+        </p>
+
+        <h3 class="text-xl font-semibold text-white mb-3">6.2 Warranty</h3>
+        <p class="text-gray-300 mb-4">
+          Hardware devices come with a limited 1-year warranty against manufacturing defects. The warranty does not cover damage from misuse, improper installation, accidents, or normal wear and tear.
+        </p>
+
+        <h3 class="text-xl font-semibold text-white mb-3">6.3 Returns</h3>
+        <p class="text-gray-300">
+          Device returns must be requested within 30 days of purchase and are subject to a restocking fee. Devices must be in original condition with all components and packaging.
+        </p>
+      </section>
+
+      <!-- Data and Privacy -->
+      <section>
+        <h2 class="text-2xl font-bold text-white mb-4">7. Data Collection and Privacy</h2>
+        <p class="text-gray-300 mb-4">
+          We collect and process data as described in our <a href="{{ path('privacy_policy') }}" class="text-blue-400 hover:text-blue-300">Privacy Policy</a>. By using the Service, you consent to our data practices.
+        </p>
+        <p class="text-gray-300">
+          The Service collects vehicle weight data, location information (if enabled), device telemetry, and usage statistics. This data is used to provide and improve the Service.
+        </p>
+      </section>
+
+      <!-- Intellectual Property -->
+      <section>
+        <h2 class="text-2xl font-bold text-white mb-4">8. Intellectual Property</h2>
+        <p class="text-gray-300 mb-4">
+          The Service, including software, hardware designs, trademarks, logos, and content, is protected by copyright, trademark, and other intellectual property laws. You may not copy, modify, distribute, or create derivative works without our express written permission.
+        </p>
+      </section>
+
+      <!-- Warranty Disclaimer -->
+      <section>
+        <h2 class="text-2xl font-bold text-white mb-4">9. Warranty Disclaimer</h2>
+        <p class="text-gray-300 mb-4">
+          THE SERVICE IS PROVIDED "AS IS" AND "AS AVAILABLE" WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, OR NON-INFRINGEMENT.
+        </p>
+        <p class="text-gray-300">
+          WE DO NOT WARRANT THAT THE SERVICE WILL BE UNINTERRUPTED, ERROR-FREE, OR FREE OF HARMFUL COMPONENTS. WE DO NOT WARRANT THE ACCURACY, RELIABILITY, OR COMPLETENESS OF ANY DATA OR CONTENT.
+        </p>
+      </section>
+
+      <!-- Limitation of Liability -->
+      <section>
+        <h2 class="text-2xl font-bold text-white mb-4">10. Limitation of Liability</h2>
+        <p class="text-gray-300 mb-4">
+          TO THE MAXIMUM EXTENT PERMITTED BY LAW, THE COMPANY SHALL NOT BE LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR PUNITIVE DAMAGES, OR ANY LOSS OF PROFITS, REVENUE, DATA, OR USE, ARISING OUT OF OR RELATED TO YOUR USE OF THE SERVICE.
+        </p>
+        <p class="text-gray-300">
+          OUR TOTAL LIABILITY FOR ANY CLAIM ARISING OUT OF OR RELATED TO THESE TERMS OR THE SERVICE SHALL NOT EXCEED THE AMOUNT YOU PAID TO US IN THE 12 MONTHS PRECEDING THE CLAIM, OR $100, WHICHEVER IS GREATER.
+        </p>
+      </section>
+
+      <!-- Indemnification -->
+      <section>
+        <h2 class="text-2xl font-bold text-white mb-4">11. Indemnification</h2>
+        <p class="text-gray-300">
+          You agree to indemnify, defend, and hold harmless the Company, its officers, directors, employees, and agents from any claims, liabilities, damages, losses, costs, or expenses (including reasonable attorneys' fees) arising out of or related to your use of the Service, your violation of these Terms, or your violation of any rights of third parties.
+        </p>
+      </section>
+
+      <!-- Termination -->
+      <section>
+        <h2 class="text-2xl font-bold text-white mb-4">12. Termination</h2>
+        <p class="text-gray-300 mb-4">
+          We may suspend or terminate your access to the Service at any time, with or without cause, with or without notice. Upon termination, your right to use the Service immediately ceases.
+        </p>
+        <p class="text-gray-300">
+          Sections that by their nature should survive termination (including disclaimers, limitations of liability, and indemnification) will survive termination of these Terms.
+        </p>
+      </section>
+
+      <!-- Changes to Terms -->
+      <section>
+        <h2 class="text-2xl font-bold text-white mb-4">13. Changes to Terms</h2>
+        <p class="text-gray-300">
+          We reserve the right to modify these Terms at any time. Material changes will be communicated via email or in-app notification at least 30 days before taking effect. Your continued use of the Service after changes take effect constitutes acceptance of the modified Terms.
+        </p>
+      </section>
+
+      <!-- Governing Law -->
+      <section>
+        <h2 class="text-2xl font-bold text-white mb-4">14. Governing Law and Disputes</h2>
+        <p class="text-gray-300 mb-4">
+          These Terms are governed by the laws of the jurisdiction where Beaker.ca is registered, without regard to conflict of law principles.
+        </p>
+        <p class="text-gray-300">
+          Any disputes arising out of or related to these Terms or the Service will be resolved through binding arbitration, except that either party may seek injunctive relief in court.
+        </p>
+      </section>
+
+      <!-- Contact -->
+      <section>
+        <h2 class="text-2xl font-bold text-white mb-4">15. Contact Information</h2>
+        <p class="text-gray-300 mb-2">
+          For questions about these Terms, please contact us:
+        </p>
+        <ul class="text-gray-300 space-y-1">
+          <li><strong>Email:</strong> legal@beaker.ca</li>
+          <li><strong>Website:</strong> <a href="{{ path('app_homepage') }}" class="text-blue-400 hover:text-blue-300">beaker.ca</a></li>
+        </ul>
+      </section>
+    </div>
+
+    <!-- Back to Home -->
+    <div class="mt-8 text-center">
+      <a href="{{ path('app_homepage') }}" class="inline-block bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg transition">
+        <i class="fas fa-arrow-left mr-2"></i>Back to Home
+      </a>
+    </div>
+    </div>
+    {% include '_footer.html.twig' %}
+  </div>
+{% endblock %}

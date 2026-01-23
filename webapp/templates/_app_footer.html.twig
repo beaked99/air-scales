@@ -1,0 +1,44 @@
+{# templates/_app_footer.html.twig - Reusable bottom navigation for logged-in app pages #}
+{% set current_route = app.request.attributes.get('_route') %}
+
+<nav class="fixed bottom-0 left-0 right-0 bg-gray-900 border-t border-gray-800 z-40">
+  <div class="flex items-center justify-around py-3">
+
+    {# Dashboard #}
+    <a href="{{ path('app_dashboard') }}"
+       class="flex flex-col items-center px-3 py-2 space-y-1 transition hover:opacity-80">
+      <div class="flex items-center justify-center w-6 h-6 rounded-lg {% if current_route == 'app_dashboard' %}bg-sky-400{% else %}bg-gray-700{% endif %}">
+        <i class="text-sm {% if current_route == 'app_dashboard' %}text-gray-900{% else %}text-gray-400{% endif %} fas fa-home"></i>
+      </div>
+      <span class="text-xs {% if current_route == 'app_dashboard' %}font-medium text-sky-400{% else %}text-gray-400{% endif %}">Dashboard</span>
+    </a>
+
+    {# Fleet/Configuration #}
+    <a href="{{ path('configuration_index') }}"
+       class="flex flex-col items-center px-3 py-2 space-y-1 transition hover:opacity-80">
+      <div class="flex items-center justify-center w-6 h-6 rounded-lg {% if current_route starts with 'configuration' %}bg-sky-400{% else %}bg-gray-700{% endif %}">
+        <i class="text-sm {% if current_route starts with 'configuration' %}text-gray-900{% else %}text-gray-400{% endif %} fas fa-truck"></i>
+      </div>
+      <span class="text-xs {% if current_route starts with 'configuration' %}font-medium text-sky-400{% else %}text-gray-400{% endif %}">Fleet</span>
+    </a>
+
+    {# Devices #}
+    <a href="{{ path('device_list') }}"
+       class="flex flex-col items-center px-3 py-2 space-y-1 transition hover:opacity-80">
+      <div class="flex items-center justify-center w-6 h-6 rounded-lg {% if current_route starts with 'device' %}bg-sky-400{% else %}bg-gray-700{% endif %}">
+        <i class="text-sm {% if current_route starts with 'device' %}text-gray-900{% else %}text-gray-400{% endif %} fas fa-microchip"></i>
+      </div>
+      <span class="text-xs {% if current_route starts with 'device' %}font-medium text-sky-400{% else %}text-gray-400{% endif %}">Devices</span>
+    </a>
+
+    {# Settings #}
+    <a href="{{ path('app_settings') }}"
+       class="flex flex-col items-center px-3 py-2 space-y-1 transition hover:opacity-80">
+      <div class="flex items-center justify-center w-6 h-6 rounded-lg {% if current_route == 'app_settings' %}bg-sky-400{% else %}bg-gray-700{% endif %}">
+        <i class="text-sm {% if current_route == 'app_settings' %}text-gray-900{% else %}text-gray-400{% endif %} fas fa-cog"></i>
+      </div>
+      <span class="text-xs {% if current_route == 'app_settings' %}font-medium text-sky-400{% else %}text-gray-400{% endif %}">Settings</span>
+    </a>
+
+  </div>
+</nav>

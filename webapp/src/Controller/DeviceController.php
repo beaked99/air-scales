@@ -16,14 +16,50 @@ use Symfony\Component\Routing\Attribute\Route;
 
 class DeviceController extends AbstractController
 {
+    #[Route('/device', name: 'device_list')]
+    public function list(EntityManagerInterface $em): Response
+    {
+        $user = $this->getUser();
+
+        // Get all devices the user has access to
+        $qb = $em->getRepository(Device::class)->createQueryBuilder('d')
+            ->leftJoin('d.deviceAccesses', 'da')
+            ->leftJoin('d.deviceChannels', 'dc')
+            ->addSelect('da', 'dc')
+            ->where('d.soldTo = :user')
+            ->orWhere('da.user = :user')
+            ->setParameter('user', $user)
+            ->orderBy('d.id', 'DESC');
+
+        $devices = $qb->getQuery()->getResult();
+
+        // Add status data for each device
+        foreach ($devices as $device) {
+            $this->addDeviceStatusData($em, $device);
+        }
+
+        return $this->render('device/list.html.twig', [
+            'devices' => $devices,
+        ]);
+    }
+
     #[Route('/device/{id}', name: 'device_detail')]
     public function detail(int $id, EntityManagerInterface $em): Response
     {
         $user = $this->getUser();
-        
+
+        // DEBUGGING - Remove after troubleshooting
+        error_log("=== DEVICE ACCESS DEBUG ===");
+        error_log("Requested Device ID: " . $id);
+        error_log("Current User ID: " . ($user ? $user->getId() : 'NULL'));
+        error_log("Current User Email: " . ($user ? $user->getEmail() : 'NULL'));
+
         // Get device with access control (same pattern as dashboard)
         $device = $this->getDeviceWithAccess($em, $id, $user);
-        
+
+        error_log("Device Found: " . ($device ? 'YES (ID: ' . $device->getId() . ')' : 'NO'));
+        error_log("=========================");
+
         if (!$device) {
             throw $this->createNotFoundException('Device not found or access denied');
         }
@@ -45,39 +81,63 @@ class DeviceController extends AbstractController
     {
         $user = $this->getUser();
         $device = $this->getDeviceWithAccess($em, $id, $user);
-        
+
         if (!$device) {
             return new JsonResponse(['error' => 'Device not found'], 404);
         }
-        
-        // Get latest data
+
+        // Get latest data with channel data
         $latestData = $em->getRepository(MicroData::class)
             ->createQueryBuilder('m')
+            ->leftJoin('m.microDataChannels', 'mdc')
+            ->addSelect('mdc')
+            ->leftJoin('mdc.deviceChannel', 'dc')
+            ->addSelect('dc')
             ->where('m.device = :device')
             ->setParameter('device', $device)
             ->orderBy('m.id', 'DESC')
             ->setMaxResults(1)
             ->getQuery()
             ->getOneOrNullResult();
-        
+
         if (!$latestData) {
             return new JsonResponse(['error' => 'No data available'], 404);
         }
-        
+
         $now = new \DateTime();
         $timestamp = $latestData->getTimestamp();
         $secondsDiff = $now->getTimestamp() - $timestamp->getTimestamp();
-        
+
+        // Build channel data array
+        $channels = [];
+        foreach ($latestData->getMicroDataChannels() as $microDataChannel) {
+            $channels[] = [
+                'channel_index' => $microDataChannel->getDeviceChannel()->getChannelIndex(),
+                'air_pressure' => $microDataChannel->getAirPressure(),
+                'weight' => $microDataChannel->getWeight(),
+            ];
+        }
+
         return new JsonResponse([
             'device_id' => $device->getId(),
+
+            // Multi-channel data (new format)
+            'channels' => $channels,
+
+            // Legacy single-channel data (backward compatibility)
             'weight' => $latestData->getWeight(),
             'main_air_pressure' => $latestData->getMainAirPressure(),
+
+            // Environmental data (shared)
             'atmospheric_pressure' => $latestData->getAtmosphericPressure(),
             'temperature' => $latestData->getTemperature(),
             'elevation' => $latestData->getElevation(),
             'gps_lat' => $latestData->getGpsLat(),
             'gps_lng' => $latestData->getGpsLng(),
+            'gps_accuracy_m' => $latestData->getGpsAccuracyM(),
             'signal_strength' => $device->getSignalStrength(),
+
+            // Timestamp and status
             'timestamp' => $timestamp->format('Y-m-d H:i:s'),
             'last_seen' => $this->formatTimeDifference($timestamp),
             'connection_status' => $this->getDeviceConnectionStatus($latestData),
@@ -261,22 +321,84 @@ class DeviceController extends AbstractController
     {
         $user = $this->getUser();
         $device = $this->getDeviceWithAccess($em, $id, $user);
-        
+
         if (!$device) {
             return new JsonResponse(['error' => 'Device not found'], 404);
         }
-        
+
         // TODO: Implement actual firmware update via API call to ESP32
         // For now, just return success
-        
+
         return new JsonResponse([
             'success' => true,
             'message' => 'Firmware update initiated'
         ]);
     }
 
+    #[Route('/device/{id}/forget', name: 'device_forget', methods: ['POST'])]
+    public function forgetDevice(int $id, EntityManagerInterface $em): JsonResponse
+    {
+        $user = $this->getUser();
+        $device = $this->getDeviceWithAccess($em, $id, $user);
+
+        if (!$device) {
+            return new JsonResponse(['error' => 'Device not found'], 404);
+        }
+
+        // Check if user is the owner
+        if ($device->getSoldTo() === $user) {
+            // User is owner - set soldTo to null (release ownership)
+            // Next user who connects will become the new owner
+            $device->setSoldTo(null);
+
+            // Also remove any DeviceAccess records for this user
+            $accessRecords = $em->getRepository(DeviceAccess::class)
+                ->createQueryBuilder('a')
+                ->where('a.device = :device')
+                ->andWhere('a.user = :user')
+                ->setParameter('device', $device)
+                ->setParameter('user', $user)
+                ->getQuery()
+                ->getResult();
+
+            foreach ($accessRecords as $accessRecord) {
+                $em->remove($accessRecord);
+            }
+
+            $em->flush();
+
+            return new JsonResponse([
+                'success' => true,
+                'message' => 'Device ownership released. Device is now available for claiming.'
+            ]);
+        } else {
+            // User is not owner - just remove their DeviceAccess record
+            $accessRecord = $em->getRepository(DeviceAccess::class)
+                ->createQueryBuilder('a')
+                ->where('a.device = :device')
+                ->andWhere('a.user = :user')
+                ->setParameter('device', $device)
+                ->setParameter('user', $user)
+                ->getQuery()
+                ->getOneOrNullResult();
+
+            if (!$accessRecord) {
+                return new JsonResponse(['error' => 'No access record found'], 404);
+            }
+
+            $em->remove($accessRecord);
+            $em->flush();
+
+            return new JsonResponse([
+                'success' => true,
+                'message' => 'Device access removed successfully'
+            ]);
+        }
+    }
+
     private function getDeviceWithAccess(EntityManagerInterface $em, int $deviceId, $user): ?Device
     {
+        error_log("  Checking DeviceAccess records...");
         // First try to find device through access records (same as dashboard)
         $accessRecord = $em->getRepository(DeviceAccess::class)
             ->createQueryBuilder('a')
@@ -291,10 +413,12 @@ class DeviceController extends AbstractController
             ->getOneOrNullResult();
 
         if ($accessRecord) {
+            error_log("  Found via DeviceAccess record!");
             return $accessRecord->getDevice();
         }
 
-        // Try purchased devices
+        error_log("  No DeviceAccess record. Checking soldTo field...");
+        // Try purchased/claimed devices (soldTo)
         $device = $em->getRepository(Device::class)
             ->createQueryBuilder('d')
             ->where('d.soldTo = :user')
@@ -303,6 +427,12 @@ class DeviceController extends AbstractController
             ->setParameter('deviceId', $deviceId)
             ->getQuery()
             ->getOneOrNullResult();
+
+        if ($device) {
+            error_log("  Found via soldTo field!");
+        } else {
+            error_log("  Not found via soldTo either.");
+        }
 
         return $device;
     }
@@ -388,5 +518,135 @@ class DeviceController extends AbstractController
             $days = floor($secondsDiff / 86400);
             return $days . ' days ago';
         }
+    }
+
+    #[Route('/device/{id}/toggle-channel-2', name: 'device_toggle_channel_2', methods: ['POST'])]
+    public function toggleChannel2(int $id, EntityManagerInterface $em): JsonResponse
+    {
+        $user = $this->getUser();
+        $device = $this->getDeviceWithAccess($em, $id, $user);
+
+        if (!$device) {
+            return new JsonResponse(['error' => 'Device not found'], 404);
+        }
+
+        $channel2 = $device->getChannel(2);
+        if (!$channel2) {
+            return new JsonResponse(['error' => 'Channel 2 not found'], 404);
+        }
+
+        // Toggle the enabled state
+        $newState = !$channel2->isEnabled();
+        $channel2->setEnabled($newState);
+        $em->flush();
+
+        return new JsonResponse([
+            'success' => true,
+            'enabled' => $newState,
+            'label' => $channel2->getDisplayLabel()
+        ]);
+    }
+
+    #[Route('/device/{id}/toggle-channel/{channelIndex}', name: 'device_toggle_channel', methods: ['POST'])]
+    public function toggleChannel(int $id, int $channelIndex, EntityManagerInterface $em): JsonResponse
+    {
+        $user = $this->getUser();
+        $device = $this->getDeviceWithAccess($em, $id, $user);
+
+        if (!$device) {
+            return new JsonResponse(['error' => 'Device not found'], 404);
+        }
+
+        $channel = $device->getChannel($channelIndex);
+        if (!$channel) {
+            return new JsonResponse(['error' => 'Channel not found'], 404);
+        }
+
+        // Toggle the enabled state
+        $newState = !$channel->isEnabled();
+        $channel->setEnabled($newState);
+        $em->flush();
+
+        return new JsonResponse([
+            'success' => true,
+            'enabled' => $newState,
+            'channelIndex' => $channelIndex,
+            'label' => $channel->getDisplayLabel()
+        ]);
+    }
+
+    #[Route('/device/{id}/update-virtual-steer', name: 'device_update_virtual_steer', methods: ['POST'])]
+    public function updateVirtualSteer(int $id, Request $request, EntityManagerInterface $em): JsonResponse
+    {
+        $user = $this->getUser();
+        $device = $this->getDeviceWithAccess($em, $id, $user);
+
+        if (!$device) {
+            return new JsonResponse(['error' => 'Device not found'], 404);
+        }
+
+        $data = json_decode($request->getContent(), true);
+
+        $hasVirtualSteer = ($data['has_virtual_steer'] ?? '0') === '1';
+        $wheelbase = !empty($data['wheelbase']) ? (float)$data['wheelbase'] : null;
+        $kingpinDistance = !empty($data['kingpin_distance']) ? (float)$data['kingpin_distance'] : null;
+
+        $device->setHasVirtualSteer($hasVirtualSteer);
+        $device->setWheelbase($wheelbase);
+        $device->setKingpinDistance($kingpinDistance);
+
+        $em->flush();
+
+        return new JsonResponse([
+            'success' => true,
+            'message' => 'Virtual steer settings updated successfully',
+            'has_virtual_steer' => $hasVirtualSteer,
+            'wheelbase' => $wheelbase,
+            'kingpin_distance' => $kingpinDistance
+        ]);
+    }
+
+    #[Route('/device/{id}/reorder-channels', name: 'device_reorder_channels', methods: ['POST'])]
+    public function reorderChannels(int $id, Request $request, EntityManagerInterface $em): JsonResponse
+    {
+        $user = $this->getUser();
+        $device = $this->getDeviceWithAccess($em, $id, $user);
+
+        if (!$device) {
+            return new JsonResponse(['error' => 'Device not found or access denied'], 404);
+        }
+
+        $data = json_decode($request->getContent(), true);
+        $order = $data['order'] ?? [];
+
+        if (empty($order)) {
+            return new JsonResponse(['error' => 'No order data provided'], 400);
+        }
+
+        // Update display order for each channel
+        foreach ($order as $item) {
+            $displayOrder = $item['displayOrder'] ?? null;
+            $type = $item['type'] ?? null;
+
+            if ($displayOrder === null || $type === null) {
+                continue;
+            }
+
+            if ($type === 'channel' && isset($item['id'])) {
+                // Update regular channel
+                $channel = $em->getRepository(\App\Entity\DeviceChannel::class)->find($item['id']);
+
+                if ($channel && $channel->getDevice() === $device) {
+                    $channel->setDisplayOrder($displayOrder);
+                }
+            } elseif ($type === 'virtual-steer') {
+                // Save virtual steer display order on the device
+                $device->setVirtualSteerDisplayOrder($displayOrder);
+            }
+        }
+
+        $em->flush();
+
+        return new JsonResponse(['success' => true, 'message' => 'Channel order saved']);
     }
 }

@@ -1,0 +1,111 @@
+{# templates/calibration/edit.html.twig #}
+{% extends 'base.html.twig' %}
+
+{% block title %}Edit Calibration{% endblock %}
+
+{% block body %}
+<div class="min-h-screen p-4 text-gray-100 bg-gray-900 sm:p-6">
+
+  <!-- Header -->
+  <h1 class="mb-6 text-xl font-bold text-green-400 sm:text-2xl md:text-3xl">
+    Edit Calibration: {{ device.serialNumber ?: 'Device #' ~ device.id }}
+  </h1>
+
+  <!-- Flash Messages -->
+  {% for type, messages in { 'success': 'green', 'warning': 'yellow', 'error': 'red' } %}
+    {% for message in app.flashes(type) %}
+      <div class="bg-{{ messages }}-600 text-white p-3 rounded mb-4">{{ message }}</div>
+    {% endfor %}
+  {% endfor %}
+
+  <!-- Form Validation Errors -->
+  {% if form is defined and not form.vars.valid %}
+    <div class="bg-red-600 text-white p-4 rounded mb-4 border-l-4 border-red-800">
+      <div class="flex items-start">
+        <svg class="w-5 h-5 mr-2 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+          <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+        </svg>
+        <div>
+          <h3 class="font-semibold mb-1">Please correct the following errors:</h3>
+          <ul class="list-disc list-inside text-sm space-y-1">
+            {% for child in form.children %}
+              {% for error in child.vars.errors %}
+                <li>{{ error.message }}</li>
+              {% endfor %}
+            {% endfor %}
+          </ul>
+        </div>
+      </div>
+    </div>
+  {% endif %}
+
+  <!-- Device Info -->
+  <section class="p-5 mb-8 bg-gray-800 rounded-lg">
+    <h2 class="mb-4 text-lg font-semibold text-white sm:text-xl">Device Information</h2>
+    <div class="grid grid-cols-1 gap-4 text-sm sm:grid-cols-2 sm:text-base">
+      <div><span class="text-gray-400">Serial Number:</span> <span class="ml-2">{{ device.serialNumber ?: 'N/A' }}</span></div>
+      <div><span class="text-gray-400">MAC Address:</span> <span class="ml-2 font-mono">{{ device.macAddress ?: 'N/A' }}</span></div>
+      <div><span class="text-gray-400">Vehicle:</span> <span class="ml-2">{{ device.vehicle ?: 'Unassigned' }}</span></div>
+      <div><span class="text-gray-400">Calibration Date:</span> <span class="ml-2">{{ calibration.createdAt|date('M j, Y g:i A') }}</span></div>
+    </div>
+  </section>
+
+  <!-- Calibration Form -->
+  <section class="p-5 mb-8 bg-gray-800 rounded-lg">
+    <h2 class="mb-4 text-lg font-semibold sm:text-xl">Edit Calibration Point</h2>
+    <p class="mb-6 text-sm text-gray-400">Update calibration values as needed.</p>
+
+    {{ form_start(form, { attr: { class: 'space-y-4' } }) }}
+      <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        {% for field, label in {
+          scaleWeight: 'Scale Weight (lbs)',
+          airPressure: 'Air Pressure (psi)',
+          ambientAirPressure: 'Ambient Air Pressure (psi)',
+          airTemperature: 'Air Temp (°F)',
+          elevation: 'Elevation (ft)'
+        } %}
+          <div>
+            {{ form_label(attribute(form, field), label, { attr: { class: 'block text-sm font-medium text-gray-300 mb-1' } }) }}
+            {{ form_widget(attribute(form, field), {
+              attr: {
+                class: 'w-full px-3 py-2 bg-gray-700 text-white border border-gray-600 rounded text-sm',
+                step: '0.01'
+              }
+            }) }}
+            {{ form_errors(attribute(form, field)) }}
+          </div>
+        {% endfor %}
+      </div>
+
+      <div>
+        {{ form_label(form.comment, 'Comment (optional)', { attr: { class: 'block text-sm font-medium text-gray-300 mb-1' } }) }}
+        {{ form_widget(form.comment, { attr: {
+          class: 'w-full px-3 py-2 bg-gray-700 text-white border border-gray-600 rounded text-sm',
+          rows: '3'
+        } }) }}
+        {{ form_errors(form.comment) }}
+      </div>
+
+      <div class="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center">
+        <div class="flex gap-3">
+          <button type="submit" class="px-6 py-2 font-semibold text-white bg-green-600 rounded hover:bg-green-700">
+            Save Changes
+          </button>
+          <a href="{{ path('device_calibration_history', { id: device.id }) }}"
+             class="px-6 py-2 font-semibold text-white bg-gray-600 rounded hover:bg-gray-700">
+            Cancel
+          </a>
+        </div>
+      </div>
+    {{ form_end(form) }}
+  </section>
+
+  <!-- Navigation -->
+  <div class="text-center space-x-4">
+    <a href="{{ path('device_calibration_history', { id: device.id }) }}"
+       class="text-blue-400 hover:text-blue-200">
+      ← Back to History
+    </a>
+  </div>
+</div>
+{% endblock %}

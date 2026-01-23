@@ -13,7 +13,68 @@
     <script src="{{ asset('js/device.js') }}"></script>
     <script>
         // Initialize the API URL for the device detail page
-        initializeDeviceDetailApi('{{ path("device_api_live_data", {id: device.id}) }}', {{ device.id }});
+        initializeDeviceDetailApi(
+            '{{ path("device_api_live_data", {id: device.id}) }}',
+            {{ device.id }},
+            '{{ device.macAddress|upper }}'
+        );
+
+        // Toggle channel enabled state
+        function toggleChannel(channelIndex) {
+            const msg = `Are you sure you want to toggle Channel ${channelIndex}? This will affect calibration and data collection.`;
+
+            if (confirm(msg)) {
+                fetch(`/device/{{ device.id }}/toggle-channel/${channelIndex}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        showToast(
+                            data.enabled ? `Channel ${channelIndex} Enabled` : `Channel ${channelIndex} Disabled`,
+                            data.enabled ? 'Channel is now active and can be calibrated.' : 'Channel has been disabled.',
+                            'success'
+                        );
+                        setTimeout(() => window.location.reload(), 1500);
+                    } else {
+                        showToast('Error', data.error || 'Failed to toggle channel', 'error');
+                    }
+                })
+                .catch(err => {
+                    console.error('Toggle failed:', err);
+                    showToast('Error', 'Failed to toggle channel', 'error');
+                });
+            }
+        }
+
+        // Simple toast notification
+        function showToast(title, message, type = 'info') {
+            const container = document.getElementById('toast-container') || createToastContainer();
+            const toast = document.createElement('div');
+            toast.className = `p-4 rounded-lg shadow-lg border-l-4 ${
+                type === 'success' ? 'bg-green-900 border-green-500 text-green-100' :
+                type === 'error' ? 'bg-red-900 border-red-500 text-red-100' :
+                'bg-blue-900 border-blue-500 text-blue-100'
+            }`;
+            toast.innerHTML = `
+                <div class="font-semibold">${title}</div>
+                <div class="text-sm mt-1">${message}</div>
+            `;
+            container.appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
+        }
+
+        function createToastContainer() {
+            const container = document.createElement('div');
+            container.id = 'toast-container';
+            container.className = 'fixed z-50 space-y-2 top-4 right-4';
+            document.body.appendChild(container);
+            return container;
+        }
     </script>
 {% endblock %}
 
@@ -41,10 +102,86 @@
   </header>
 
   <main class="pb-20 divide-y divide-gray-700">
+    <!-- Section: Channel Configuration -->
+    <section class="p-6 bg-sky-900/20 border-b border-sky-700">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-lg font-semibold text-white">Channels</h2>
+        <span class="px-2 py-1 text-xs rounded bg-sky-900/50 text-sky-400">
+          {% set channel1 = device.getChannel(1) %}
+          {% set channel2 = device.getChannel(2) %}
+          {% set enabledCount = 0 %}
+          {% if channel1 and channel1.enabled %}{% set enabledCount = enabledCount + 1 %}{% endif %}
+          {% if channel2 and channel2.enabled %}{% set enabledCount = enabledCount + 1 %}{% endif %}
+          {{ enabledCount }} Active
+        </span>
+      </div>
+
+      <div class="space-y-3">
+        {% for channel in device.deviceChannels|sort((a, b) => a.channelIndex <=> b.channelIndex) %}
+        <div class="p-4 border rounded-lg {% if channel.enabled %}border-gray-600 bg-gray-700/50{% else %}border-gray-700 bg-gray-800/50{% endif %}">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <h3 class="font-medium text-white">{{ channel.displayLabel }}</h3>
+              {% if channel.enabled and channel.regressionAirPressureCoeff %}
+              <span class="px-2 py-1 text-xs rounded bg-green-900/50 text-green-400" title="Calibrated">
+                <i class="fas fa-check mr-1"></i>Calibrated
+              </span>
+              {% elseif channel.enabled %}
+              <span class="px-2 py-1 text-xs rounded bg-yellow-900/50 text-yellow-400">
+                Needs Calibration
+              </span>
+              {% endif %}
+            </div>
+
+            {# Sliding toggle switch like config page #}
+            <label class="flex items-center gap-2 cursor-pointer flex-shrink-0">
+              <span class="text-xs text-gray-400">{{ channel.enabled ? 'On' : 'Off' }}</span>
+              <div class="relative">
+                <input type="checkbox"
+                       id="channel-toggle-{{ channel.channelIndex }}"
+                       class="sr-only peer"
+                       {{ channel.enabled ? 'checked' : '' }}
+                       onchange="toggleChannel({{ channel.channelIndex }})">
+                <div class="w-9 h-5 bg-gray-600 rounded-full peer peer-checked:bg-sky-600 transition-colors"></div>
+                <div class="absolute left-0.5 top-0.5 w-4 h-4 bg-white rounded-full transition-transform peer-checked:translate-x-4"></div>
+              </div>
+            </label>
+          </div>
+
+          {% if channel.enabled and channel.regressionAirPressureCoeff %}
+          <div class="pt-3 mt-3 text-xs border-t border-gray-600">
+            <span class="text-gray-400">Calibration: </span>
+            <span class="font-mono text-green-400" title="Coefficient of Determination - closer to 1.0 is better">
+              R² = {{ channel.regressionRsq ? channel.regressionRsq|number_format(3) : 'N/A' }}
+            </span>
+            <span class="mx-2 text-gray-600">•</span>
+            <span class="font-mono text-green-400" title="Root Mean Square Error - typical accuracy of weight readings">
+              RMSE = {{ channel.regressionRmse ? (channel.regressionRmse|number_format(0) ~ ' lbs') : 'N/A' }}
+            </span>
+          </div>
+          {% endif %}
+        </div>
+        {% endfor %}
+      </div>
+
+      <p class="mt-3 text-xs text-gray-500">
+        <i class="fas fa-info-circle mr-1"></i>
+        RMSE (Root Mean Square Error) indicates typical accuracy - lower is better. R² measures how well calibration fits the data.
+      </p>
+    </section>
+
     <!-- Section: Current Readings -->
     <section class="p-6 bg-gray-800">
       <div class="flex items-center justify-between mb-6">
-        <h2 class="text-xl font-semibold text-white">Current Readings</h2>
+        <div class="flex items-center gap-3">
+          <h2 class="text-xl font-semibold text-white">Current Readings</h2>
+          <div id="ble-live-indicator" class="hidden">
+            <span class="flex items-center gap-2 px-3 py-1 text-xs font-medium text-green-400 border border-green-400 rounded-full bg-green-400/10">
+              <span class="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
+              LIVE
+            </span>
+          </div>
+        </div>
         <p id="last-updated" class="text-sm text-gray-400">
           {% if device.latestMicroData %}
             Updated {{ device.lastSeenText }}
@@ -54,30 +191,48 @@
         </p>
       </div>
 
-      <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <div>
-          <label class="block mb-2 text-sm text-gray-400">Weight</label>
-          <div id="weight-display" class="px-4 py-3 text-lg font-semibold text-gray-200 bg-gray-700 rounded-lg">
-            {% if device.latestMicroData %}
-              {{ device.latestMicroData.weight|number_format(0) }} lbs
-            {% else %}
-              -- lbs
-            {% endif %}
+      <!-- Channel Cards -->
+      <div class="grid grid-cols-1 gap-6 mb-6 lg:grid-cols-2">
+        {% for channelIndex in 1..2 %}
+          {% set channel = device.getChannel(channelIndex) %}
+          <div class="p-6 border border-gray-600 rounded-lg bg-gray-700/50">
+            <div class="flex items-center justify-between mb-4">
+              <h3 class="text-lg font-semibold text-white">
+                {{ channel ? channel.displayLabel : ('Channel ' ~ channelIndex) }}
+              </h3>
+              {% if channel and not channel.enabled %}
+                <span class="px-2 py-1 text-xs text-gray-400 border border-gray-500 rounded-full">Disabled</span>
+              {% endif %}
+            </div>
+
+            <div class="space-y-3">
+              <div>
+                <label class="block mb-1 text-xs text-gray-400">Weight</label>
+                <div id="channel-{{ channelIndex }}-weight" class="px-3 py-2 text-lg font-semibold text-gray-200 bg-gray-800 rounded">
+                  -- lbs
+                </div>
+              </div>
+              <div>
+                <label class="block mb-1 text-xs text-gray-400">Air Pressure</label>
+                <div id="channel-{{ channelIndex }}-pressure" class="px-3 py-2 text-gray-200 bg-gray-800 rounded">
+                  -- psi
+                </div>
+              </div>
+              {% if channel and channel.axleGroup %}
+                <div class="pt-2 text-xs text-gray-400 border-t border-gray-600">
+                  Axle Group: <span class="text-gray-300">{{ channel.axleGroup.label }}</span>
+                </div>
+              {% endif %}
+            </div>
           </div>
-        </div>
+        {% endfor %}
+      </div>
+
+      <!-- Environmental Data (Shared) -->
+      <div class="grid grid-cols-3 gap-4">
         <div>
-          <label class="block mb-2 text-sm text-gray-400">Main Air Bag Pressure</label>
-          <div id="pressure-display" class="px-4 py-3 text-gray-200 bg-gray-700 rounded-lg">
-            {% if device.latestMicroData %}
-              {{ device.latestMicroData.mainAirPressure|number_format(1) }} psi
-            {% else %}
-              -- psi
-            {% endif %}
-          </div>
-        </div>
-        <div>
-          <label class="block mb-2 text-sm text-gray-400">Ambient Temperature</label>
-          <div id="temperature-display" class="px-4 py-3 text-gray-200 bg-gray-700 rounded-lg">
+          <label class="block mb-2 text-xs text-gray-400">Temperature</label>
+          <div id="temperature-display" class="px-3 py-2 text-sm text-gray-200 bg-gray-700 rounded-lg">
             {% if device.latestMicroData %}
               {{ device.latestMicroData.temperature|number_format(0) }}°F
             {% else %}
@@ -86,8 +241,8 @@
           </div>
         </div>
         <div>
-          <label class="block mb-2 text-sm text-gray-400">Ambient Pressure</label>
-          <div id="atmospheric-pressure-display" class="px-4 py-3 text-gray-200 bg-gray-700 rounded-lg">
+          <label class="block mb-2 text-xs text-gray-400">Ambient Pressure</label>
+          <div id="atmospheric-pressure-display" class="px-3 py-2 text-sm text-gray-200 bg-gray-700 rounded-lg">
             {% if device.latestMicroData %}
               {{ device.latestMicroData.atmosphericPressure|number_format(1) }} psi
             {% else %}
@@ -96,23 +251,9 @@
           </div>
         </div>
         <div>
-          <label class="block mb-2 text-sm text-gray-400">GPS Location</label>
-          <div id="gps-display" class="px-4 py-3 font-mono text-sm text-gray-200 bg-gray-700 rounded-lg">
-            {% if device.latestMicroData %}
-              {{ device.latestMicroData.gpsLat|number_format(3) }}, {{ device.latestMicroData.gpsLng|number_format(3) }}
-            {% else %}
-              --, --
-            {% endif %}
-          </div>
-        </div>
-        <div>
-          <label class="block mb-2 text-sm text-gray-400">Signal Strength</label>
-          <div id="signal-display" class="px-4 py-3 text-gray-200 bg-gray-700 rounded-lg">
-            {% if device.signalStrength %}
-              {{ device.signalStrength }} dBm
-            {% else %}
-              -- dBm
-            {% endif %}
+          <label class="block mb-2 text-xs text-gray-400">BLE Signal</label>
+          <div id="signal-display" class="px-3 py-2 text-sm text-gray-200 bg-gray-700 rounded-lg">
+            <span id="signal-strength">-- dBm</span>
           </div>
         </div>
       </div>
@@ -242,48 +383,89 @@
       </div>
     </section>
 
-    <!-- Section: Connections -->
-    <section class="p-6 bg-gray-800">
-      <h2 class="mb-6 text-xl font-semibold text-white">Connections</h2>
-      <div class="grid grid-cols-1 gap-8 lg:grid-cols-2">
-        <!-- WiFi -->
-        <div>
-          <h3 class="mb-4 text-lg font-medium text-gray-200">WiFi Networks</h3>
-          <ul id="wifi-networks" class="space-y-3">
-            {# TODO: Load from device.meshConfiguration or separate entity #}
-            <li class="flex items-center justify-between px-4 py-3 bg-gray-700 rounded-lg">
-              <div>
-                <span class="text-gray-200">TruckStop_WiFi</span>
-              </div>
-              <span class="text-sm font-medium text-green-400">Connected</span>
-            </li>
-          </ul>
-          <button class="mt-4 text-sm font-medium transition-colors text-sky-400 hover:text-sky-300">
-            <i class="mr-2 fas fa-plus"></i>Add Network
-          </button>
-        </div>
+    <!-- Section: BLE Connection -->
+    <section class="p-6 bg-gray-800" id="bluetooth-devices">
+      <h2 class="mb-6 text-xl font-semibold text-white">Bluetooth Connection</h2>
 
-        <!-- Bluetooth -->
-        <div>
-          <h3 class="mb-4 text-lg font-medium text-gray-200">Bluetooth Devices</h3>
-          <ul id="bluetooth-devices" class="space-y-3">
-            {# TODO: Load from device connections or separate entity #}
-            <li class="flex items-center justify-between px-4 py-3 bg-gray-700 rounded-lg">
-              <div>
-                <span class="text-gray-200">{{ app.user.fullName }}'s Device</span>
-                <div class="mt-1 text-xs text-gray-400">Last connected: {{ device.lastSeenText }}</div>
-              </div>
-              <span class="text-sm font-medium {% if device.connectionStatus == 'connected' %}text-green-400{% else %}text-gray-400{% endif %}">
-                {% if device.connectionStatus == 'connected' %}Active{% else %}Inactive{% endif %}
-              </span>
-            </li>
-          </ul>
-          <button class="mt-4 text-sm font-medium transition-colors text-sky-400 hover:text-sky-300">
-            <i class="mr-2 fas fa-plus"></i>Pair Device
-          </button>
+      <div id="ble-connection-status" class="p-4 border border-gray-600 rounded-lg bg-gray-700/50">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <div id="ble-status-icon" class="w-3 h-3 rounded-full bg-gray-500"></div>
+            <div>
+              <p id="ble-connection-text" class="font-medium text-white">Checking connection...</p>
+              <p id="ble-phone-info" class="text-sm text-gray-400">{{ device.lastSeenText ?: 'No recent data' }}</p>
+            </div>
+          </div>
+          <span id="ble-status-badge" class="text-sm font-medium text-gray-400">Inactive</span>
         </div>
       </div>
+
+      <p class="mt-3 text-xs text-gray-500">
+        <i class="fas fa-info-circle mr-1"></i>
+        This device connects via Bluetooth Low Energy (BLE) to your phone. Connection status updates in real-time when you're on this page.
+      </p>
     </section>
+
+    <script>
+      // Update BLE connection status UI
+      function updateBLEConnectionUI() {
+        const statusIcon = document.getElementById('ble-status-icon');
+        const statusText = document.getElementById('ble-connection-text');
+        const phoneInfo = document.getElementById('ble-phone-info');
+        const statusBadge = document.getElementById('ble-status-badge');
+
+        if (!window.AirScalesBLE) {
+          statusText.textContent = 'BLE Not Available';
+          phoneInfo.textContent = 'Open in the Air Scales app to connect';
+          return;
+        }
+
+        if (window.AirScalesBLE.isConnected()) {
+          const savedDevice = window.AirScalesBLE.getSavedDevice();
+          const rssi = window.AirScalesBLE.currentRssi;
+
+          statusIcon.classList.remove('bg-gray-500', 'bg-red-500');
+          statusIcon.classList.add('bg-green-500');
+          statusText.textContent = 'Connected';
+          phoneInfo.textContent = savedDevice.deviceName || 'AirScales Device';
+
+          if (rssi) {
+            phoneInfo.textContent += ` (${rssi} dBm)`;
+          }
+
+          statusBadge.textContent = 'Active';
+          statusBadge.classList.remove('text-gray-400', 'text-red-400');
+          statusBadge.classList.add('text-green-400');
+        } else {
+          statusIcon.classList.remove('bg-green-500', 'bg-gray-500');
+          statusIcon.classList.add('bg-red-500');
+          statusText.textContent = 'Disconnected';
+          phoneInfo.textContent = 'Scanning for device...';
+
+          statusBadge.textContent = 'Inactive';
+          statusBadge.classList.remove('text-green-400');
+          statusBadge.classList.add('text-gray-400');
+        }
+      }
+
+      // Initial check and listen for BLE events
+      document.addEventListener('DOMContentLoaded', function() {
+        // Check immediately
+        setTimeout(updateBLEConnectionUI, 500);
+
+        // Listen for BLE connection changes
+        if (window.AirScalesBLE) {
+          window.AirScalesBLE.addListener((event, data) => {
+            if (event === 'connected' || event === 'disconnected') {
+              updateBLEConnectionUI();
+            }
+          });
+        }
+
+        // Periodic check every 5 seconds
+        setInterval(updateBLEConnectionUI, 5000);
+      });
+    </script>
 
     <!-- Section: Device Management -->
     <section class="p-6 bg-gray-800">
@@ -361,32 +543,39 @@
   </main>
 
   <!-- Bottom Navigation -->
-  <nav class="fixed bottom-0 left-0 right-0 bg-gray-900 border-t border-gray-800">
+  <nav class="fixed bottom-0 left-0 right-0 bg-gray-900 border-t border-gray-800 z-40">
     <div class="flex items-center justify-around py-3">
-      <a href="{{ path('app_dashboard') }}" class="flex flex-col items-center px-4 py-2 space-y-1 tab-btn">
-        <div class="flex items-center justify-center w-6 h-6 bg-gray-700 rounded-lg tab-icon">
-          <i class="text-sm text-gray-400 fas fa-tachometer-alt"></i>
+      <!-- Dashboard -->
+      <a href="{{ path('app_dashboard') }}" class="flex flex-col items-center px-3 py-2 space-y-1 hover:opacity-80 transition">
+        <div class="flex items-center justify-center w-6 h-6 bg-gray-700 rounded-lg">
+          <i class="text-sm text-gray-400 fas fa-home"></i>
         </div>
-        <span class="text-xs text-gray-400 tab-label">Dashboard</span>
+        <span class="text-xs text-gray-400">Dashboard</span>
       </a>
-      <a href="{{ path('device_calibration', {id: device.id}) }}" class="flex flex-col items-center px-4 py-2 space-y-1 tab-btn">
-        <div class="flex items-center justify-center w-6 h-6 bg-gray-700 rounded-lg tab-icon">
-          <i class="text-sm text-gray-400 fas fa-balance-scale"></i>
+
+      <!-- Fleet -->
+      <a href="{{ path('configuration_index') }}" class="flex flex-col items-center px-3 py-2 space-y-1 hover:opacity-80 transition">
+        <div class="flex items-center justify-center w-6 h-6 bg-gray-700 rounded-lg">
+          <i class="text-sm text-gray-400 fas fa-truck"></i>
         </div>
-        <span class="text-xs text-gray-400 tab-label">Calibrate</span>
+        <span class="text-xs text-gray-400">Fleet</span>
       </a>
-      <button class="flex flex-col items-center px-4 py-2 space-y-1 tab-btn">
-        <div class="flex items-center justify-center w-6 h-6 rounded-lg tab-icon bg-sky-400">
-          <i class="text-sm text-gray-900 fas fa-cog"></i>
+
+      <!-- Devices (Active) -->
+      <a href="{{ path('device_list') }}" class="flex flex-col items-center px-3 py-2 space-y-1 hover:opacity-80 transition">
+        <div class="flex items-center justify-center w-6 h-6 bg-sky-400 rounded-lg">
+          <i class="text-sm text-gray-900 fas fa-microchip"></i>
         </div>
-        <span class="text-xs font-medium tab-label text-sky-400">Setup</span>
-      </button>
-      <button class="flex flex-col items-center px-4 py-2 space-y-1 tab-btn">
-        <div class="flex items-center justify-center w-6 h-6 bg-gray-700 rounded-lg tab-icon">
-          <i class="text-sm text-gray-400 fas fa-user"></i>
+        <span class="text-xs font-medium text-sky-400">Devices</span>
+      </a>
+
+      <!-- Settings -->
+      <a href="{{ path('app_settings') }}" class="flex flex-col items-center px-3 py-2 space-y-1 hover:opacity-80 transition">
+        <div class="flex items-center justify-center w-6 h-6 bg-gray-700 rounded-lg">
+          <i class="text-sm text-gray-400 fas fa-cog"></i>
         </div>
-        <span class="text-xs text-gray-400 tab-label">Profile</span>
-      </button>
+        <span class="text-xs text-gray-400">Settings</span>
+      </a>
     </div>
   </nav>
 </div>
